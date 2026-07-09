@@ -32,6 +32,12 @@ jobs:
       - name: Run tests with coverage
         run: pnpm test -- --coverage
 
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == 22
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Build
         run: pnpm build
 

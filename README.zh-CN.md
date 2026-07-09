@@ -10,6 +10,7 @@
 [![npm version](https://img.shields.io/npm/v/ccg-workflow.svg)](https://www.npmjs.com/package/ccg-workflow)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/fengshao1227/ccg-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/fengshao1227/ccg-workflow/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/fengshao1227/ccg-workflow/graph/badge.svg)](https://codecov.io/gh/fengshao1227/ccg-workflow)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Compatible-green.svg)](https://claude.ai/code)
 [![Node](https://img.shields.io/badge/Node.js-%3E%3D20-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Follow on X](https://img.shields.io/badge/X-@CCG__Workflow-black?logo=x&logoColor=white)](https://x.com/CCG_Workflow)
