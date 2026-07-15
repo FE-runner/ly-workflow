@@ -19,9 +19,24 @@ Trigger keywords: SEO, 曝光, 点击率, CTR, 关键词, 踩词, 优化标题, 
 
 ## Phase 1: GSC Data Analysis (Diagnose)
 
-**Input:** User provides GSC screenshots or data (queries, pages, impressions, clicks, CTR, position)
+**Automated script:** `scripts/gsc-report.py` (see README.md for GSC API setup)
 
-**Actions:**
+```bash
+python3 scripts/gsc-report.py              # 7-day report, auto-categorized
+python3 scripts/gsc-report.py --days 28 --pages   # 28-day with page breakdown
+python3 scripts/gsc-report.py --json        # JSON for piping to other tools
+```
+
+The script auto-pulls GSC data via API, groups by language, and generates 5 action categories:
+- **Zero Clicks, High Impressions** → title optimization targets
+- **Striking Distance (pos 8-20)** → push to page 1 with internal links
+- **Winners** → protect and expand
+- **Deep Buried (pos 30+)** → needs new content or backlinks
+- **Top Pages** → identifies zero-click pages
+
+**If GSC API is not configured**, user can provide screenshots or manual data instead.
+
+**Actions after report:**
 1. Group queries by language
 2. Identify high-impression / zero-CTR queries (the biggest ROI targets)
 3. Identify verb/phrasing mismatch between query and page title
