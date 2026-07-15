@@ -52,6 +52,12 @@ The script auto-pulls GSC data via API, groups by language, and generates 5 acti
 
 ## Phase 2: Title Optimization (seoTitle)
 
+### Critical decision rule
+**If a seoTitle is already converting (has clicks), do NOT change the title verb.** Instead, add
+synonym coverage in the `description` field. Changing a converting title risks losing established
+rankings. Example: seoTitle uses "제거" (clicks exist) but users also search "없애기" → add "없애기"
+to description, keep seoTitle unchanged.
+
 ### Universal rules
 - **seoTitle formula (PBC):** Power word + Benefit + Curiosity, 40-60 chars.
 - **Year stamp:** Always include current year for freshness signal.
@@ -69,7 +75,7 @@ The script auto-pulls GSC data via API, groups by language, and generates 5 acti
 
 **German (de):** Front-load the key noun phrase (e.g., "Wasserzeichen entfernen" before brand name). German searchers use precise compound terms.
 
-**Arabic (ar):** Use Arabic terms for common actions; keep brand names in Latin script.
+**Arabic (ar):** Use Arabic transliteration for brand names in seoTitle (e.g., Gamma → جاما). Users search in Arabic script. Keep Latin brand name in parentheses for dual match: "جاما (Gamma)".
 
 **Japanese (ja):** Mix kanji action words with katakana brand names (e.g., 透かし削除 + Brand).
 
@@ -117,12 +123,64 @@ console.log(ok+'/'+(ok+bad)+' OK');
 "
 ```
 
+## Phase 2b: Content Prioritization Matrix
+
+Before creating new content, score each candidate keyword with this weighted matrix
+(adapted from borghei/Claude-Skills):
+
+| Factor | Weight | Score 1-5 | How to evaluate |
+|--------|--------|-----------|-----------------|
+| Business relevance | 30% | Does it lead users to your product? |  |
+| Search volume | 25% | Monthly searches (use Search MCP or keyword tools) |  |
+| Keyword difficulty | 20% | How strong are current top-10 pages? (invert: easy=5) |  |
+| Competitive gap | 15% | Do competitors cover this poorly or not at all? |  |
+| Asset reuse value | 10% | Can this content be repurposed (social, email, docs)? |  |
+
+**Final score** = sum of (weight × score). Prioritize highest scores first.
+
+**Decision thresholds:**
+- Score > 3.5 → write immediately
+- Score 2.5-3.5 → write when capacity allows
+- Score < 2.5 → skip or defer
+
+## Phase 2c: Topic Cluster Architecture
+
+Organize content as **pillar + cluster** for topical authority:
+
+```
+                    [Pillar Page]
+                   (2000-4000 words)
+                  /    |    |     \
+          [Spoke]  [Spoke] [Spoke] [Spoke]
+        (800-1500 words each, bidirectional links)
+```
+
+**Rules:**
+- 1 pillar page per core topic (e.g., "how to remove gamma watermark" = pillar)
+- 10-25 supporting spoke articles per pillar
+- Every spoke links to its pillar via in-content link + relatedSlugs
+- Pillar links to all spokes via "Related guides" section
+- Each spoke targets a unique long-tail keyword (no overlap with pillar)
+- Update pillar page whenever a new spoke is published
+
+**Mapping example:**
+```
+Pillar: "Complete guide to removing AI watermarks"
+├── Spoke: "Remove watermark from PDF" (format-specific)
+├── Spoke: "Remove watermark on mobile" (device-specific)
+├── Spoke: "Remove watermark in PowerPoint" (method-specific)
+├── Spoke: "Is it safe to remove watermarks?" (concern-specific)
+├── Spoke: "Best watermark remover tools 2026" (comparison)
+└── Spoke: "Gamma vs Canva watermark comparison" (competitive)
+```
+
 ## Phase 3: Content Creation (New Articles)
 
 ### Research flow
 1. Search MCP with expert model: "[topic] features pricing [year] comparison"
 2. Search Reddit/YouTube for authentic user opinions and pain points
 3. Cross-reference with existing articles to avoid keyword cannibalization
+4. **Competitor content analysis**: search the target keyword, analyze top 3 results for structure, word count, unique angles, and gaps you can fill
 
 ### Article templates
 
@@ -270,6 +328,65 @@ text = re.sub(r'(relatedSlugs:)', r'\1\n  - new-slug', text, count=1)
 | 10 | Source-lang link leakage | `grep '/{source_lang}/'` in non-source locales | Change to `/{target_lang}/` |
 | 11 | Build success | Run full build | Fix any errors before deploy |
 | 12 | Sitemap coverage | Check new articles appear in sitemap output | Update sitemap config if needed |
+
+## Phase 7b: Cannibalization Detection
+
+**Script:** `scripts/cannibalization.py`
+
+```bash
+python3 scripts/cannibalization.py              # 7-day scan
+python3 scripts/cannibalization.py --days 28    # wider window
+```
+
+Automatically finds queries where multiple pages compete. Severity levels:
+- **HIGH**: 3+ pages on same query → consolidate or differentiate
+- **MEDIUM**: 2 pages with close impressions → clarify titles/content angles
+
+**False positive rule for multi-locale sites:** Brand queries (e.g., "yoursite") with 10+
+pages competing across locales is NORMAL — Google shows the user's locale version. This is not
+real cannibalization. Only flag same-locale pages competing on the same query.
+- **LOW**: 2 pages but clear winner → monitor only
+
+**Fix strategies:**
+- Same-locale pages fighting: differentiate seoTitle + content angle, or 301 merge
+- Cross-locale pages fighting (e.g., /en/ and /es/ on same query): normal, not real cannibalization
+- Blog vs tool page: add internal link from blog → tool page to signal which is primary
+
+## Phase 7c: GEO — Generative Engine Optimization
+
+GEO = optimizing content to be **cited by AI search engines** (Google AI Overviews, ChatGPT, Perplexity, Claude). SEO gets you ranked. GEO gets you quoted.
+
+### Content patterns that get AI citations
+1. **Direct-answer blocks**: Start each H2 section with a 40-60 word self-contained answer
+2. **Structured data tables**: Comparison tables are heavily cited by AI
+3. **FAQ with bold question format**: `**Question?**\nDirect answer` — AI engines love extractable Q&A
+4. **Numbered lists with clear steps**: "Step 1: Do X. Step 2: Do Y." format
+5. **Definitive statements**: "X costs $Y/month" not "X might cost around $Y"
+6. **Source attribution**: "According to [Source], ..." adds E-E-A-T + citability
+
+### Anti-patterns for GEO
+- Vague hedging ("it depends", "results may vary") — AI prefers decisive answers
+- Long paragraphs without structure — AI extracts snippets, not essays
+- Missing FAQ section — the easiest win for AI citations
+
+## Phase 7d: E-E-A-T Content Checklist
+
+E-E-A-T = Experience, Expertise, Authoritativeness, Trustworthiness. Google's core quality framework.
+
+**Check before publishing any article:**
+
+| Signal | How to implement | Priority |
+|--------|-----------------|----------|
+| Author byline | `byline` field or author section in article | High |
+| Date + updated date | `date` + `updated` frontmatter fields | High |
+| First-hand experience | "We tested...", "In our experience..." | High |
+| Specific data/numbers | Exact prices, statistics, benchmarks | High |
+| Honest cons/limitations | Never just praise; balanced reviews rank better | Medium |
+| External citations | Link to official sources, studies, docs | Medium |
+| Internal expertise links | Link to your other detailed guides | Medium |
+| Clear methodology | "We compared X by testing Y" | Medium |
+| Schema markup | Article + FAQPage + BreadcrumbList JSON-LD | Medium |
+| Privacy/trust signals | "No upload", "browser-only", "open source" | Low |
 
 ## Phase 8: Deploy & Monitor
 
