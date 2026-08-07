@@ -3556,6 +3556,9 @@ func TestRun_PipedTaskReadError(t *testing.T) {
 }
 
 func TestRun_PipedTaskSuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping flaky shared-global-state integration test in short mode (real webserver + PID-keyed log file shared across subtests)")
+	}
 	defer resetTestHooks()
 	stdout := captureStdoutPipe()
 
