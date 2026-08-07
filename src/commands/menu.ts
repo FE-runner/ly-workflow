@@ -11,7 +11,7 @@ import { parse as parseTOML } from 'smol-toml'
 import { version } from '../../package.json'
 import { configMcp } from './config-mcp'
 import { i18n } from '../i18n'
-import { installCodexMode, uninstallCodexMode, uninstallWorkflows } from '../utils/installer'
+import { collectInvocableSkills, getWorkflowConfigs, installCodexMode, uninstallCodexMode, uninstallWorkflows } from '../utils/installer'
 import { readCcgConfig, writeCcgConfig } from '../utils/config'
 import { init } from './init'
 import { update } from './update'
@@ -239,6 +239,14 @@ export async function showMainMenu(): Promise<void> {
 // Help
 // ═══════════════════════════════════════════════════════
 
+const SKILL_CATEGORY_LABELS: Record<string, { zh: string, en: string }> = {
+  tool: { zh: '工具类技能命令', en: 'tool skill commands' },
+  domain: { zh: '领域知识技能命令', en: 'domain-knowledge skill commands' },
+  orchestration: { zh: '多智能体编排技能命令', en: 'multi-agent orchestration skill commands' },
+  impeccable: { zh: '前端设计工具命令', en: 'frontend design tool commands' },
+  root: { zh: '其他技能命令', en: 'other skill commands' },
+}
+
 function showHelp(): void {
   const config = readCcgConfigSync()
   const isZh = (config?.general?.language || 'zh-CN') === 'zh-CN'
@@ -251,41 +259,63 @@ function showHelp(): void {
   const section = (title: string) => console.log(ansis.yellow.bold(`  ${title}`))
   const cmd = (name: string, desc: string) => console.log(`  ${ansis.green(name.padEnd(col1))} ${ansis.gray(desc)}`)
 
-  // Core Engine
-  section(i18n.t('menu:help.sections.engine'))
-  cmd('/ccg:go', i18n.t('menu:help.descriptions.go'))
+  const installDir = join(homedir(), '.claude')
+  const commandsDir = join(installDir, 'commands', 'ly')
+
+  let installedFiles: string[] = []
+  try {
+    installedFiles = fs.readdirSync(commandsDir).filter(f => f.endsWith('.md'))
+  }
+  catch {
+    console.log(ansis.yellow(`  ${isZh ? '未找到已安装的命令。' : 'No installed commands found.'}`))
+    console.log(ansis.gray(`  ${isZh ? '运行 `ly init` 后查看已安装命令' : 'Run `ly init` then check installed commands'}`))
+    console.log()
+    return
+  }
+
+  const coreConfigs = getWorkflowConfigs()
+  const coreCommandNames = new Set(coreConfigs.flatMap(w => w.commands))
+
+  const coreFiles = installedFiles.filter(f => coreCommandNames.has(f.replace('.md', '')))
+  const skillFiles = installedFiles.filter(f => !coreCommandNames.has(f.replace('.md', '')))
+
+  // Core commands — list each by name
+  section(isZh ? '核心命令' : 'Core commands')
+  for (const config_ of coreConfigs) {
+    for (const cmdName of config_.commands) {
+      if (coreFiles.includes(`${cmdName}.md`)) {
+        cmd(`/ly:${cmdName}`, (isZh ? config_.description : config_.descriptionEn) || '')
+      }
+    }
+  }
   console.log()
 
-  // OpenSpec Workflows
-  section(i18n.t('menu:help.sections.opsx'))
-  cmd('/ccg:spec-init', i18n.t('menu:help.descriptions.specInit'))
-  cmd('/ccg:spec-research', i18n.t('menu:help.descriptions.specResearch'))
-  cmd('/ccg:spec-plan', i18n.t('menu:help.descriptions.specPlan'))
-  cmd('/ccg:spec-impl', i18n.t('menu:help.descriptions.specImpl'))
-  cmd('/ccg:spec-review', i18n.t('menu:help.descriptions.specReview'))
-  console.log()
+  // Skill-generated commands — count + category breakdown, not enumerated
+  if (skillFiles.length > 0) {
+    section(isZh ? `技能命令（${skillFiles.length} 个）` : `Skill commands (${skillFiles.length})`)
 
-  // Git Tools
-  section(i18n.t('menu:help.sections.gitTools'))
-  cmd('/ccg:commit', i18n.t('menu:help.descriptions.commit'))
-  cmd('/ccg:rollback', i18n.t('menu:help.descriptions.rollback'))
-  cmd('/ccg:clean-branches', i18n.t('menu:help.descriptions.cleanBranches'))
-  cmd('/ccg:worktree', i18n.t('menu:help.descriptions.worktree'))
-  console.log()
+    const skillsDir = join(installDir, 'skills', 'ly')
+    const skillMetas = collectInvocableSkills(skillsDir)
+    const skillNameToCategory = new Map(skillMetas.map(s => [s.name, s.category]))
 
-  // Project Management
-  section(i18n.t('menu:help.sections.projectMgmt'))
-  cmd('/ccg:init', i18n.t('menu:help.descriptions.init'))
-  cmd('/ccg:context', i18n.t('menu:help.descriptions.context'))
-  console.log()
+    const byCategory = new Map<string, string[]>()
+    for (const file of skillFiles) {
+      const name = file.replace('.md', '')
+      const category = skillNameToCategory.get(name) || 'root'
+      if (!byCategory.has(category)) byCategory.set(category, [])
+      byCategory.get(category)!.push(name)
+    }
 
-  // Quality Gates
-  section(i18n.t('menu:help.sections.qualityGates'))
-  cmd('/ccg:verify-security', i18n.t('menu:help.descriptions.verifySecurity'))
-  cmd('/ccg:verify-quality', i18n.t('menu:help.descriptions.verifyQuality'))
-  cmd('/ccg:verify-change', i18n.t('menu:help.descriptions.verifyChange'))
-  cmd('/ccg:verify-module', i18n.t('menu:help.descriptions.verifyModule'))
-  console.log()
+    for (const [category, names] of byCategory) {
+      const label = SKILL_CATEGORY_LABELS[category] || SKILL_CATEGORY_LABELS.root
+      const examples = names.slice(0, 3).join('/')
+      const line = isZh
+        ? `${names.length} 个${label.zh}，含 ${examples} 等`
+        : `${names.length} ${label.en}, incl. ${examples}, etc.`
+      console.log(`  ${ansis.gray('•')} ${ansis.gray(line)}`)
+    }
+    console.log()
+  }
 
   console.log(ansis.gray(`  ${i18n.t('menu:help.hint')}`))
   console.log()

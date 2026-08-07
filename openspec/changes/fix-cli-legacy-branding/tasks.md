@@ -15,10 +15,10 @@
 
 ## 3. showHelp() 改为动态读目录（见 design.md 决策）
 
-- [ ] 3.1 `showHelp()`（`menu.ts:242-292`）改用`fs.readdir(commandsDir)`读实际已装命令文件，替换掉手工列的`/ccg:spec-*`系列
-- [ ] 3.2 用`installer.ts`里已有的`existingCommandNames`思路区分"核心命令"（对照`templates/commands/*.md`静态文件名）和"技能生成命令"（目录里其余文件）
-- [ ] 3.3 核心命令逐个列名字+描述；技能命令只展示数量和分类概览（如"20个前端设计工具命令"），不逐个硬编码
-- [ ] 3.4 `fs.readdir`失败时降级提示"运行 `ly init` 后查看已安装命令"，不让`ly menu`崩
+- [x] 3.1 `showHelp()`（`menu.ts:242-292`）改用`fs.readdir(commandsDir)`读实际已装命令文件，替换掉手工列的`/ccg:spec-*`系列
+- [x] 3.2 用`installer.ts`里已有的`existingCommandNames`思路区分"核心命令"（对照`templates/commands/*.md`静态文件名）和"技能生成命令"（目录里其余文件）
+- [x] 3.3 核心命令逐个列名字+描述；技能命令只展示数量和分类概览（如"20个前端设计工具命令"），不逐个硬编码
+- [x] 3.4 `fs.readdir`失败时降级提示"运行 `ly init` 后查看已安装命令"，不让`ly menu`崩
 
 ## 4. doctor.ts 标题
 
