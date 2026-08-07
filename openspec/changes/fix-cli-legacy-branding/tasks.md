@@ -27,14 +27,14 @@
 
 ## 5. cli-setup.ts help（区分两类调用场景，不能用同一种改法）
 
-- [ ] 5.1 `cli-setup.ts:25-33`：全局装完后的裸命令示例，`ccg xxx` 改为 `ly xxx`
-- [ ] 5.2 `cli-setup.ts:60-67`：临时运行示例，`npx ccg xxx` 改为 `npx ly-workflow xxx`（不是`npx ly`——npx 后接 npm 包名，不是 bin 名）
-- [ ] 5.3 `cli-setup.ts:19` banner "CCG - Claude + Codex + Gemini" 同步改
-- [ ] 5.4 `cli-setup.ts:33` "Uninstall CCG (non-interactive)" 去掉旧品牌名
-- [ ] 5.5 `cli-setup.ts:179` `codex-mode` 用法提示里的 `ccg codex-mode` 改为 `ly codex-mode`
-- [ ] 5.6 `cli-setup.ts:143` "Check CCG installation health" 去掉品牌名
-- [ ] 5.7 `cli-setup.ts:148` "Show CCG installation status" 去掉品牌名
-- [ ] 5.8 `cli-setup.ts:182-183,190` `uninstall`命令描述"Uninstall CCG workflows from ~/.claude/..."及输出"✓ CCG uninstalled"去掉品牌名
+- [x] 5.1 `cli-setup.ts:25-33`：全局装完后的裸命令示例，`ccg xxx` 改为 `ly xxx`
+- [x] 5.2 `cli-setup.ts:60-67`：临时运行示例，`npx ccg xxx` 改为 `npx ly-workflow xxx`（不是`npx ly`——npx 后接 npm 包名，不是 bin 名）
+- [x] 5.3 `cli-setup.ts:19` banner "CCG - Claude + Codex + Gemini" 同步改
+- [x] 5.4 `cli-setup.ts:33` "Uninstall CCG (non-interactive)" 去掉旧品牌名
+- [x] 5.5 `cli-setup.ts:179` `codex-mode` 用法提示里的 `ccg codex-mode` 改为 `ly codex-mode`
+- [x] 5.6 `cli-setup.ts:143` "Check CCG installation health" 去掉品牌名
+- [x] 5.7 `cli-setup.ts:148` "Show CCG installation status" 去掉品牌名
+- [x] 5.8 `cli-setup.ts:182-183,190` `uninstall`命令描述"Uninstall CCG workflows from ~/.claude/..."及输出"✓ CCG uninstalled"去掉品牌名
 
 ## 6. diagnose-mcp.ts 提示
 
