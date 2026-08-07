@@ -24,3 +24,7 @@
 [风险] 手动逐处改，可能漏改某个隐藏的 banner/文案 → 缓解：验证阶段用宽口径grep（含裸`CCG`、`/ccg`不带冒号、`ccg `带空格等变体）复查，结果里每一条要么改掉、要么明确写进排除清单说明原因（`templates/prompts/**`、`syncMcpToGemini`/`GrokSearch`、`.ccg`目录/`CcgConfig`类型），不能是"搜出来的东西比任务列表多但没人管"
 [风险] i18n 死 key 清理时误删还在用的 key → 缓解：删前用 grep 确认 `i18n.t('...welcome')` / `i18n.t('...subtitle')` 全局零引用
 [风险] showHelp()改成动态读目录，如果`commandsDir`在某些环境下不存在或读取失败 → 缓解：`fs.readdir`包在try/catch里，读取失败时降级显示"运行 `ly init` 后查看已安装命令"提示，不让help命令本身崩溃
+
+## 遗留问题（Codex 审查，未修复，合并前已知）
+
+- **[Warning] menu.ts:279** — 帮助页把所有非核心`.md`文件都当成技能命令，用户在`commands/ly/`放的自定义命令会被误归类进"技能命令"统计。建议后续用`collectInvocableSkills()`返回的名称集合过滤，未知命令单列"自定义命令"或不计入统计。
