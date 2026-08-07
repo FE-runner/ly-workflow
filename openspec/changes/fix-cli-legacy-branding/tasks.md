@@ -57,9 +57,9 @@
 
 ## 9. 模板文档路径纠错（统一盘点，不只挑一处）
 
-- [ ] 9.1 `templates/skills/domains/frontend-design/SKILL.md:171` 把 `~/.claude/skills/ccg/impeccable/` 改为实际安装路径 `~/.claude/skills/ly/impeccable/`
-- [ ] 9.2 `templates/skills/domains/frontend-design/agents/openai.yaml:4` 把 `~/.claude/skills/ccg/domains/frontend-design/SKILL.md` 改为 `~/.claude/skills/ly/domains/frontend-design/SKILL.md`
-- [ ] 9.3 `templates/skills/tools/override-refusal/agents/openai.yaml:4` 把 `~/.claude/skills/ccg/tools/override-refusal/SKILL.md` 和 `~/.claude/skills/ccg/run_skill.js` 改为 `~/.claude/skills/ly/...` 对应路径
+- [x] 9.1 `templates/skills/domains/frontend-design/SKILL.md:171` 把 `~/.claude/skills/ccg/impeccable/` 改为实际安装路径 `~/.claude/skills/ly/impeccable/`
+- [x] 9.2 `templates/skills/domains/frontend-design/agents/openai.yaml:4` 把 `~/.claude/skills/ccg/domains/frontend-design/SKILL.md` 改为 `~/.claude/skills/ly/domains/frontend-design/SKILL.md`
+- [x] 9.3 `templates/skills/tools/override-refusal/agents/openai.yaml:4` 把 `~/.claude/skills/ccg/tools/override-refusal/SKILL.md` 和 `~/.claude/skills/ccg/run_skill.js` 改为 `~/.claude/skills/ly/...` 对应路径
 
 ## 10. 验证
 
