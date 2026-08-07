@@ -29,8 +29,8 @@ export async function migrateToV1_4_0(): Promise<MigrationResult> {
     skipped: [],
   }
 
-  const oldCcgDir = join(homedir(), '.ccg')
-  const newCcgDir = join(homedir(), '.claude', '.ccg')
+  const oldCcgDir = join(homedir(), '.ly')
+  const newCcgDir = join(homedir(), '.claude', '.ly')
   const oldPromptsDir = join(homedir(), '.claude', 'prompts', 'ccg')
   const newPromptsDir = join(newCcgDir, 'prompts')
 
@@ -131,7 +131,7 @@ export async function needsMigration(): Promise<boolean> {
   // This prevents V3 users from triggering v1.4.0 migration due to stale
   // directories or getCurrentVersion() returning 0.0.0 on Windows npx cache.
   try {
-    const configPath = join(homedir(), '.claude', '.ccg', 'config.toml')
+    const configPath = join(homedir(), '.claude', '.ly', 'config.toml')
     if (await fs.pathExists(configPath)) {
       const content = await fs.readFile(configPath, 'utf-8')
       const versionMatch = content.match(/version\s*=\s*"([^"]+)"/)
@@ -145,9 +145,9 @@ export async function needsMigration(): Promise<boolean> {
     // Config read failed, fall through to directory checks
   }
 
-  const oldCcgDir = join(homedir(), '.ccg')
+  const oldCcgDir = join(homedir(), '.ly')
   const oldPromptsDir = join(homedir(), '.claude', 'prompts', 'ccg')
-  const oldConfigFile = join(homedir(), '.claude', 'commands', 'ccg', '_config.md')
+  const oldConfigFile = join(homedir(), '.claude', 'commands', 'ly', '_config.md')
 
   const hasOldCcgDir = await fs.pathExists(oldCcgDir)
   const hasOldPromptsDir = await fs.pathExists(oldPromptsDir)

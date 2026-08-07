@@ -3,7 +3,7 @@ import cac from 'cac'
 import { setupCommands } from './cli-setup'
 
 async function main(): Promise<void> {
-  const cli = cac('ccg')
+  const cli = cac('ly')
   await setupCommands(cli)
   cli.parse()
 }

@@ -2,27 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { createDefaultConfig, createDefaultRouting } from '../config'
 
 describe('createDefaultRouting', () => {
-  it('returns antigravity as frontend primary', () => {
+  it('returns codex as default reviewer', () => {
     const routing = createDefaultRouting()
-    expect(routing.frontend.primary).toBe('antigravity')
-    expect(routing.frontend.models).toEqual(['antigravity'])
-  })
-
-  it('returns codex as backend primary', () => {
-    const routing = createDefaultRouting()
-    expect(routing.backend.primary).toBe('codex')
-    expect(routing.backend.models).toEqual(['codex'])
-  })
-
-  it('returns both models for review', () => {
-    const routing = createDefaultRouting()
-    expect(routing.review.models).toEqual(['codex', 'antigravity'])
-    expect(routing.review.strategy).toBe('parallel')
-  })
-
-  it('defaults to smart mode', () => {
-    const routing = createDefaultRouting()
-    expect(routing.mode).toBe('smart')
+    expect(routing.reviewer).toBe('codex')
   })
 })
 
@@ -30,7 +12,7 @@ describe('createDefaultConfig', () => {
   const baseOptions = {
     language: 'zh-CN' as const,
     routing: createDefaultRouting(),
-    installedWorkflows: ['workflow', 'plan'],
+    installedWorkflows: ['init-project', 'context'],
   }
 
   it('sets version from package.json', () => {
@@ -53,7 +35,7 @@ describe('createDefaultConfig', () => {
 
   it('stores installed workflows', () => {
     const config = createDefaultConfig(baseOptions)
-    expect(config.workflows.installed).toEqual(['workflow', 'plan'])
+    expect(config.workflows.installed).toEqual(['init-project', 'context'])
   })
 
   it('defaults mcpProvider to fast-context', () => {
@@ -79,8 +61,8 @@ describe('createDefaultConfig', () => {
   it('sets paths with home directory', () => {
     const config = createDefaultConfig(baseOptions)
     expect(config.paths.commands).toContain('.claude')
-    expect(config.paths.prompts).toContain('.ccg')
-    expect(config.paths.backup).toContain('.ccg')
+    expect(config.paths.prompts).toContain('.ly')
+    expect(config.paths.backup).toContain('.ly')
   })
 
   it('preserves routing config exactly', () => {

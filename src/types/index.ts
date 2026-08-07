@@ -1,34 +1,12 @@
 // 支持的语言
 export type SupportedLang = 'zh-CN' | 'en'
 
-// 模型类型
-export type ModelType = 'codex' | 'gemini' | 'claude' | 'antigravity' | 'grok'
+// 模型类型（审查阶段可选模型）
+export type ModelType = 'codex' | 'claude'
 
-// 协作模式
-export type CollaborationMode = 'parallel' | 'smart' | 'sequential'
-
-// 路由策略
-export type RoutingStrategy = 'parallel' | 'fallback' | 'round-robin'
-
-// 模型路由配置
+// 模型路由配置：Claude 自己完成聊天/分析/规划/实施，仅审查阶段可选模型
 export interface ModelRouting {
-  frontend: {
-    models: ModelType[]
-    primary: ModelType
-    strategy: RoutingStrategy
-  }
-  backend: {
-    models: ModelType[]
-    primary: ModelType
-    strategy: RoutingStrategy
-  }
-  review: {
-    models: ModelType[]
-    strategy: 'parallel'
-  }
-  mode: CollaborationMode
-  geminiModel?: string // Gemini 具体型号（默认 gemini-3.1-pro-preview）
-  grokModel?: string // Grok 具体型号（默认 grok-4.5，代码任务可选 grok-composer-2.5-fast）
+  reviewer: ModelType
 }
 
 // CCG 配置
@@ -77,9 +55,7 @@ export interface InitOptions {
   skipMcp?: boolean // 更新时跳过 MCP 配置
   force?: boolean
   // 非交互模式参数
-  frontend?: string
-  backend?: string
-  mode?: CollaborationMode
+  reviewer?: string
   workflows?: string
   installDir?: string
 }

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -64,54 +63,7 @@ func TestClaudeBuildArgs_ModesAndPermissions(t *testing.T) {
 	})
 }
 
-func TestClaudeBuildArgs_GeminiAndCodexModes(t *testing.T) {
-	t.Run("gemini new mode passes workdir via include-directories", func(t *testing.T) {
-		backend := GeminiBackend{}
-		cfg := &Config{Mode: "new", WorkDir: "/workspace"}
-		got := backend.BuildArgs(cfg, "task")
-		want := []string{"-o", "stream-json", "-y", "--include-directories", "/workspace", "-p", "task"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("got %v, want %v", got, want)
-		}
-	})
-
-	t.Run("gemini new mode without workdir omits include-directories", func(t *testing.T) {
-		backend := GeminiBackend{}
-		cfg := &Config{Mode: "new"}
-		got := backend.BuildArgs(cfg, "task")
-		want := []string{"-o", "stream-json", "-y", "-p", "task"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("got %v, want %v", got, want)
-		}
-	})
-
-	t.Run("gemini resume mode uses session id without include-directories", func(t *testing.T) {
-		backend := GeminiBackend{}
-		cfg := &Config{Mode: "resume", SessionID: "sid-999", WorkDir: "/workspace"}
-		got := backend.BuildArgs(cfg, "resume")
-		want := []string{"-o", "stream-json", "-y", "-r", "sid-999", "-p", "resume"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("got %v, want %v", got, want)
-		}
-	})
-
-	t.Run("gemini resume mode without session omits identifier", func(t *testing.T) {
-		backend := GeminiBackend{}
-		cfg := &Config{Mode: "resume"}
-		got := backend.BuildArgs(cfg, "resume")
-		want := []string{"-o", "stream-json", "-y", "-p", "resume"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("got %v, want %v", got, want)
-		}
-	})
-
-	t.Run("gemini nil config returns nil", func(t *testing.T) {
-		backend := GeminiBackend{}
-		if backend.BuildArgs(nil, "ignored") != nil {
-			t.Fatalf("nil config should return nil args")
-		}
-	})
-
+func TestCodexBuildArgs_Modes(t *testing.T) {
 	t.Run("codex build args includes bypass by default (CODEX_REQUIRE_APPROVAL unset)", func(t *testing.T) {
 		t.Setenv("CODEX_REQUIRE_APPROVAL", "")
 
@@ -147,67 +99,6 @@ func TestClaudeBuildArgs_GeminiAndCodexModes(t *testing.T) {
 	})
 }
 
-func TestGeminiBuildArgs_NeverReceivesDashAsPrompt(t *testing.T) {
-	// Gemini CLI does not support "-" as stdin marker for -p flag.
-	// Verify that BuildArgs never produces "-p -" — the actual task text
-	// must be passed directly via -p.
-	backend := GeminiBackend{}
-	cfg := &Config{Mode: "new", WorkDir: "/workspace"}
-
-	// When called with actual task text (geminiDirect path in executor)
-	got := backend.BuildArgs(cfg, "Analyze the authentication module")
-	want := []string{"-o", "stream-json", "-y", "--include-directories", "/workspace", "-p", "Analyze the authentication module"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("got %v, want %v", got, want)
-	}
-
-	// Ensure "-" as targetArg would produce the broken "-p -" (this is what we prevent in executor)
-	gotBroken := backend.BuildArgs(cfg, "-")
-	for i, arg := range gotBroken {
-		if arg == "-p" && i+1 < len(gotBroken) && gotBroken[i+1] == "-" {
-			// This confirms the bug path — executor must never call BuildArgs with "-" for Gemini
-			return
-		}
-	}
-	t.Fatal("expected BuildArgs with '-' to produce '-p -' (the known broken path)")
-}
-
-func TestGeminiBuildArgs_OmitsPFlagWhenTargetEmpty(t *testing.T) {
-	// On Windows, executor passes targetArg="" to signal stdin pipe mode.
-	// buildGeminiArgs should omit -p entirely when targetArg is empty.
-	backend := GeminiBackend{}
-	cfg := &Config{Mode: "new", WorkDir: "/workspace"}
-
-	got := backend.BuildArgs(cfg, "")
-	// Should NOT contain -p at all
-	for i, arg := range got {
-		if arg == "-p" {
-			t.Fatalf("expected no -p flag when targetArg is empty, but found -p at index %d: %v", i, got)
-		}
-	}
-	// Should still contain other flags
-	want := []string{"-o", "stream-json", "-y", "--include-directories", "/workspace"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("got %v, want %v", got, want)
-	}
-}
-
-func TestGeminiBuildArgs_WithModel_OmitsPFlagWhenTargetEmpty(t *testing.T) {
-	backend := GeminiBackend{}
-	cfg := &Config{Mode: "new", WorkDir: "/workspace", GeminiModel: "gemini-3.1-pro-preview"}
-
-	got := backend.BuildArgs(cfg, "")
-	for i, arg := range got {
-		if arg == "-p" {
-			t.Fatalf("expected no -p flag when targetArg is empty, but found -p at index %d: %v", i, got)
-		}
-	}
-	want := []string{"-m", "gemini-3.1-pro-preview", "-o", "stream-json", "-y", "--include-directories", "/workspace"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("got %v, want %v", got, want)
-	}
-}
-
 func TestClaudeBuildArgs_BackendMetadata(t *testing.T) {
 	tests := []struct {
 		backend Backend
@@ -216,7 +107,6 @@ func TestClaudeBuildArgs_BackendMetadata(t *testing.T) {
 	}{
 		{backend: CodexBackend{}, name: "codex", command: "codex"},
 		{backend: ClaudeBackend{}, name: "claude", command: "claude"},
-		{backend: GeminiBackend{}, name: "gemini", command: "gemini"},
 	}
 
 	for _, tt := range tests {
@@ -288,104 +178,4 @@ func TestLoadMinimalEnvSettings(t *testing.T) {
 			t.Fatalf("got %v, want empty", got)
 		}
 	})
-}
-
-func TestGrokBuildArgs_NewMode(t *testing.T) {
-	cfg := &Config{Mode: "new", WorkDir: "/tmp/project", Backend: "grok"}
-	args := buildGrokArgs(cfg, "do the task")
-
-	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "--always-approve") {
-		t.Fatalf("args missing --always-approve: %v", args)
-	}
-	if !strings.Contains(joined, "--output-format streaming-json") {
-		t.Fatalf("args missing streaming-json output format: %v", args)
-	}
-	if strings.Contains(joined, "--cwd") {
-		t.Fatalf("args must not contain --cwd (workdir comes from cmd.Dir): %v", args)
-	}
-	// -p must be followed by the task text
-	for i, a := range args {
-		if a == "-p" {
-			if i+1 >= len(args) || args[i+1] != "do the task" {
-				t.Fatalf("-p not followed by task text: %v", args)
-			}
-			return
-		}
-	}
-	t.Fatalf("args missing -p: %v", args)
-}
-
-func TestGrokBuildArgs_ResumeMode(t *testing.T) {
-	cfg := &Config{Mode: "resume", SessionID: "sess-123", WorkDir: "/tmp/project", Backend: "grok"}
-	args := buildGrokArgs(cfg, "continue")
-
-	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "-r sess-123") {
-		t.Fatalf("resume args missing -r <session>: %v", args)
-	}
-	if !strings.Contains(joined, "-p continue") {
-		t.Fatalf("resume args missing -p prompt: %v", args)
-	}
-}
-
-func TestGrokBuildArgs_WithModel(t *testing.T) {
-	cfg := &Config{Mode: "new", WorkDir: ".", Backend: "grok", GrokModel: "grok-4.5"}
-	args := buildGrokArgs(cfg, "task")
-
-	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "-m grok-4.5") {
-		t.Fatalf("args missing -m grok-4.5: %v", args)
-	}
-}
-
-func TestGrokBuildArgs_NilConfig(t *testing.T) {
-	if args := buildGrokArgs(nil, "x"); args != nil {
-		t.Fatalf("nil config should return nil args, got %v", args)
-	}
-}
-
-func TestGrokBackend_Metadata(t *testing.T) {
-	b := GrokBackend{}
-	if b.Name() != "grok" {
-		t.Fatalf("name = %s, want grok", b.Name())
-	}
-	if b.Command() == "" {
-		t.Fatalf("command must not be empty")
-	}
-}
-
-func TestParseJSONStream_GrokEvents(t *testing.T) {
-	stream := `{"type":"thought","data":"thinking"}
-{"type":"thought","data":" more"}
-{"type":"text","data":"Hello"}
-{"type":"text","data":" world"}
-{"type":"end","stopReason":"EndTurn","sessionId":"019f-abc","requestId":"req-1"}
-`
-	var sessionFromCallback string
-	message, threadID := parseJSONStreamInternalWithContent(
-		strings.NewReader(stream), nil, nil, nil, nil, nil, nil,
-		func(id string) { sessionFromCallback = id },
-	)
-
-	if message != "Hello world" {
-		t.Fatalf("message = %q, want %q", message, "Hello world")
-	}
-	if threadID != "019f-abc" {
-		t.Fatalf("threadID = %q, want %q", threadID, "019f-abc")
-	}
-	if sessionFromCallback != "019f-abc" {
-		t.Fatalf("onSessionStarted got %q, want %q", sessionFromCallback, "019f-abc")
-	}
-}
-
-func TestParseJSONStream_GrokThoughtsExcludedFromMessage(t *testing.T) {
-	stream := `{"type":"thought","data":"secret reasoning"}
-{"type":"text","data":"answer"}
-{"type":"end","stopReason":"EndTurn","sessionId":"s1","requestId":"r1"}
-`
-	message, _ := parseJSONStreamInternal(strings.NewReader(stream), nil, nil, nil, nil)
-	if message != "answer" {
-		t.Fatalf("message = %q, want %q (thoughts must not leak)", message, "answer")
-	}
 }

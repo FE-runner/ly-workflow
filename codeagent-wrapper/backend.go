@@ -3,9 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // Backend defines the contract for invoking different AI CLI backends.
@@ -89,8 +87,8 @@ func buildClaudeArgs(cfg *Config, targetArg string) []string {
 	args := []string{"-p"}
 	// The wrapper is only ever invoked for autonomous orchestration sub-tasks
 	// (review / analysis / implementation), never interactively. Claude must run
-	// non-interactively like the gemini backend's `-y`: without bypassing
-	// permissions, the headless `-p` reviewer blocks on tool-permission gates
+	// non-interactively and auto-approve: without bypassing permissions, the
+	// headless `-p` reviewer blocks on tool-permission gates
 	// while consuming tokens and never returns a result (#143). The old
 	// `cfg.SkipPermissions` gate was effectively dead — no caller set it.
 	args = append(args, "--dangerously-skip-permissions")
@@ -108,144 +106,6 @@ func buildClaudeArgs(cfg *Config, targetArg string) []string {
 	// Note: claude CLI doesn't support -C flag; workdir set via cmd.Dir
 
 	args = append(args, "--output-format", "stream-json", "--verbose", targetArg)
-
-	return args
-}
-
-type AntigravityBackend struct{}
-
-func (AntigravityBackend) Name() string    { return "antigravity" }
-func (AntigravityBackend) Command() string { return "agy" }
-func (AntigravityBackend) BuildArgs(cfg *Config, targetArg string) []string {
-	return buildAntigravityArgs(cfg, targetArg)
-}
-
-func buildAntigravityArgs(cfg *Config, targetArg string) []string {
-	if cfg == nil {
-		return nil
-	}
-
-	var args []string
-
-	if cfg.SkipPermissions {
-		args = append(args, "--dangerously-skip-permissions")
-	}
-
-	if cfg.Mode == "resume" && cfg.SessionID != "" {
-		args = append(args, "--conversation", cfg.SessionID)
-	}
-
-	if cfg.Mode != "resume" && cfg.WorkDir != "" && cfg.WorkDir != "." {
-		args = append(args, "--add-dir", cfg.WorkDir)
-	}
-
-	// -p must come right before the prompt text (last positional arg)
-	args = append(args, "-p", targetArg)
-	return args
-}
-
-type GrokBackend struct{}
-
-func (GrokBackend) Name() string { return "grok" }
-
-// Command resolves the grok binary. The official installer places it at
-// ~/.grok/bin/grok (a symlink into ~/.grok/downloads/) and adds that dir to
-// PATH via shell rc — which may not be sourced in non-interactive shells,
-// so fall back to the well-known install location before giving up.
-func (GrokBackend) Command() string {
-	if _, err := exec.LookPath("grok"); err == nil {
-		return "grok"
-	}
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return "grok"
-	}
-	fallback := filepath.Join(home, ".grok", "bin", "grok")
-	if isWindows() {
-		fallback += ".exe"
-	}
-	if _, err := os.Stat(fallback); err == nil {
-		return fallback
-	}
-	return "grok"
-}
-
-func (GrokBackend) BuildArgs(cfg *Config, targetArg string) []string {
-	return buildGrokArgs(cfg, targetArg)
-}
-
-func buildGrokArgs(cfg *Config, targetArg string) []string {
-	if cfg == nil {
-		return nil
-	}
-
-	// Grok CLI (native Rust binary, no .cmd shim) takes the prompt via -p on
-	// every platform — multi-line args survive CreateProcess/execve intact.
-	// --always-approve mirrors gemini's -y: the wrapper only ever runs
-	// autonomous orchestration sub-tasks, never interactive sessions.
-	args := []string{"--always-approve", "--output-format", "streaming-json"}
-
-	if model := strings.TrimSpace(cfg.GrokModel); model != "" {
-		args = append(args, "-m", model)
-	}
-
-	if cfg.Mode == "resume" && cfg.SessionID != "" {
-		args = append(args, "-r", cfg.SessionID)
-	}
-
-	// Working directory comes from cmd.Dir (executor.go), same as the claude
-	// backend — do NOT pass --cwd: grok resolves it against its own process
-	// cwd, which IS cmd.Dir already, breaking relative paths.
-
-	// -p carries the prompt text directly (grok has no stdin task mode).
-	args = append(args, "-p", targetArg)
-	return args
-}
-
-type GeminiBackend struct{}
-
-func (GeminiBackend) Name() string { return "gemini" }
-func (GeminiBackend) Command() string {
-	return "gemini"
-}
-func (GeminiBackend) BuildArgs(cfg *Config, targetArg string) []string {
-	return buildGeminiArgs(cfg, targetArg)
-}
-
-func buildGeminiArgs(cfg *Config, targetArg string) []string {
-	if cfg == nil {
-		return nil
-	}
-
-	args := []string{}
-
-	// Add model parameter first (if specified)
-	if model := strings.TrimSpace(cfg.GeminiModel); model != "" {
-		args = append(args, "-m", model)
-	}
-
-	// Existing args
-	args = append(args, "-o", "stream-json", "-y")
-
-	if cfg.Mode == "resume" {
-		if cfg.SessionID != "" {
-			args = append(args, "-r", cfg.SessionID)
-		}
-	}
-
-	// Gemini CLI loads .env from CWD and walks up to .git root / $HOME.
-	// To avoid project-level .env overriding global API keys, we set cmd.Dir=$HOME
-	// in executor.go and pass the project directory via --include-directories instead.
-	// See: https://github.com/google-gemini/gemini-cli/issues/2493
-	if cfg.Mode != "resume" && cfg.WorkDir != "" {
-		args = append(args, "--include-directories", cfg.WorkDir)
-	}
-
-	// On Windows with stdin pipe mode, targetArg is "" — omit -p so Gemini reads from stdin.
-	// On macOS/Linux, targetArg contains the actual prompt text for the -p flag.
-	if targetArg != "" {
-		args = append(args, "-p", targetArg)
-	}
 
 	return args
 }

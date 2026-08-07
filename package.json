@@ -1,20 +1,19 @@
 {
-  "name": "ccg-workflow",
-  "version": "3.2.3",
-  "description": "Claude + Codex + Gemini multi-model collaboration system - smart routing development workflow",
+  "name": "ly-workflow",
+  "version": "1.0.0",
+  "description": "Claude Code + OpenSpec + Codex review gates — a lean two-role dev workflow (forked from ccg-workflow)",
   "type": "module",
   "packageManager": "pnpm@10.17.1",
   "author": {
-    "name": "CCG Contributors"
+    "name": "ly"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fengshao1227/ccg-workflow.git"
+    "url": "https://github.com/FE-runner/ly-workflow.git"
   },
-  "homepage": "https://ccg.fengshao1227.com",
   "bugs": {
-    "url": "https://github.com/fengshao1227/ccg-workflow/issues"
+    "url": "https://github.com/FE-runner/ly-workflow/issues"
   },
   "engines": {
     "node": ">=20"
@@ -22,39 +21,23 @@
   "keywords": [
     "claude",
     "codex",
-    "gemini",
-    "multi-model",
+    "openspec",
     "ai",
-    "collaboration",
     "cli",
     "workflow"
   ],
   "bin": {
-    "ccg": "bin/ccg.mjs"
+    "ly": "bin/ly.mjs"
   },
   "main": "dist/index.mjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.mts",
   "files": [
-    "bin/ccg.mjs",
+    "bin/ly.mjs",
     "dist",
     "templates/commands/",
-    "templates/commands-legacy/",
-    "templates/engine/",
-    "templates/hooks/",
-    "templates/spec/",
-    "templates/codex/",
     "templates/prompts/codex/",
-    "templates/prompts/gemini/analyzer.md",
-    "templates/prompts/gemini/architect.md",
-    "templates/prompts/gemini/debugger.md",
-    "templates/prompts/gemini/frontend.md",
-    "templates/prompts/gemini/optimizer.md",
-    "templates/prompts/gemini/reviewer.md",
-    "templates/prompts/gemini/tester.md",
     "templates/prompts/claude/",
-    "templates/prompts/antigravity/",
-    "templates/prompts/grok/",
     "templates/output-styles/",
     "templates/skills/",
     "templates/rules/"
@@ -62,7 +45,7 @@
   "scripts": {
     "dev": "tsx src/cli.ts",
     "build": "unbuild",
-    "start": "node bin/ccg.mjs",
+    "start": "node bin/ly.mjs",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm build",
     "test": "vitest run",

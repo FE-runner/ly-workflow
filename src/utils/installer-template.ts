@@ -36,7 +36,7 @@ function findPackageRoot(startDir: string): string {
     + `  Start dir: ${startDir}\n`
     + `  Last checked: ${dir}\n`
     + `  This will cause commands/skills/prompts to not be installed.\n`
-    + `  Please report this issue at: https://github.com/fengshao1227/ccg-workflow/issues`,
+    + `  Please report this issue at: https://github.com/FE-runner/ly-workflow/issues`,
   )
   return startDir
 }
@@ -63,108 +63,17 @@ const MCP_PROVIDERS: Record<string, { tool: string, param: string }> = {
  */
 export function injectConfigVariables(content: string, config: {
   routing?: {
-    mode?: string
-    frontend?: { models?: string[], primary?: string }
-    backend?: { models?: string[], primary?: string }
-    review?: { models?: string[] }
-    geminiModel?: string
-    grokModel?: string
+    reviewer?: string
   }
   liteMode?: boolean
   mcpProvider?: string
 }): string {
   let processed = content
 
-  // Model routing injection
+  // Reviewer model injection
   const routing = config.routing || {}
-
-  // Frontend models
-  const frontendModels = routing.frontend?.models || ['antigravity']
-  const frontendPrimary = routing.frontend?.primary || 'antigravity'
-  processed = processed.replace(/\{\{FRONTEND_MODELS\}\}/g, JSON.stringify(frontendModels))
-  processed = processed.replace(/\{\{FRONTEND_PRIMARY\}\}/g, frontendPrimary)
-
-  // Backend models
-  const backendModels = routing.backend?.models || ['codex']
-  const backendPrimary = routing.backend?.primary || 'codex'
-  processed = processed.replace(/\{\{BACKEND_MODELS\}\}/g, JSON.stringify(backendModels))
-  processed = processed.replace(/\{\{BACKEND_PRIMARY\}\}/g, backendPrimary)
-
-  // Review models
-  const reviewModels = routing.review?.models || ['codex', 'antigravity']
-  processed = processed.replace(/\{\{REVIEW_MODELS\}\}/g, JSON.stringify(reviewModels))
-
-  // Routing mode
-  const routingMode = routing.mode || 'smart'
-  processed = processed.replace(/\{\{ROUTING_MODE\}\}/g, routingMode)
-
-  // Gemini model flag — inject at install time with line-aware substitution.
-  //
-  // When gemini is used for any role, we need `--gemini-model <name>` on
-  // gemini invocations. But some command templates hard-code a non-gemini
-  // backend on the same line (e.g. `--backend {{BACKEND_PRIMARY}}` where
-  // BACKEND_PRIMARY=codex, see backend.md / codex-exec.md). On those lines
-  // the flag is useless — codeagent-wrapper warns and ignores it, but we
-  // should not emit the dead flag at all (issue #130).
-  //
-  // Strategy: after BACKEND_PRIMARY / FRONTEND_PRIMARY have already been
-  // substituted above, scan each line containing `{{GEMINI_MODEL_FLAG}}`:
-  //   - If the line hard-codes a non-gemini backend (`--backend codex`,
-  //     `--backend claude`, etc.) — strip the flag on that line.
-  //   - If the line uses a conditional expression (`--backend <codex|gemini>`)
-  //     or hard-codes gemini — keep the flag (AI picks at runtime).
-  const geminiModel = routing.geminiModel || 'gemini-3.1-pro-preview'
-  const usesGemini = frontendPrimary === 'gemini' || backendPrimary === 'gemini'
-
-  if (!usesGemini) {
-    // Neither frontend nor backend is gemini — no flag needed anywhere.
-    processed = processed.replace(/\{\{GEMINI_MODEL_FLAG\}\}/g, '')
-  }
-  else {
-    const geminiModelFlagValue = `--gemini-model ${geminiModel} `
-    // Match `--backend <bare-identifier>` (rejects conditional `<...|...>`
-    // because `<` is not in [a-z0-9-]).
-    const hardCodedBackendRe = /--backend\s+([a-z0-9-]+)(?:\s|$)/
-
-    processed = processed.split('\n').map((line) => {
-      if (!line.includes('{{GEMINI_MODEL_FLAG}}')) {
-        return line
-      }
-      const m = line.match(hardCodedBackendRe)
-      if (m && m[1] !== 'gemini') {
-        // Hard-coded non-gemini backend on this line — strip the flag.
-        return line.replace(/\{\{GEMINI_MODEL_FLAG\}\}/g, '')
-      }
-      // Conditional / gemini-hard-coded — keep the flag.
-      return line.replace(/\{\{GEMINI_MODEL_FLAG\}\}/g, geminiModelFlagValue)
-    }).join('\n')
-  }
-
-  // Grok model flag — same line-aware substitution as GEMINI_MODEL_FLAG:
-  // strip the flag on lines that hard-code a non-grok backend, keep it on
-  // conditional / grok / runtime-variable ($MODEL) lines.
-  const grokModel = routing.grokModel || 'grok-4.5'
-  const usesGrok = frontendPrimary === 'grok' || backendPrimary === 'grok'
-    || frontendModels.includes('grok') || backendModels.includes('grok')
-
-  if (!usesGrok) {
-    processed = processed.replace(/\{\{GROK_MODEL_FLAG\}\}/g, '')
-  }
-  else {
-    const grokModelFlagValue = `--grok-model ${grokModel} `
-    const hardCodedBackendRe = /--backend\s+([a-z0-9-]+)(?:\s|$)/
-
-    processed = processed.split('\n').map((line) => {
-      if (!line.includes('{{GROK_MODEL_FLAG}}')) {
-        return line
-      }
-      const m = line.match(hardCodedBackendRe)
-      if (m && m[1] !== 'grok') {
-        return line.replace(/\{\{GROK_MODEL_FLAG\}\}/g, '')
-      }
-      return line.replace(/\{\{GROK_MODEL_FLAG\}\}/g, grokModelFlagValue)
-    }).join('\n')
-  }
+  const reviewer = routing.reviewer || 'codex'
+  processed = processed.replace(/\{\{REVIEWER_MODEL\}\}/g, reviewer)
 
   // Lite mode flag for codeagent-wrapper
   // If liteMode is true, inject "--lite" flag
@@ -205,7 +114,7 @@ export function injectConfigVariables(content: string, config: {
 export function replaceHomePathsInTemplate(content: string, installDir: string): string {
   // Get absolute paths for replacement
   const userHome = homedir()
-  const ccgDir = join(installDir, '.ccg')
+  const ccgDir = join(installDir, '.ly')
   const binDir = join(installDir, 'bin')
   const claudeDir = installDir // ~/.claude
 

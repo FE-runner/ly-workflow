@@ -14,8 +14,8 @@ Thanks for your interest in contributing to CCG! This guide will help you get st
 
 ```bash
 # Clone the repository
-git clone https://github.com/fengshao1227/ccg-workflow.git
-cd ccg-workflow/skills-v2
+git clone https://github.com/FE-runner/ly-workflow.git
+cd ly-workflow
 
 # Install dependencies
 pnpm install
@@ -58,8 +58,8 @@ skills-v2/
 
 ### Find an Issue
 
-- Check [`good first issue`](https://github.com/fengshao1227/ccg-workflow/labels/good%20first%20issue) for beginner-friendly tasks
-- Check [`help wanted`](https://github.com/fengshao1227/ccg-workflow/labels/help%20wanted) for tasks needing assistance
+- Check [`good first issue`](https://github.com/FE-runner/ly-workflow/labels/good%20first%20issue) for beginner-friendly tasks
+- Check [`help wanted`](https://github.com/FE-runner/ly-workflow/labels/help%20wanted) for tasks needing assistance
 - Or open a new issue to propose your idea
 
 ### Development Workflow
@@ -126,8 +126,8 @@ Each good first issue includes:
 
 ## Questions?
 
-- Open a [Discussion](https://github.com/fengshao1227/ccg-workflow/discussions)
-- Check existing [Issues](https://github.com/fengshao1227/ccg-workflow/issues)
+- Open a [Discussion](https://github.com/FE-runner/ly-workflow/discussions)
+- Check existing [Issues](https://github.com/FE-runner/ly-workflow/issues)
 
 ---
 

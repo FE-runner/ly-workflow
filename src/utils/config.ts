@@ -6,7 +6,7 @@ import { parse, stringify } from 'smol-toml'
 import { version as packageVersion } from '../../package.json'
 
 // v1.4.0: 配置目录统一到 ~/.claude/.ccg/
-const CCG_DIR = join(homedir(), '.claude', '.ccg')
+const CCG_DIR = join(homedir(), '.claude', '.ly')
 const CONFIG_FILE = join(CCG_DIR, 'config.toml')
 
 export function getCcgDir(): string {
@@ -59,7 +59,7 @@ export function createDefaultConfig(options: {
       installed: options.installedWorkflows,
     },
     paths: {
-      commands: join(homedir(), '.claude', 'commands', 'ccg'),
+      commands: join(homedir(), '.claude', 'commands', 'ly'),
       prompts: join(CCG_DIR, 'prompts'), // v1.4.0: 移到配置目录
       backup: join(CCG_DIR, 'backup'),
     },
@@ -76,20 +76,6 @@ export function createDefaultConfig(options: {
 
 export function createDefaultRouting(): ModelRouting {
   return {
-    frontend: {
-      models: ['antigravity'],
-      primary: 'antigravity',
-      strategy: 'parallel',
-    },
-    backend: {
-      models: ['codex'],
-      primary: 'codex',
-      strategy: 'parallel',
-    },
-    review: {
-      models: ['codex', 'antigravity'],
-      strategy: 'parallel',
-    },
-    mode: 'smart',
+    reviewer: 'codex',
   }
 }

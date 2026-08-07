@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	version               = "5.12.0"
+	version               = "6.0.0"
 	defaultWorkdir        = "."
 	defaultTimeout        = 7200 // seconds (2 hours)
 	defaultCoverageTarget = 90.0
@@ -198,9 +198,6 @@ func run() (exitCode int) {
 			progressFlag := false
 			var extras []string
 
-			// Check for gemini-model in parallel mode
-			geminiModelInParallel := false
-
 			for i := 0; i < len(args); i++ {
 				arg := args[i]
 				switch {
@@ -228,25 +225,9 @@ func run() (exitCode int) {
 						return 1
 					}
 					backendName = value
-				case arg == "--gemini-model", arg == "--grok-model":
-					// Bare form carries its value in the next arg — consume it too,
-					// otherwise the value lands in extras and hard-fails the run.
-					geminiModelInParallel = true
-					if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-						i++
-					}
-					continue
-				case strings.HasPrefix(arg, "--gemini-model="), strings.HasPrefix(arg, "--grok-model="):
-					geminiModelInParallel = true
-					continue
 				default:
 					extras = append(extras, arg)
 				}
-			}
-
-			// Warn about unsupported parameter
-			if geminiModelInParallel {
-				logWarn("--gemini-model/--grok-model parameters are not supported in parallel mode")
 			}
 
 			if len(extras) > 0 {
@@ -349,14 +330,6 @@ func run() (exitCode int) {
 	}
 	logInfo(fmt.Sprintf("Parsed args: mode=%s, task_len=%d, backend=%s", cfg.Mode, len(cfg.Task), cfg.Backend))
 
-	// Log environment variable usage
-	if cfg.GeminiModel != "" {
-		envModel := strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
-		if envModel != "" && envModel == cfg.GeminiModel {
-			logInfo(fmt.Sprintf("Gemini model from env: %s", cfg.GeminiModel))
-		}
-	}
-
 	backend, err := selectBackendFn(cfg.Backend)
 	if err != nil {
 		logError(err.Error())
@@ -376,23 +349,6 @@ func run() (exitCode int) {
 		buildCodexArgsFn = backend.BuildArgs
 	}
 	logInfo(fmt.Sprintf("Selected backend: %s", backend.Name()))
-
-	// Log model parameter usage
-	if cfg.GeminiModel != "" && cfg.Backend == "gemini" {
-		logInfo(fmt.Sprintf("Using Gemini model: %s", cfg.GeminiModel))
-	}
-
-	// Warn if model parameter used with non-gemini backend
-	if cfg.GeminiModel != "" && cfg.Backend != "gemini" {
-		logWarn("--gemini-model parameter is only effective with --backend gemini")
-	}
-
-	if cfg.GrokModel != "" && cfg.Backend == "grok" {
-		logInfo(fmt.Sprintf("Using Grok model: %s", cfg.GrokModel))
-	}
-	if cfg.GrokModel != "" && cfg.Backend != "grok" {
-		logWarn("--grok-model parameter is only effective with --backend grok")
-	}
 
 	timeoutSec := resolveTimeout()
 	logInfo(fmt.Sprintf("Timeout: %ds", timeoutSec))
@@ -440,16 +396,8 @@ func run() (exitCode int) {
 	useStdin := cfg.ExplicitStdin || shouldUseStdin(taskText, piped)
 
 	targetArg := taskText
-	// Gemini/Antigravity/Grok CLI doesn't support "-" as stdin marker — pass text directly via -p.
-	// Keep in sync with runCodexTaskWithContext (executor.go): only gemini uses
-	// the Windows stdin pipe; antigravity (#146) and grok take -p everywhere.
-	promptDirect := useStdin && ((cfg.Backend == "gemini" && !isWindows()) || cfg.Backend == "antigravity" || cfg.Backend == "grok")
-	promptStdinPipe := useStdin && cfg.Backend == "gemini" && isWindows()
-	if useStdin && !promptDirect && !promptStdinPipe {
+	if useStdin {
 		targetArg = "-"
-	}
-	if promptStdinPipe {
-		targetArg = ""
 	}
 	codexArgs := buildCodexArgsFn(cfg, targetArg)
 
@@ -497,15 +445,13 @@ func run() (exitCode int) {
 	logInfo(fmt.Sprintf("%s running...", cfg.Backend))
 
 	taskSpec := TaskSpec{
-		Task:        taskText,
-		WorkDir:     cfg.WorkDir,
-		Mode:        cfg.Mode,
-		SessionID:   cfg.SessionID,
-		UseStdin:    useStdin,
-		Progress:    cfg.Progress,
-		Backend:     cfg.Backend,
-		GeminiModel: cfg.GeminiModel,
-		GrokModel:   cfg.GrokModel,
+		Task:      taskText,
+		WorkDir:   cfg.WorkDir,
+		Mode:      cfg.Mode,
+		SessionID: cfg.SessionID,
+		UseStdin:  useStdin,
+		Progress:  cfg.Progress,
+		Backend:   cfg.Backend,
 	}
 
 	result := runTaskFn(taskSpec, false, cfg.Timeout)
@@ -595,11 +541,7 @@ Parallel mode examples:
 
 Options:
     --lite, -L            Lite mode: disable Web UI, faster response
-    --backend <name>      Select backend (codex, gemini, claude)
-    --gemini-model <name> Specify Gemini model (gemini backend only)
-                          Can also be set via GEMINI_MODEL environment variable
-                          CLI parameter takes precedence over environment variable
-                          Examples: gemini-2.5-flash, gemini-1.5-pro
+    --backend <name>      Select backend (codex, claude)
     --progress            Emit compact progress lines to stderr during execution
 
 Environment Variables:

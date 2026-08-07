@@ -23,7 +23,7 @@ description: '项目上下文管理：初始化 .context 目录、记录决策�
 | `history` | 查看 history/commits.md |
 | `squash <ids...>` | 合并多条 history 记录（配合 git squash） |
 
-> **核心用法**：`init` 一次，之后只管开发。`/ccg:commit` 提交时自动从 git diff 分析决策并归档到 history/。`log` 仅在你想手动补充备注时使用。
+> **核心用法**：`init` 一次，之后只管开发。`/ly:commit` 提交时自动从 git diff 分析决策并归档到 history/。`log` 仅在你想手动补充备注时使用。
 
 ---
 
@@ -248,7 +248,7 @@ history/archives/*.jsonl merge=union
 ```
 
 6. 输出压缩结果供用户审查
-7. 提示用户：确认后可执行 `/ccg:commit` 提交
+7. 提示用户：确认后可执行 `/ly:commit` 提交
 
 ---
 
@@ -257,7 +257,7 @@ history/archives/*.jsonl merge=union
 `[模式：查看]`
 
 1. 读取 `.context/history/commits.md`
-2. 若不存在，提示 "暂无历史记录，请先使用 /ccg:context init"
+2. 若不存在，提示 "暂无历史记录，请先使用 /ly:context init"
 3. 输出内容
 4. 若用户指定文件路径，从 `commits.jsonl` 检索 `changes.files` 包含该路径的条目
 

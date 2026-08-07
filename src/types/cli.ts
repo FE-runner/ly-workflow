@@ -1,15 +1,13 @@
-import type { CcgConfig, CollaborationMode, SupportedLang } from '../types'
+import type { CcgConfig, SupportedLang } from '../types'
 
 export interface CliOptions {
   lang?: SupportedLang
   force?: boolean
   skipPrompt?: boolean
   skipMcp?: boolean
-  frontend?: string
-  backend?: string
-  mode?: CollaborationMode
+  reviewer?: string
   workflows?: string
   installDir?: string
 }
 
-export type { CcgConfig, CollaborationMode, SupportedLang }
+export type { CcgConfig, SupportedLang }

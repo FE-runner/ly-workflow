@@ -113,9 +113,9 @@ disable-model-invocation: false
 
 ---
 
-## 企业级角色扩展（`/ccg:team` 专用）
+## 企业级角色扩展（`/ly:team` 专用）
 
-`/ccg:team` 命令在蚁群基础角色之上，增加 3 个大厂级专业角色，对应 Agent Teams 真实 teammates：
+`/ly:team` 命令在蚁群基础角色之上，增加 3 个大厂级专业角色，对应 Agent Teams 真实 teammates：
 
 | 角色 | Agent 名 | 道语 | 职责 | 工具权限 | 模型 |
 |------|----------|------|------|----------|------|
@@ -148,8 +148,8 @@ TeamCreate ─── Phase 2: spawn Architect → shutdown
             └─ Phase 8: TeamDelete
 ```
 
-**推荐入口**：`/ccg:team <需求描述>` — 一键跑完 8 阶段。
-**分步入口**（兼容）：`/ccg:team-research` → `/ccg:team-plan` → `/ccg:team-exec` → `/ccg:team-review`
+**推荐入口**：`/ly:team <需求描述>` — 一键跑完 8 阶段。
+**分步入口**（兼容）：`/ly:team-research` → `/ly:team-plan` → `/ly:team-exec` → `/ly:team-review`
 
 ---
 

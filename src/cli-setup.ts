@@ -47,9 +47,7 @@ function customizeHelp(sections: any[]): any[] {
       '',
       ansis.gray(`  ${i18n.t('cli:help.nonInteractiveMode')}`),
       `  ${ansis.green('--skip-prompt, -s')}         ${i18n.t('cli:help.optionDescriptions.skipAllPrompts')}`,
-      `  ${ansis.green('--frontend, -F')} <models>   ${i18n.t('cli:help.optionDescriptions.frontendModels')}`,
-      `  ${ansis.green('--backend, -B')} <models>    ${i18n.t('cli:help.optionDescriptions.backendModels')}`,
-      `  ${ansis.green('--mode, -m')} <mode>         ${i18n.t('cli:help.optionDescriptions.collaborationMode')}`,
+      `  ${ansis.green('--reviewer, -r')} <model>    ${i18n.t('cli:help.optionDescriptions.reviewerModel')}`,
       `  ${ansis.green('--workflows, -w')} <list>    ${i18n.t('cli:help.optionDescriptions.workflows')}`,
       `  ${ansis.green('--install-dir, -d')} <path>  ${i18n.t('cli:help.optionDescriptions.installDir')}`,
     ].join('\n'),
@@ -66,10 +64,7 @@ function customizeHelp(sections: any[]): any[] {
       `  ${ansis.cyan('npx ccg i')}`,
       '',
       ansis.gray(`  # ${i18n.t('cli:help.exampleDescriptions.customModels')}`),
-      `  ${ansis.cyan('npx ccg i --frontend gemini,codex --backend codex,gemini')}`,
-      '',
-      ansis.gray(`  # ${i18n.t('cli:help.exampleDescriptions.parallelMode')}`),
-      `  ${ansis.cyan('npx ccg i --mode parallel')}`,
+      `  ${ansis.cyan('npx ccg i --reviewer claude')}`,
       '',
     ].join('\n'),
   })
@@ -106,9 +101,7 @@ export async function setupCommands(cli: CAC): Promise<void> {
     .option('--force, -f', i18n.t('cli:help.optionDescriptions.forceOverwrite'))
     .option('--skip-prompt, -s', i18n.t('cli:help.optionDescriptions.skipAllPrompts'))
     .option('--skip-mcp', 'Skip MCP configuration (used during update)')
-    .option('--frontend, -F <models>', i18n.t('cli:help.optionDescriptions.frontendModels'))
-    .option('--backend, -B <models>', i18n.t('cli:help.optionDescriptions.backendModels'))
-    .option('--mode, -m <mode>', i18n.t('cli:help.optionDescriptions.collaborationMode'))
+    .option('--reviewer, -r <model>', i18n.t('cli:help.optionDescriptions.reviewerModel'))
     .option('--workflows, -w <workflows>', i18n.t('cli:help.optionDescriptions.workflows'))
     .option('--install-dir, -d <path>', i18n.t('cli:help.optionDescriptions.installDir'))
     .action(async (options: CliOptions) => {

@@ -1,4 +1,3 @@
-import type { ModelRouting, ModelType } from '../types'
 import ansis from 'ansis'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
@@ -88,103 +87,12 @@ export async function update(): Promise<void> {
 }
 
 /**
- * Ask user if they want to reconfigure model routing
- */
-async function askReconfigureRouting(currentRouting?: ModelRouting): Promise<ModelRouting | null> {
-  console.log()
-  console.log(ansis.cyan.bold(`🔧 ${i18n.t('init:summary.modelRouting')}`))
-  console.log()
-
-  if (currentRouting) {
-    console.log(ansis.gray(`${i18n.t('menu:api.currentConfig')}`))
-    console.log(`  ${ansis.cyan('Frontend:')} ${currentRouting.frontend.models.map(m => ansis.green(m)).join(', ')}`)
-    console.log(`  ${ansis.cyan('Backend:')} ${currentRouting.backend.models.map(m => ansis.blue(m)).join(', ')}`)
-    console.log()
-  }
-
-  const { reconfigure } = await inquirer.prompt([{
-    type: 'confirm',
-    name: 'reconfigure',
-    message: i18n.t('init:selectFrontendModels'),
-    default: false,
-  }])
-
-  if (!reconfigure) {
-    return null
-  }
-
-  console.log()
-
-  // Frontend models selection
-  const { selectedFrontend } = await inquirer.prompt([{
-    type: 'checkbox',
-    name: 'selectedFrontend',
-    message: i18n.t('init:selectFrontendModels'),
-    choices: [
-      { name: 'Antigravity', value: 'antigravity' as ModelType, checked: currentRouting?.frontend.models.includes('antigravity') ?? true },
-      { name: 'Gemini', value: 'gemini' as ModelType, checked: currentRouting?.frontend.models.includes('gemini') ?? false },
-      { name: 'Claude', value: 'claude' as ModelType, checked: currentRouting?.frontend.models.includes('claude') ?? false },
-      { name: 'Codex', value: 'codex' as ModelType, checked: currentRouting?.frontend.models.includes('codex') ?? false },
-      { name: 'Grok', value: 'grok' as ModelType, checked: currentRouting?.frontend.models.includes('grok') ?? false },
-    ],
-    validate: (answer: string[]) => answer.length > 0 || i18n.t('init:validation.selectAtLeastOne'),
-  }])
-
-  // Backend models selection
-  const { selectedBackend } = await inquirer.prompt([{
-    type: 'checkbox',
-    name: 'selectedBackend',
-    message: i18n.t('init:selectBackendModels'),
-    choices: [
-      { name: 'Codex', value: 'codex' as ModelType, checked: currentRouting?.backend.models.includes('codex') ?? true },
-      { name: 'Antigravity', value: 'antigravity' as ModelType, checked: currentRouting?.backend.models.includes('antigravity') ?? false },
-      { name: 'Gemini', value: 'gemini' as ModelType, checked: currentRouting?.backend.models.includes('gemini') ?? false },
-      { name: 'Claude', value: 'claude' as ModelType, checked: currentRouting?.backend.models.includes('claude') ?? false },
-      { name: 'Grok', value: 'grok' as ModelType, checked: currentRouting?.backend.models.includes('grok') ?? false },
-    ],
-    validate: (answer: string[]) => answer.length > 0 || i18n.t('init:validation.selectAtLeastOne'),
-  }])
-
-  const frontendModels = selectedFrontend as ModelType[]
-  const backendModels = selectedBackend as ModelType[]
-
-  // Build new routing config
-  const newRouting: ModelRouting = {
-    frontend: {
-      models: frontendModels,
-      primary: frontendModels[0],
-      strategy: frontendModels.length > 1 ? 'parallel' : 'fallback',
-    },
-    backend: {
-      models: backendModels,
-      primary: backendModels[0],
-      strategy: backendModels.length > 1 ? 'parallel' : 'fallback',
-    },
-    review: {
-      models: [...new Set([...frontendModels, ...backendModels])],
-      strategy: 'parallel',
-    },
-    mode: currentRouting?.mode || 'smart',
-    geminiModel: currentRouting?.geminiModel,
-    grokModel: currentRouting?.grokModel,
-  }
-
-  console.log()
-  console.log(ansis.green('✓ New config:'))
-  console.log(`  ${ansis.cyan('Frontend:')} ${frontendModels.map(m => ansis.green(m)).join(', ')}`)
-  console.log(`  ${ansis.cyan('Backend:')} ${backendModels.map(m => ansis.blue(m)).join(', ')}`)
-  console.log()
-
-  return newRouting
-}
-
-/**
  * Check if CCG is installed globally via npm
  */
 async function checkIfGlobalInstall(): Promise<boolean> {
   try {
-    const { stdout } = await execAsync('npm list -g ccg-workflow --depth=0', { timeout: 5000 })
-    return stdout.includes('ccg-workflow@')
+    const { stdout } = await execAsync('npm list -g ly-workflow --depth=0', { timeout: 5000 })
+    return stdout.includes('ly-workflow@')
   }
   catch {
     return false
@@ -215,7 +123,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
     console.log()
     console.log(`${i18n.t('update:recommendNpm')}`)
     console.log()
-    console.log(ansis.cyan('  npm install -g ccg-workflow@latest'))
+    console.log(ansis.cyan('  npm install -g ly-workflow@latest'))
     console.log()
     console.log(ansis.gray(i18n.t('update:willUpdateBoth')))
     console.log()
@@ -231,7 +139,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
       console.log()
       console.log(ansis.cyan(i18n.t('update:runInNewTerminal')))
       console.log()
-      console.log(ansis.cyan.bold('  npm install -g ccg-workflow@latest'))
+      console.log(ansis.cyan.bold('  npm install -g ly-workflow@latest'))
       console.log()
       console.log(ansis.gray(`(${i18n.t('update:autoUpdateAfter')})`))
       console.log()
@@ -265,7 +173,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
     }
 
     spinner.text = i18n.t('update:downloading')
-    await execAsync(`npx --yes ccg-workflow@latest --version`, { timeout: 60000 })
+    await execAsync(`npx --yes ly-workflow@latest --version`, { timeout: 60000 })
     spinner.succeed(i18n.t('update:downloadDone'))
   }
   catch (error) {
@@ -314,11 +222,11 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
 
   // Directories to back up before installing new version
   const backupTargets = [
-    join(installDir, 'commands', 'ccg'),
-    join(installDir, 'agents', 'ccg'),
-    join(installDir, 'skills', 'ccg'),
-    join(installDir, 'hooks', 'ccg'),
-    join(installDir, '.ccg', 'engine'),
+    join(installDir, 'commands', 'ly'),
+    join(installDir, 'agents', 'ly'),
+    join(installDir, 'skills', 'ly'),
+    join(installDir, 'hooks', 'ly'),
+    join(installDir, '.ly', 'engine'),
   ]
 
   // Step 3: Back up existing files (move to *.ccg-update-bak)
@@ -360,7 +268,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
 
   let installSuccess = false
   try {
-    await execAsync(`npx --yes ccg-workflow@latest init --force --skip-mcp --skip-prompt`, {
+    await execAsync(`npx --yes ly-workflow@latest init --force --skip-mcp --skip-prompt`, {
       timeout: 300000, // 5min — binary download from GitHub Release may be slow (especially in China)
       env: {
         ...process.env,
@@ -369,7 +277,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
     })
 
     // Step 5: Verify new installation actually produced files
-    const commandsDir = join(installDir, 'commands', 'ccg')
+    const commandsDir = join(installDir, 'commands', 'ly')
     const hasCommands = await fs.pathExists(commandsDir)
       && (await fs.readdir(commandsDir)).some(f => f.endsWith('.md'))
 
@@ -449,7 +357,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
     }
     console.log()
     console.log(ansis.yellow(i18n.t('update:manualRetry')))
-    console.log(ansis.cyan('  npx ccg-workflow@latest'))
+    console.log(ansis.cyan('  npx ly-workflow@latest'))
     return
   }
 

@@ -48,7 +48,7 @@ export async function doctor(): Promise<void> {
   })
 
   // 3. Commands
-  const cmds = await dirFiles(join(installDir, 'commands', 'ccg'))
+  const cmds = await dirFiles(join(installDir, 'commands', 'ly'))
   const cmdCount = cmds.filter(f => f.endsWith('.md')).length
   checks.push({
     label: 'Commands',
@@ -57,7 +57,7 @@ export async function doctor(): Promise<void> {
   })
 
   // 4. Hooks
-  const hookDir = join(installDir, 'hooks', 'ccg')
+  const hookDir = join(installDir, 'hooks', 'ly')
   const hooks = await dirFiles(hookDir)
   const hookCount = hooks.filter(f => f.endsWith('.js')).length
   checks.push({
@@ -105,7 +105,7 @@ export async function doctor(): Promise<void> {
   })
 
   // 7. Skills
-  const skillDir = join(installDir, 'skills', 'ccg')
+  const skillDir = join(installDir, 'skills', 'ly')
   const hasSkills = await fileExists(skillDir)
   checks.push({
     label: 'Skills',
@@ -115,7 +115,7 @@ export async function doctor(): Promise<void> {
 
   // 8. Rules
   const rulesDir = join(installDir, 'rules')
-  const rules = (await dirFiles(rulesDir)).filter(f => f.startsWith('ccg-'))
+  const rules = (await dirFiles(rulesDir)).filter(f => f.startsWith('ly-'))
   checks.push({
     label: 'Rules',
     status: rules.length >= 2 ? OK : rules.length > 0 ? WARN : FAIL,
@@ -147,27 +147,6 @@ export async function doctor(): Promise<void> {
     detail: hasCodexMode ? 'Installed' : 'Not installed (optional)',
   })
 
-  // 11. Grok CLI (only when routing uses grok)
-  const routingModels = [
-    config?.routing?.frontend?.primary,
-    config?.routing?.backend?.primary,
-    ...(config?.routing?.frontend?.models || []),
-    ...(config?.routing?.backend?.models || []),
-  ]
-  if (routingModels.includes('grok')) {
-    const grokName = process.platform === 'win32' ? 'grok.exe' : 'grok'
-    const grokFallback = join(homedir(), '.grok', 'bin', grokName)
-    const grokVer = execSafe('grok --version') || (await fileExists(grokFallback) ? execSafe(`"${grokFallback}" --version`) : null)
-    const grokAuth = await fileExists(join(homedir(), '.grok', 'auth.json'))
-    checks.push({
-      label: 'Grok CLI',
-      status: grokVer ? (grokAuth ? OK : WARN) : FAIL,
-      detail: grokVer
-        ? `${grokVer.split('\n')[0]}${grokAuth ? '' : ' — not logged in (run: grok login; tokens expire after 7 days)'}`
-        : 'Not found — install: curl -fsSL https://x.ai/cli/install.sh | bash',
-    })
-  }
-
   // Output
   console.log()
   console.log(ansis.cyan.bold(`  CCG Doctor v${packageVersion}`))
@@ -182,7 +161,7 @@ export async function doctor(): Promise<void> {
     console.log(ansis.green('  All checks passed.'))
   }
   else {
-    console.log(ansis.red(`  ${failures.length} issue(s) found. Run ${ansis.cyan('npx ccg-workflow')} to reinstall.`))
+    console.log(ansis.red(`  ${failures.length} issue(s) found. Run ${ansis.cyan('npx ly-workflow')} to reinstall.`))
   }
   console.log()
 }
@@ -193,13 +172,13 @@ export async function status(): Promise<void> {
   // Version
   const config = await readCcgConfig()
   const installedVer = config?.general?.version || 'unknown'
-  const latestVer = execSafe('npm view ccg-workflow version') || 'unknown'
+  const latestVer = execSafe('npm view ly-workflow version') || 'unknown'
 
   // Commands
-  const cmds = (await dirFiles(join(installDir, 'commands', 'ccg'))).filter(f => f.endsWith('.md'))
+  const cmds = (await dirFiles(join(installDir, 'commands', 'ly'))).filter(f => f.endsWith('.md'))
 
   // Hooks
-  const hooks = (await dirFiles(join(installDir, 'hooks', 'ccg'))).filter(f => f.endsWith('.js'))
+  const hooks = (await dirFiles(join(installDir, 'hooks', 'ly'))).filter(f => f.endsWith('.js'))
 
   // Binary
   const wrapperName = process.platform === 'win32' ? 'codeagent-wrapper.exe' : 'codeagent-wrapper'
@@ -211,8 +190,7 @@ export async function status(): Promise<void> {
   }
 
   // Model routing
-  const frontend = config?.routing?.frontend?.primary || '—'
-  const backend = config?.routing?.backend?.primary || '—'
+  const reviewer = config?.routing?.reviewer || 'codex'
 
   // MCP
   let mcpServers: string[] = []
@@ -227,7 +205,7 @@ export async function status(): Promise<void> {
 
   // Active tasks
   let activeTasks = 0
-  const tasksDir = join(process.cwd(), '.ccg', 'tasks')
+  const tasksDir = join(process.cwd(), '.ly', 'tasks')
   if (await fileExists(tasksDir)) {
     for (const d of await fs.readdir(tasksDir)) {
       if (d === 'archive') continue
@@ -256,8 +234,7 @@ export async function status(): Promise<void> {
   console.log(`  ${ansis.bold('Commands')}       ${cmds.length}`)
   console.log(`  ${ansis.bold('Hooks')}          ${hooks.length} scripts`)
   console.log(`  ${ansis.bold('Binary')}         ${binaryVer}`)
-  console.log(`  ${ansis.bold('Frontend')}       ${frontend}`)
-  console.log(`  ${ansis.bold('Backend')}        ${backend}`)
+  console.log(`  ${ansis.bold('Reviewer')}       ${reviewer}`)
   console.log(`  ${ansis.bold('MCP')}            ${mcpServers.length > 0 ? mcpServers.join(', ') : ansis.gray('none')}`)
   console.log(`  ${ansis.bold('Codex mode')}     ${codexMode ? 'installed' : ansis.gray('not installed')}`)
   console.log(`  ${ansis.bold('Active tasks')}   ${activeTasks > 0 ? ansis.yellow(String(activeTasks)) : '0'}`)

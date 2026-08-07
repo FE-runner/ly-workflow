@@ -1108,9 +1108,9 @@ func TestBackendParseArgs_BackendFlag(t *testing.T) {
 			want: "claude",
 		},
 		{
-			name: "gemini resume",
-			args: []string{"codeagent-wrapper", "--backend", "gemini", "resume", "sid", "task"},
-			want: "gemini",
+			name: "claude resume",
+			args: []string{"codeagent-wrapper", "--backend", "claude", "resume", "sid", "task"},
+			want: "claude",
 		},
 		{
 			name: "backend equals syntax",
@@ -1265,7 +1265,7 @@ do something`
 func TestParallelParseConfig_Backend(t *testing.T) {
 	input := `---TASK---
 id: task-1
-backend: gemini
+backend: claude
 session_id: sess-123
 ---CONTENT---
 do something`
@@ -1278,8 +1278,8 @@ do something`
 		t.Fatalf("expected 1 task, got %d", len(cfg.Tasks))
 	}
 	task := cfg.Tasks[0]
-	if task.Backend != "gemini" {
-		t.Fatalf("backend = %q, want gemini", task.Backend)
+	if task.Backend != "claude" {
+		t.Fatalf("backend = %q, want claude", task.Backend)
 	}
 	if task.Mode != "resume" || task.SessionID != "sess-123" {
 		t.Fatalf("expected resume mode with session, got mode=%q session=%q", task.Mode, task.SessionID)
@@ -1486,7 +1486,6 @@ func TestBackendSelectBackend(t *testing.T) {
 	}{
 		{"codex", "codex", CodexBackend{}},
 		{"claude mixed case", "ClAuDe", ClaudeBackend{}},
-		{"gemini", "gemini", GeminiBackend{}},
 	}
 
 	for _, tt := range tests {
@@ -1503,10 +1502,6 @@ func TestBackendSelectBackend(t *testing.T) {
 			case ClaudeBackend:
 				if _, ok := got.(ClaudeBackend); !ok {
 					t.Fatalf("expected ClaudeBackend, got %T", got)
-				}
-			case GeminiBackend:
-				if _, ok := got.(GeminiBackend); !ok {
-					t.Fatalf("expected GeminiBackend, got %T", got)
 				}
 			}
 		})
@@ -1587,55 +1582,14 @@ func TestClaudeBackendBuildArgs_OutputValidation(t *testing.T) {
 	}
 }
 
-func TestBackendBuildArgs_GeminiBackend(t *testing.T) {
-	backend := GeminiBackend{}
-	cfg := &Config{Mode: "new"}
-	got := backend.BuildArgs(cfg, "task")
-	want := []string{"-o", "stream-json", "-y", "-p", "task"}
-	if len(got) != len(want) {
-		t.Fatalf("length mismatch")
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("index %d got %s want %s", i, got[i], want[i])
-		}
-	}
-
-	if backend.BuildArgs(nil, "ignored") != nil {
-		t.Fatalf("nil config should return nil args")
-	}
-}
-
-func TestGeminiBackendBuildArgs_OutputValidation(t *testing.T) {
-	backend := GeminiBackend{}
-	cfg := &Config{Mode: "resume"}
-	target := "prompt-data"
-
-	args := backend.BuildArgs(cfg, target)
-	expected := []string{"-o", "stream-json", "-y", "-p"}
-
-	if len(args) != len(expected)+1 {
-		t.Fatalf("args length=%d, want %d", len(args), len(expected)+1)
-	}
-	for i, val := range expected {
-		if args[i] != val {
-			t.Fatalf("args[%d]=%q, want %q", i, args[i], val)
-		}
-	}
-	if args[len(args)-1] != target {
-		t.Fatalf("last arg=%q, want target %q", args[len(args)-1], target)
-	}
-}
-
 func TestBackendNamesAndCommands(t *testing.T) {
-	tests := []Backend{CodexBackend{}, ClaudeBackend{}, GeminiBackend{}}
+	tests := []Backend{CodexBackend{}, ClaudeBackend{}}
 	expected := []struct {
 		name    string
 		command string
 	}{
 		{"codex", "codex"},
 		{"claude", "claude"},
-		{"gemini", "gemini"},
 	}
 
 	for i, backend := range tests {
@@ -1783,59 +1737,6 @@ func TestBackendParseJSONStream_ClaudeEvents_ItemDoesNotForceCodex(t *testing.T)
 	}
 }
 
-func TestBackendParseJSONStream_GeminiEvents(t *testing.T) {
-	input := `{"type":"init","session_id":"xyz789"}
-{"type":"message","role":"assistant","content":"Hi","delta":true,"session_id":"xyz789"}
-{"type":"message","role":"assistant","content":" there","delta":true}
-{"type":"result","status":"success","session_id":"xyz789"}`
-
-	message, threadID := parseJSONStream(strings.NewReader(input))
-
-	if message != "Hi there" {
-		t.Fatalf("message=%q, want %q", message, "Hi there")
-	}
-	if threadID != "xyz789" {
-		t.Fatalf("threadID=%q, want %q", threadID, "xyz789")
-	}
-}
-
-func TestBackendParseJSONStream_GeminiEvents_DeltaFalseStillDetected(t *testing.T) {
-	input := `{"type":"init","session_id":"xyz789"}
-{"type":"message","content":"Hi","delta":false,"session_id":"xyz789"}
-{"type":"result","status":"success","session_id":"xyz789"}`
-
-	message, threadID := parseJSONStream(strings.NewReader(input))
-
-	if message != "Hi" {
-		t.Fatalf("message=%q, want %q", message, "Hi")
-	}
-	if threadID != "xyz789" {
-		t.Fatalf("threadID=%q, want %q", threadID, "xyz789")
-	}
-}
-
-func TestBackendParseJSONStream_GeminiEvents_OnMessageTriggeredOnStatus(t *testing.T) {
-	input := `{"type":"init","session_id":"xyz789"}
-{"type":"message","role":"assistant","content":"Hi","delta":true,"session_id":"xyz789"}
-{"type":"message","content":" there","delta":true}
-{"type":"result","status":"success","session_id":"xyz789"}`
-
-	var called int
-	message, threadID := parseJSONStreamInternal(strings.NewReader(input), nil, nil, func() {
-		called++
-	}, nil)
-
-	if message != "Hi there" {
-		t.Fatalf("message=%q, want %q", message, "Hi there")
-	}
-	if threadID != "xyz789" {
-		t.Fatalf("threadID=%q, want %q", threadID, "xyz789")
-	}
-	if called != 1 {
-		t.Fatalf("onMessage called=%d, want %d", called, 1)
-	}
-}
-
 func TestBackendParseJSONStreamWithWarn_InvalidLine(t *testing.T) {
 	var warnings []string
 	warnFn := func(msg string) { warnings = append(warnings, msg) }
@@ -1906,31 +1807,6 @@ func TestBackendParseJSONStream_OnComplete_ClaudeResult(t *testing.T) {
 	}
 	if threadID != "s-1" {
 		t.Fatalf("threadID = %q, want s-1", threadID)
-	}
-	if onMessageCalls != 1 {
-		t.Fatalf("onMessage calls = %d, want 1", onMessageCalls)
-	}
-	if onCompleteCalls != 1 {
-		t.Fatalf("onComplete calls = %d, want 1", onCompleteCalls)
-	}
-}
-
-func TestBackendParseJSONStream_OnComplete_GeminiTerminalResultStatus(t *testing.T) {
-	input := `{"type":"message","role":"assistant","content":"Hi","delta":true,"session_id":"g-1"}` + "\n" +
-		`{"type":"result","status":"success","session_id":"g-1"}`
-
-	var onMessageCalls int
-	var onCompleteCalls int
-	message, threadID := parseJSONStreamInternal(strings.NewReader(input), nil, nil, func() {
-		onMessageCalls++
-	}, func() {
-		onCompleteCalls++
-	})
-	if message != "Hi" {
-		t.Fatalf("message = %q, want Hi", message)
-	}
-	if threadID != "g-1" {
-		t.Fatalf("threadID = %q, want g-1", threadID)
 	}
 	if onMessageCalls != 1 {
 		t.Fatalf("onMessage calls = %d, want 1", onMessageCalls)
@@ -2914,7 +2790,7 @@ do one
 
 ---TASK---
 id: second
-backend: gemini
+backend: codex
 ---CONTENT---
 do two`)
 	os.Args = []string{"codeagent-wrapper", "--backend", "claude", "--parallel"}
@@ -2931,8 +2807,8 @@ do two`)
 	if !firstOK || firstBackend != "claude" {
 		t.Fatalf("first backend = %q (present=%v), want claude", firstBackend, firstOK)
 	}
-	if !secondOK || secondBackend != "gemini" {
-		t.Fatalf("second backend = %q (present=%v), want gemini", secondBackend, secondOK)
+	if !secondOK || secondBackend != "codex" {
+		t.Fatalf("second backend = %q (present=%v), want codex", secondBackend, secondOK)
 	}
 }
 
@@ -3056,7 +2932,7 @@ func TestVersionFlag(t *testing.T) {
 		}
 	})
 
-	want := "codeagent-wrapper version 5.12.0\n"
+	want := "codeagent-wrapper version 6.0.0\n"
 
 	if output != want {
 		t.Fatalf("output = %q, want %q", output, want)
@@ -3072,7 +2948,7 @@ func TestVersionShortFlag(t *testing.T) {
 		}
 	})
 
-	want := "codeagent-wrapper version 5.12.0\n"
+	want := "codeagent-wrapper version 6.0.0\n"
 
 	if output != want {
 		t.Fatalf("output = %q, want %q", output, want)
@@ -3088,7 +2964,7 @@ func TestVersionLegacyAlias(t *testing.T) {
 		}
 	})
 
-	want := "codex-wrapper version 5.12.0\n"
+	want := "codex-wrapper version 6.0.0\n"
 
 	if output != want {
 		t.Fatalf("output = %q, want %q", output, want)

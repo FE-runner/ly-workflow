@@ -1,4 +1,4 @@
-import type { CollaborationMode, InitOptions, ModelRouting, ModelType, SupportedLang } from '../types'
+import type { InitOptions, ModelRouting, ModelType, SupportedLang } from '../types'
 import ansis from 'ansis'
 import fs from 'fs-extra'
 import inquirer from 'inquirer'
@@ -7,7 +7,7 @@ import { homedir } from 'node:os'
 import { join } from 'pathe'
 import { i18n, initI18n } from '../i18n'
 import { createDefaultConfig, ensureCcgDir, getCcgDir, readCcgConfig, writeCcgConfig } from '../utils/config'
-import { getAllCommandIds, getCoreCommandIds, installAceTool, installAceToolRs, installContextWeaver, installFastContext, installMcpServer, installWorkflows, showBinaryDownloadWarning, syncMcpToCodex, syncMcpToGemini, writeFastContextPrompt } from '../utils/installer'
+import { getCoreCommandIds, installAceTool, installAceToolRs, installContextWeaver, installFastContext, installMcpServer, installWorkflows, showBinaryDownloadWarning, syncMcpToCodex, writeFastContextPrompt } from '../utils/installer'
 import { isWindows } from '../utils/platform'
 import { migrateToV1_4_0, needsMigration } from '../utils/migration'
 
@@ -225,33 +225,18 @@ export async function init(options: InitOptions = {}): Promise<void> {
     await initI18n(language)
   }
 
-  // Model routing configuration (user-selectable since v2.1.0)
-  let frontendModels: ModelType[] = ['antigravity']
-  let backendModels: ModelType[] = ['codex']
-  let geminiModel = 'gemini-3.1-pro-preview'
-  let grokModel = 'grok-4.5'
-  const mode: CollaborationMode = 'smart'
-  let selectedWorkflows = getCoreCommandIds()
-  let installMode: 'v3' | 'legacy' = 'v3'
+  // Review model configuration (Codex reviews plans/code; Claude does everything else)
+  let reviewer: ModelType = 'codex'
+  const selectedWorkflows = getCoreCommandIds()
 
   // Non-interactive mode: preserve existing config
   if (options.skipPrompt) {
     const existingConfig = await readCcgConfig()
-    if (existingConfig?.routing) {
-      frontendModels = existingConfig.routing.frontend?.models || ['antigravity']
-      backendModels = existingConfig.routing.backend?.models || ['codex']
-      geminiModel = existingConfig.routing.geminiModel || 'gemini-3.1-pro-preview'
-      grokModel = existingConfig.routing.grokModel || 'grok-4.5'
+    if (existingConfig?.routing?.reviewer) {
+      reviewer = existingConfig.routing.reviewer
     }
-    // Preserve install mode: if existing install has legacy commands, keep them
-    if (existingConfig?.workflows?.installed) {
-      const hadLegacy = existingConfig.workflows.installed.some(
-        (w: string) => ['workflow', 'plan', 'execute', 'frontend', 'backend', 'feat', 'debug', 'team'].includes(w),
-      )
-      if (hadLegacy) {
-        selectedWorkflows = getAllCommandIds()
-        installMode = 'legacy'
-      }
+    if (options.reviewer === 'codex' || options.reviewer === 'claude') {
+      reviewer = options.reviewer
     }
   }
 
@@ -308,17 +293,8 @@ export async function init(options: InitOptions = {}): Promise<void> {
     const existingConfig = await readCcgConfig()
 
     // Initialize from existing config so re-running init shows saved values as defaults
-    if (existingConfig?.routing) {
-      const ef = existingConfig.routing.frontend?.primary
-      const eb = existingConfig.routing.backend?.primary
-      if (ef)
-        frontendModels = [ef]
-      if (eb)
-        backendModels = [eb]
-      if (existingConfig.routing.geminiModel)
-        geminiModel = existingConfig.routing.geminiModel
-      if (existingConfig.routing.grokModel)
-        grokModel = existingConfig.routing.grokModel
+    if (existingConfig?.routing?.reviewer) {
+      reviewer = existingConfig.routing.reviewer
     }
     if (existingConfig?.performance?.liteMode !== undefined) {
       liteMode = existingConfig.performance.liteMode
@@ -399,96 +375,24 @@ export async function init(options: InitOptions = {}): Promise<void> {
       console.log(ansis.cyan.bold(`  🧠 Step 2/4 — ${i18n.t('init:model.title')}`))
       console.log()
 
-      const { selectedFrontend } = await inquirer.prompt([{
+      const { selectedReviewer } = await inquirer.prompt([{
         type: 'list',
-        name: 'selectedFrontend',
-        message: i18n.t('init:model.selectFrontend'),
-        choices: [
-          { name: `Antigravity ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'antigravity' as ModelType },
-          { name: 'Gemini', value: 'gemini' as ModelType },
-          { name: 'Codex', value: 'codex' as ModelType },
-          { name: 'Grok', value: 'grok' as ModelType },
-          ...navSentinels(canGoBack),
-        ],
-        default: frontendModels[0] || 'antigravity',
-      }])
-
-      if (selectedFrontend === BACK_SENTINEL)
-        return 'back'
-      if (selectedFrontend === CANCEL_SENTINEL)
-        return 'cancel'
-
-      const { selectedBackend } = await inquirer.prompt([{
-        type: 'list',
-        name: 'selectedBackend',
-        message: i18n.t('init:model.selectBackend'),
+        name: 'selectedReviewer',
+        message: i18n.t('init:model.selectReviewer'),
         choices: [
           { name: `Codex ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'codex' as ModelType },
-          { name: 'Antigravity', value: 'antigravity' as ModelType },
-          { name: 'Gemini', value: 'gemini' as ModelType },
-          { name: 'Grok', value: 'grok' as ModelType },
+          { name: 'Claude', value: 'claude' as ModelType },
+          ...navSentinels(canGoBack),
         ],
-        default: backendModels[0] || 'codex',
+        default: reviewer,
       }])
 
-      frontendModels = [selectedFrontend]
-      backendModels = [selectedBackend]
+      if (selectedReviewer === BACK_SENTINEL)
+        return 'back'
+      if (selectedReviewer === CANCEL_SENTINEL)
+        return 'cancel'
 
-      if (selectedFrontend === 'gemini' || selectedBackend === 'gemini') {
-        const { selectedGeminiModel } = await inquirer.prompt([{
-          type: 'list',
-          name: 'selectedGeminiModel',
-          message: i18n.t('init:model.selectGeminiModel'),
-          choices: [
-            { name: `gemini-3.1-pro-preview ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'gemini-3.1-pro-preview' },
-            { name: 'gemini-2.5-flash', value: 'gemini-2.5-flash' },
-            { name: `${i18n.t('init:model.custom')}`, value: 'custom' },
-          ],
-          default: geminiModel || 'gemini-3.1-pro-preview',
-        }])
-
-        if (selectedGeminiModel === 'custom') {
-          const { customModel } = await inquirer.prompt([{
-            type: 'input',
-            name: 'customModel',
-            message: i18n.t('init:model.enterCustomModel'),
-            default: geminiModel || '',
-            validate: (v: string) => v.trim() !== '' || i18n.t('init:model.enterCustomModel'),
-          }])
-          geminiModel = customModel.trim()
-        }
-        else {
-          geminiModel = selectedGeminiModel
-        }
-      }
-
-      if (selectedFrontend === 'grok' || selectedBackend === 'grok') {
-        const { selectedGrokModel } = await inquirer.prompt([{
-          type: 'list',
-          name: 'selectedGrokModel',
-          message: i18n.t('init:model.selectGrokModel'),
-          choices: [
-            { name: `grok-4.5 ${ansis.green(`(${i18n.t('init:model.recommended')})`)} ${ansis.gray('— 500k context')}`, value: 'grok-4.5' },
-            { name: `grok-composer-2.5-fast ${ansis.gray('— Cursor Composer, fast coding')}`, value: 'grok-composer-2.5-fast' },
-            { name: `${i18n.t('init:model.custom')}`, value: 'custom' },
-          ],
-          default: grokModel || 'grok-4.5',
-        }])
-
-        if (selectedGrokModel === 'custom') {
-          const { customModel } = await inquirer.prompt([{
-            type: 'input',
-            name: 'customModel',
-            message: i18n.t('init:model.enterCustomModel'),
-            default: grokModel || '',
-            validate: (v: string) => v.trim() !== '' || i18n.t('init:model.enterCustomModel'),
-          }])
-          grokModel = customModel.trim()
-        }
-        else {
-          grokModel = selectedGrokModel
-        }
-      }
+      reviewer = selectedReviewer
       return 'next'
     }
 
@@ -709,32 +613,13 @@ export async function init(options: InitOptions = {}): Promise<void> {
 
       liteMode = perfMode === 'lite'
 
-      // Version mode: v3 (smart entry + engine) or legacy (all 30 commands)
-      const { versionMode } = await inquirer.prompt([{
-        type: 'list',
-        name: 'versionMode',
-        message: '安装模式',
-        choices: [
-          { name: `${ansis.green('v3 新版')} — /ccg:go 智能入口 + Hook 引擎 + 12 核心命令（推荐）`, value: 'v3' },
-          { name: `${ansis.gray('旧版兼容')} — 新版全部 + 18 个旧版命令（workflow/debug/team 等）`, value: 'legacy' },
-        ],
-        default: 'v3',
+      const { includeImpeccable } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'includeImpeccable',
+        message: i18n.t('init:commands.includeImpeccable'),
+        default: !skipImpeccable,
       }])
-      installMode = versionMode
-      if (versionMode === 'legacy') {
-        selectedWorkflows = getAllCommandIds()
-        const { includeImpeccable } = await inquirer.prompt([{
-          type: 'confirm',
-          name: 'includeImpeccable',
-          message: i18n.t('init:commands.includeImpeccable'),
-          default: !skipImpeccable,
-        }])
-        skipImpeccable = !includeImpeccable
-      }
-      else {
-        selectedWorkflows = getCoreCommandIds()
-        skipImpeccable = true
-      }
+      skipImpeccable = !includeImpeccable
       return 'next'
     }
 
@@ -744,8 +629,6 @@ export async function init(options: InitOptions = {}): Promise<void> {
       console.log(ansis.yellow('━'.repeat(50)))
       console.log(ansis.bold(`  ${i18n.t('init:summary.title')}`))
       console.log()
-      const fmName = frontendModels[0].charAt(0).toUpperCase() + frontendModels[0].slice(1)
-      const bmName = backendModels[0].charAt(0).toUpperCase() + backendModels[0].slice(1)
       const apiLabel = (() => {
         if (apiUrl && apiKey)
           return `${ansis.green('●')} ${apiUrl} ${ansis.gray('+ ***')}`
@@ -754,13 +637,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
         return `${ansis.gray('○')} ${i18n.t('init:summary.apiSelfManaged')}`
       })()
       console.log(`  ${ansis.cyan(i18n.t('init:summary.apiProvider'))}  ${apiLabel}`)
-      console.log(`  ${ansis.cyan(i18n.t('init:summary.modelRouting'))}  ${ansis.green(fmName)} (Frontend) + ${ansis.blue(bmName)} (Backend)`)
-      if (frontendModels[0] === 'gemini' || backendModels[0] === 'gemini') {
-        console.log(`  ${ansis.cyan(i18n.t('init:summary.geminiModel'))}   ${ansis.gray(geminiModel)}`)
-      }
-      if (frontendModels[0] === 'grok' || backendModels[0] === 'grok') {
-        console.log(`  ${ansis.cyan(i18n.t('init:summary.grokModel'))}   ${ansis.gray(grokModel)}`)
-      }
+      console.log(`  ${ansis.cyan(i18n.t('init:summary.reviewerModel'))}  ${ansis.green(reviewer.charAt(0).toUpperCase() + reviewer.slice(1))}`)
       console.log(`  ${ansis.cyan(i18n.t('init:summary.commandCount'))}  ${ansis.yellow(workflowsCount.toString())}`)
       const mcpSummary = (() => {
         if (mcpProvider === 'fast-context')
@@ -865,25 +742,9 @@ export async function init(options: InitOptions = {}): Promise<void> {
     }
   }
 
-  // Build routing config (user-selectable since v2.1.0)
+  // Build routing config
   const routing: ModelRouting = {
-    frontend: {
-      models: frontendModels,
-      primary: frontendModels[0],
-      strategy: 'fallback',
-    },
-    backend: {
-      models: backendModels,
-      primary: backendModels[0],
-      strategy: 'fallback',
-    },
-    review: {
-      models: [...new Set([...frontendModels, ...backendModels])],
-      strategy: 'parallel',
-    },
-    mode,
-    geminiModel,
-    grokModel,
+    reviewer,
   }
 
   // Summary + confirmation handled by runSummaryStep() inside the state
@@ -894,9 +755,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
     console.log(ansis.yellow('━'.repeat(50)))
     console.log(ansis.bold(`  ${i18n.t('init:summary.title')}`))
     console.log()
-    const fmName = frontendModels[0].charAt(0).toUpperCase() + frontendModels[0].slice(1)
-    const bmName = backendModels[0].charAt(0).toUpperCase() + backendModels[0].slice(1)
-    console.log(`  ${ansis.cyan(i18n.t('init:summary.modelRouting'))}  ${ansis.green(fmName)} (Frontend) + ${ansis.blue(bmName)} (Backend)`)
+    console.log(`  ${ansis.cyan(i18n.t('init:summary.reviewerModel'))}  ${ansis.green(reviewer.charAt(0).toUpperCase() + reviewer.slice(1))}`)
     console.log(`  ${ansis.cyan(i18n.t('init:summary.commandCount'))}  ${ansis.yellow(selectedWorkflows.length.toString())}`)
     console.log(ansis.yellow('━'.repeat(50)))
     console.log()
@@ -1034,8 +893,8 @@ export async function init(options: InitOptions = {}): Promise<void> {
       if (!settings.permissions.allow)
         settings.permissions.allow = []
       const wrapperPerms = [
-        'Bash(~/.claude/bin/codeagent-wrapper --backend gemini*)',
         'Bash(~/.claude/bin/codeagent-wrapper --backend codex*)',
+        'Bash(~/.claude/bin/codeagent-wrapper --backend claude*)',
       ]
       for (const perm of wrapperPerms) {
         if (!settings.permissions.allow.includes(perm))
@@ -1123,20 +982,6 @@ export async function init(options: InitOptions = {}): Promise<void> {
         console.log(`    ${ansis.yellow('⚠')} Codex MCP sync failed`)
         console.log(ansis.gray(`      ${codexSyncResult.message}`))
       }
-
-      // ═══════════════════════════════════════════════════════
-      // Sync MCP servers to Gemini (~/.gemini/settings.json)
-      // ═══════════════════════════════════════════════════════
-      const geminiSyncResult = await syncMcpToGemini()
-      if (geminiSyncResult.success && geminiSyncResult.synced.length > 0) {
-        console.log()
-        console.log(`    ${ansis.green('✓')} Gemini MCP sync: ${geminiSyncResult.synced.join(', ')} ${ansis.gray('→ ~/.gemini/settings.json')}`)
-      }
-      else if (!geminiSyncResult.success) {
-        console.log()
-        console.log(`    ${ansis.yellow('⚠')} Gemini MCP sync failed`)
-        console.log(ansis.gray(`      ${geminiSyncResult.message}`))
-      }
     }
 
     // jq check removed — permissions.allow approach does not require jq
@@ -1199,7 +1044,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
       if (!result.success) {
         console.log()
         console.log(ansis.yellow(`  尝试修复 / Try to fix:`))
-        console.log(ansis.cyan(`    npx ccg-workflow@latest init --force`))
+        console.log(ansis.cyan(`    npx ly-workflow@latest init --force`))
         console.log(ansis.gray(`    如仍失败，请提交 issue 并附上以上错误信息`))
         console.log(ansis.gray(`    If still failing, report an issue with the errors above`))
       }

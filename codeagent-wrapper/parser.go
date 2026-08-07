@@ -32,16 +32,6 @@ type ClaudeEvent struct {
 	Result    string `json:"result,omitempty"`
 }
 
-// GeminiEvent for Gemini stream-json format
-type GeminiEvent struct {
-	Type      string `json:"type"`
-	SessionID string `json:"session_id,omitempty"`
-	Role      string `json:"role,omitempty"`
-	Content   string `json:"content,omitempty"`
-	Delta     bool   `json:"delta,omitempty"`
-	Status    string `json:"status,omitempty"`
-}
-
 func parseJSONStream(r io.Reader) (message, threadID string) {
 	return parseJSONStreamWithLog(r, logWarn, logInfo)
 }
@@ -82,30 +72,11 @@ type UnifiedEvent struct {
 	Subtype   string `json:"subtype,omitempty"`
 	SessionID string `json:"session_id,omitempty"`
 	Result    string `json:"result,omitempty"`
-
-	// Gemini-specific fields
-	// Gemini CLI uses camelCase "sessionId" instead of snake_case "session_id"
-	SessionIDCamel string `json:"sessionId,omitempty"`
-	Role           string `json:"role,omitempty"`
-	Content        string `json:"content,omitempty"`
-	Delta          *bool  `json:"delta,omitempty"`
-	Status         string `json:"status,omitempty"`
-
-	// Grok-specific fields (grok --output-format streaming-json):
-	//   {"type":"thought","data":"..."}  — reasoning token deltas
-	//   {"type":"text","data":"..."}     — response token deltas
-	//   {"type":"end","stopReason":"EndTurn","sessionId":"...","requestId":"..."}
-	Data       string `json:"data,omitempty"`
-	StopReason string `json:"stopReason,omitempty"`
 }
 
-// GetSessionID returns the session ID from either snake_case or camelCase field.
-// Gemini CLI uses "sessionId" (camelCase), Claude/Codex use "session_id" (snake_case).
+// GetSessionID returns the session ID.
 func (e *UnifiedEvent) GetSessionID() string {
-	if e.SessionID != "" {
-		return e.SessionID
-	}
-	return e.SessionIDCamel
+	return e.SessionID
 }
 
 // ItemContent represents the parsed item.text field for Codex events
@@ -152,8 +123,6 @@ func parseJSONStreamInternalWithContent(r io.Reader, warnFn func(string), infoFn
 	var (
 		codexMessage  string
 		claudeMessage string
-		geminiBuffer  strings.Builder
-		grokBuffer    strings.Builder
 	)
 
 	for {
@@ -180,18 +149,9 @@ func parseJSONStreamInternalWithContent(r io.Reader, warnFn func(string), infoFn
 		// Single unmarshal for all backend types
 		var event UnifiedEvent
 		if err := json.Unmarshal(line, &event); err != nil {
-			// Gemini CLI sometimes prepends non-JSON text to the init event line
-			// e.g. "MCP issues detected. Run /mcp list for status.{"type":"init",...}"
-			// Try to extract JSON from the first '{' character
-			if idx := bytes.IndexByte(line, '{'); idx > 0 {
-				if err2 := json.Unmarshal(line[idx:], &event); err2 == nil {
-					goto parsed
-				}
-			}
 			warnFn(fmt.Sprintf("Failed to parse event: %s", truncateBytes(line, 100)))
 			continue
 		}
-	parsed:
 
 		// Extract session_id early (works for all backends)
 		if event.GetSessionID() != "" && threadID == "" {
@@ -212,16 +172,9 @@ func parseJSONStreamInternalWithContent(r io.Reader, warnFn func(string), infoFn
 			}
 		}
 		isClaude := event.Subtype != "" || event.Result != ""
-		if !isClaude && event.Type == "result" && event.GetSessionID() != "" && event.Status == "" {
+		if !isClaude && event.Type == "result" && event.GetSessionID() != "" {
 			isClaude = true
 		}
-		isGemini := event.Role != "" || event.Delta != nil || event.Status != "" ||
-			(event.Type == "init" && event.GetSessionID() != "")
-		// Grok streaming-json: token deltas carry "data"; the terminal "end"
-		// event carries stopReason + camelCase sessionId (no role/status).
-		isGrok := !isCodex && !isClaude && !isGemini &&
-			(((event.Type == "thought" || event.Type == "text") && event.Data != "") ||
-				(event.Type == "end" && (event.StopReason != "" || event.SessionIDCamel != "")))
 
 		// Handle Codex events
 		if isCodex {
@@ -354,70 +307,11 @@ func parseJSONStreamInternalWithContent(r io.Reader, warnFn func(string), infoFn
 			continue
 		}
 
-		// Handle Gemini events
-		if isGemini {
-			if event.GetSessionID() != "" && threadID == "" {
-				threadID = event.GetSessionID()
-			}
-
-			if event.Content != "" {
-				geminiBuffer.WriteString(event.Content)
-				// Stream content to callback
-				if onContent != nil {
-					onContent(event.Content, "message")
-				}
-			}
-
-			if event.Status != "" {
-				notifyMessage()
-
-				if event.Type == "result" && (event.Status == "success" || event.Status == "error" || event.Status == "complete" || event.Status == "failed") {
-					notifyComplete()
-				}
-			}
-
-			delta := false
-			if event.Delta != nil {
-				delta = *event.Delta
-			}
-
-			infoFn(fmt.Sprintf("Parsed Gemini event #%d type=%s role=%s delta=%t status=%s content_len=%d", totalEvents, event.Type, event.Role, delta, event.Status, len(event.Content)))
-			continue
-		}
-
-		// Handle Grok events
-		if isGrok {
-			switch event.Type {
-			case "text":
-				grokBuffer.WriteString(event.Data)
-				if onContent != nil {
-					onContent(event.Data, "message")
-				}
-			case "thought":
-				// Reasoning token deltas — not part of the final message.
-				// Skip per-token logging: a single turn can emit thousands of
-				// thought events and flood the log line limit.
-			case "end":
-				infoFn(fmt.Sprintf("Parsed Grok end event #%d stop_reason=%s session_id=%s message_len=%d", totalEvents, event.StopReason, event.SessionIDCamel, grokBuffer.Len()))
-				if grokBuffer.Len() > 0 {
-					notifyMessage()
-					emitProgress(formatProgressLine("message", map[string]string{"text": strconv.Quote(safeProgressSnippet(grokBuffer.String(), 120))}))
-				}
-				emitProgress(formatProgressLine("session_completed", map[string]string{"total_events": strconv.Itoa(totalEvents)}))
-				notifyComplete()
-			}
-			continue
-		}
-
 		// Unknown event format from other backends (turn.started/assistant/user); ignore.
 		continue
 	}
 
 	switch {
-	case grokBuffer.Len() > 0:
-		message = grokBuffer.String()
-	case geminiBuffer.Len() > 0:
-		message = geminiBuffer.String()
 	case claudeMessage != "":
 		message = claudeMessage
 	default:

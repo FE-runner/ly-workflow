@@ -242,10 +242,6 @@ func (ws *WebServer) generateIndexHTML() string {
 		iconBg = "#238636"
 		titleColor = "#3fb950"
 		iconText = "CDX"
-	case "gemini":
-		iconBg = "#8957e5"
-		titleColor = "#a371f7"
-		iconText = "GEM"
 	case "claude":
 		iconBg = "#d97706"
 		titleColor = "#fbbf24"

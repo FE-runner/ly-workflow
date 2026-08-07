@@ -20,9 +20,7 @@ type Config struct {
 	Backend            string
 	SkipPermissions    bool
 	MaxParallelWorkers int
-	GeminiModel        string // Gemini model name (empty = use default)
-	GrokModel          string // Grok model name (empty = use default)
-	Progress           bool   // Emit compact progress lines to stderr
+	Progress           bool // Emit compact progress lines to stderr
 }
 
 // ParallelConfig defines the JSON schema for parallel execution
@@ -42,8 +40,6 @@ type TaskSpec struct {
 	Progress     bool            `json:"-"`
 	Mode         string          `json:"-"`
 	UseStdin     bool            `json:"-"`
-	GeminiModel  string          `json:"-"`
-	GrokModel    string          `json:"-"`
 	Context      context.Context `json:"-"`
 }
 
@@ -67,12 +63,8 @@ type TaskResult struct {
 }
 
 var backendRegistry = map[string]Backend{
-	"codex":       CodexBackend{},
-	"claude":      ClaudeBackend{},
-	"gemini":      GeminiBackend{},
-	"antigravity": AntigravityBackend{},
-	"agy":         AntigravityBackend{},
-	"grok":        GrokBackend{},
+	"codex":  CodexBackend{},
+	"claude": ClaudeBackend{},
 }
 
 func selectBackend(name string) (Backend, error) {
@@ -206,10 +198,6 @@ func parseArgs() (*Config, error) {
 		return nil, fmt.Errorf("task required")
 	}
 
-	// Read environment variables (lowest precedence)
-	geminiModel := strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
-	grokModel := strings.TrimSpace(os.Getenv("GROK_MODEL"))
-
 	backendName := defaultBackendName
 	skipPermissions := envFlagEnabled("CODEAGENT_SKIP_PERMISSIONS")
 	progress := false
@@ -234,42 +222,6 @@ func parseArgs() (*Config, error) {
 			}
 			backendName = value
 			continue
-		case arg == "--gemini-model":
-			if i+1 >= len(args) {
-				return nil, fmt.Errorf("--gemini-model flag requires a non-empty model name")
-			}
-			value := strings.TrimSpace(args[i+1])
-			if value == "" {
-				return nil, fmt.Errorf("--gemini-model flag requires a non-empty model name")
-			}
-			geminiModel = value
-			i++
-			continue
-		case strings.HasPrefix(arg, "--gemini-model="):
-			value := strings.TrimSpace(strings.TrimPrefix(arg, "--gemini-model="))
-			if value == "" {
-				return nil, fmt.Errorf("--gemini-model flag requires a non-empty model name")
-			}
-			geminiModel = value
-			continue
-		case arg == "--grok-model":
-			if i+1 >= len(args) {
-				return nil, fmt.Errorf("--grok-model flag requires a non-empty model name")
-			}
-			value := strings.TrimSpace(args[i+1])
-			if value == "" {
-				return nil, fmt.Errorf("--grok-model flag requires a non-empty model name")
-			}
-			grokModel = value
-			i++
-			continue
-		case strings.HasPrefix(arg, "--grok-model="):
-			value := strings.TrimSpace(strings.TrimPrefix(arg, "--grok-model="))
-			if value == "" {
-				return nil, fmt.Errorf("--grok-model flag requires a non-empty model name")
-			}
-			grokModel = value
-			continue
 		case arg == "--skip-permissions", arg == "--dangerously-skip-permissions":
 			skipPermissions = true
 			continue
@@ -291,7 +243,7 @@ func parseArgs() (*Config, error) {
 	}
 	args = filtered
 
-	cfg := &Config{WorkDir: defaultWorkdir, Backend: backendName, SkipPermissions: skipPermissions, GeminiModel: geminiModel, GrokModel: grokModel, Progress: progress}
+	cfg := &Config{WorkDir: defaultWorkdir, Backend: backendName, SkipPermissions: skipPermissions, Progress: progress}
 	cfg.MaxParallelWorkers = resolveMaxParallelWorkers()
 
 	if args[0] == "resume" {

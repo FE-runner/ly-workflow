@@ -73,7 +73,7 @@ description: '智能 Git 提交：分析改动生成 Conventional Commit 信息�
 `[模式：上下文归档]`
 
 **前置判断**：
-- 若 `.context/` 目录不存在 → 在提交成功后输出提示：`💡 建议执行 /ccg:context init 启用决策追踪`，不阻断
+- 若 `.context/` 目录不存在 → 在提交成功后输出提示：`💡 建议执行 /ly:context init 启用决策追踪`，不阻断
 - 若 `.context/` 存在 → 执行以下步骤
 
 **从 git diff 自动生成 ContextEntry**：
@@ -93,7 +93,7 @@ description: '智能 Git 提交：分析改动生成 Conventional Commit 信息�
 8. **暂存**：`git add .context/history/`
 9. **Trailer**：在 commit message 中添加 `Context-Id: <uuid>` trailer
 
-**ContextEntry 格式**参见 `/ccg:context` 命令中的 Schema 定义。
+**ContextEntry 格式**参见 `/ly:context` 命令中的 Schema 定义。
 
 **失败降级**：若归档过程出错，不阻断提交。写入 minimal ContextEntry（仅 summary + files），继续正常提交。
 

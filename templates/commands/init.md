@@ -1,10 +1,10 @@
 ---
-description: '初始化项目 AI 上下文：生成根级与模块级 CLAUDE.md 索引'
+description: '生成 CLAUDE.md，初始化 OpenSpec 目录结构'
 ---
 
-# Init - 初始化项目 AI 上下文
+# Init - 项目初始化
 
-以「根级简明 + 模块级详尽」策略生成项目 AI 上下文文档。
+两步初始化：生成/更新项目的 CLAUDE.md 上下文文档，并搭建 OpenSpec 目录结构。
 
 ## 使用方法
 
@@ -12,89 +12,43 @@ description: '初始化项目 AI 上下文：生成根级与模块级 CLAUDE.md 
 /init <项目摘要或名称>
 ```
 
-## 上下文
+## 步骤
 
-- 项目摘要：$ARGUMENTS
-- 生成/更新根级与模块级 `CLAUDE.md`
-- 自动生成 Mermaid 结构图和导航面包屑
+### 步骤 1：生成 CLAUDE.md
 
-## 你的角色
-
-你是**协调者**，负责调用子智能体完成项目扫描与文档生成。
-
----
-
-## 执行工作流
-
-**⚠️ 必须按以下步骤执行，使用 Task 工具调用子智能体**
-
-### 🕐 步骤 1：获取当前时间戳
-
-**必须首先调用 `get-current-datetime` 子智能体**：
+调用原生 `init` 技能，传入项目摘要（如有）：
 
 ```
-Task({
-  subagent_type: "get-current-datetime",
-  prompt: "获取当前日期时间，用于文档时间戳",
-  description: "获取当前时间"
-})
+Skill({ skill: "init", args: "$ARGUMENTS" })
 ```
 
-等待返回时间戳后，保存为 `$TIMESTAMP` 供后续使用。
+### 步骤 2：初始化 OpenSpec
 
-### 🏗️ 步骤 2：调用初始化架构师
+1. **检测 OpenSpec CLI**：
+   ```bash
+   openspec --version
+   ```
+2. **未安装则全局安装**：
+   ```bash
+   npm install -g @fission-ai/openspec@latest
+   ```
+3. **检查是否已初始化**：
+   ```bash
+   ls -la openspec/ 2>/dev/null || echo "Not initialized"
+   ```
+4. **未初始化则运行**（当前工作目录下执行，禁止 `cd` 到其他路径；不确定当前目录先 `pwd` 确认）——用 `--tools claude` 非交互指定 AI 工具为 Claude Code，避免卡在交互式选择上：
+   ```bash
+   openspec init --tools claude
+   ```
 
-**使用 `init-architect` 子智能体执行完整扫描**：
+### 步骤 3：汇总
 
 ```
-Task({
-  subagent_type: "init-architect",
-  prompt: "扫描项目并生成 CLAUDE.md 文档。\n\n项目摘要：$ARGUMENTS\n当前时间戳：$TIMESTAMP\n工作目录：{{WORKDIR}}\n\n请执行：\n1. 阶段 A：全仓清点（文件统计、模块识别）\n2. 阶段 B：模块优先扫描（入口、接口、依赖、测试）\n3. 阶段 C：深度补捞（按需）\n4. 阶段 D：生成文档（根级 + 模块级 CLAUDE.md）\n\n输出覆盖率报告与推荐下一步。",
-  description: "初始化项目文档"
-})
+📋 初始化结果
+  CLAUDE.md    ✓/✗
+  openspec/    ✓/✗
+
+接下来可以：
+  /propose "描述你要做什么"   — 起一个change
+  /explore                    — 想清楚再动手
 ```
-
-### 📊 步骤 3：汇总结果
-
-子智能体完成后，向用户展示：
-
-```markdown
-## 初始化结果摘要
-
-### 根级文档
-- 状态：[创建/更新]
-- 主要栏目：<列表>
-
-### 模块识别
-- 识别模块数：X
-- 模块列表：
-  1. <模块路径>
-  2. ...
-
-### 覆盖率
-- 已扫描文件：X / Y
-- 覆盖模块：X%
-- 跳过原因：<如有>
-
-### 生成内容
-- ✅ Mermaid 结构图
-- ✅ N 个模块导航面包屑
-
-### 推荐下一步
-- [ ] 补扫：<路径>
-```
-
----
-
-## 安全边界
-
-1. **只读/写文档** – 不改源代码
-2. **忽略生成物** – 跳过 `node_modules`、`dist`、二进制文件
-3. **增量更新** – 重复运行时做断点续扫
-
-## 关键规则
-
-1. **必须使用 Task 工具**调用子智能体，不要自己执行扫描逻辑
-2. 先调用 `get-current-datetime` 获取时间戳
-3. 再调用 `init-architect` 执行完整扫描
-4. 结果在主对话打印摘要，全文由子智能体写入仓库

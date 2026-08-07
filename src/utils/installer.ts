@@ -3,7 +3,7 @@ import { homedir } from 'node:os'
 import ansis from 'ansis'
 import fs from 'fs-extra'
 import { basename, join } from 'pathe'
-import { getLegacyCommandIds, getWorkflowById } from './installer-data'
+import { getWorkflowById } from './installer-data'
 import { PACKAGE_ROOT, injectConfigVariables, replaceHomePathsInTemplate } from './installer-template'
 import { readCcgConfig } from './config'
 import { installSkillCommands } from './skill-registry'
@@ -17,7 +17,6 @@ import { version as packageVersion } from '../../package.json'
 export {
   getAllCommandIds,
   getCoreCommandIds,
-  getLegacyCommandIds,
   getWorkflowById,
   getWorkflowConfigs,
   getWorkflowPreset,
@@ -63,7 +62,7 @@ export type { SkillMeta } from './skill-registry'
  * Must match the `version` constant in codeagent-wrapper/main.go.
  * When this differs from the installed binary, update triggers re-download.
  */
-const EXPECTED_BINARY_VERSION = '5.12.0'
+const EXPECTED_BINARY_VERSION = '6.0.0'
 
 // ═══════════════════════════════════════════════════════
 // Install context — shared across sub-functions
@@ -71,11 +70,7 @@ const EXPECTED_BINARY_VERSION = '5.12.0'
 
 interface InstallConfig {
   routing: {
-    mode: string
-    frontend: { models: string[], primary: string }
-    backend: { models: string[], primary: string }
-    review: { models: string[] }
-    geminiModel?: string
+    reviewer?: string
   }
   liteMode: boolean
   mcpProvider: string
@@ -94,7 +89,7 @@ interface InstallContext {
 // Binary download
 // ═══════════════════════════════════════════════════════
 
-const GITHUB_REPO = 'fengshao1227/ccg-workflow'
+const GITHUB_REPO = 'FE-runner/ly-workflow'
 const RELEASE_TAG = 'preset'
 
 /** Download sources: R2 CDN first (China-friendly) → GitHub fallback (global) */
@@ -220,8 +215,7 @@ async function copyMdTemplates(
  * Install slash command .md files from templates/commands/
  */
 async function installCommandFiles(ctx: InstallContext, workflowIds: string[]): Promise<void> {
-  const commandsDir = join(ctx.installDir, 'commands', 'ccg')
-  const legacyIds = new Set(getLegacyCommandIds())
+  const commandsDir = join(ctx.installDir, 'commands', 'ly')
 
   for (const workflowId of workflowIds) {
     const workflow = getWorkflowById(workflowId)
@@ -231,9 +225,7 @@ async function installCommandFiles(ctx: InstallContext, workflowIds: string[]): 
     }
 
     for (const cmd of workflow.commands) {
-      // Route to correct source directory: core → commands/, legacy → commands-legacy/
-      const srcSubdir = legacyIds.has(workflowId) ? 'commands-legacy' : 'commands'
-      const srcFile = join(ctx.templateDir, srcSubdir, `${cmd}.md`)
+      const srcFile = join(ctx.templateDir, 'commands', `${cmd}.md`)
       const destFile = join(commandsDir, `${cmd}.md`)
 
       try {
@@ -277,7 +269,7 @@ async function installAgentFiles(ctx: InstallContext): Promise<void> {
     await copyMdTemplates(
       ctx,
       join(ctx.templateDir, 'commands', 'agents'),
-      join(ctx.installDir, 'agents', 'ccg'),
+      join(ctx.installDir, 'agents', 'ly'),
       { inject: true },
     )
   }
@@ -292,13 +284,13 @@ async function installAgentFiles(ctx: InstallContext): Promise<void> {
  */
 async function installPromptFiles(ctx: InstallContext): Promise<void> {
   const promptsTemplateDir = join(ctx.templateDir, 'prompts')
-  const promptsDir = join(ctx.installDir, '.ccg', 'prompts')
+  const promptsDir = join(ctx.installDir, '.ly', 'prompts')
   if (!(await fs.pathExists(promptsTemplateDir))) {
     ctx.result.errors.push(`Prompts template directory not found: ${promptsTemplateDir}`)
     return
   }
 
-  for (const model of ['codex', 'gemini', 'claude', 'antigravity', 'grok']) {
+  for (const model of ['codex', 'claude']) {
     try {
       const installed = await copyMdTemplates(
         ctx,
@@ -360,7 +352,7 @@ async function removeDirCollectMdNames(dir: string): Promise<string[]> {
  */
 async function installSkillFiles(ctx: InstallContext): Promise<void> {
   const skillsTemplateDir = join(ctx.templateDir, 'skills')
-  const skillsDestDir = join(ctx.installDir, 'skills', 'ccg')
+  const skillsDestDir = join(ctx.installDir, 'skills', 'ly')
 
   // Report error instead of silently returning when template dir is missing
   if (!(await fs.pathExists(skillsTemplateDir))) {
@@ -452,8 +444,8 @@ async function installSkillFiles(ctx: InstallContext): Promise<void> {
  */
 async function installSkillGeneratedCommands(ctx: InstallContext): Promise<void> {
   const skillsTemplateDir = join(ctx.templateDir, 'skills')
-  const skillsInstallDir = join(ctx.installDir, 'skills', 'ccg')
-  const commandsDir = join(ctx.installDir, 'commands', 'ccg')
+  const skillsInstallDir = join(ctx.installDir, 'skills', 'ly')
+  const commandsDir = join(ctx.installDir, 'commands', 'ly')
 
   if (!(await fs.pathExists(skillsTemplateDir))) return
 
@@ -507,7 +499,7 @@ export async function installCodexMode(): Promise<{ success: boolean, message: s
     await fs.ensureDir(join(codexHome, 'agents'))
 
     // Read CCG config once — reused for template variable injection across
-    // AGENTS.md + hooks/ccg-workflow.py so model routing (frontend/backend)
+    // AGENTS.md + hooks/ly-workflow.py so model routing (frontend/backend)
     // stays consistent with what the user configured (issue: codex mode still
     // referenced gemini after the antigravity default switch).
     const config = await readCcgConfig()
@@ -538,7 +530,7 @@ export async function installCodexMode(): Promise<{ success: boolean, message: s
       await fs.writeFile(join(codexHome, 'AGENTS.md'), content, 'utf-8')
     }
 
-    // hooks/ — inject template variables into ccg-workflow.py so the guidance
+    // hooks/ — inject template variables into ly-workflow.py so the guidance
     // it emits references the user's actual frontend model, not hardcoded gemini.
     const hooksSrc = join(codexTemplateDir, 'hooks')
     if (await fs.pathExists(hooksSrc)) {
@@ -574,7 +566,7 @@ export async function installCodexMode(): Promise<{ success: boolean, message: s
 
     return {
       success: true,
-      message: `Codex mode installed:\n  ~/.codex/AGENTS.md\n  ~/.codex/config.toml\n  ~/.codex/hooks.json\n  ~/.codex/hooks/ccg-workflow.py\n  ~/.codex/agents/ccg-implement.toml\n  ~/.codex/agents/ccg-review.toml\n  ~/.codex/agents/ccg-research.toml\n  ~/.codex/.ccg-version (${packageVersion})`,
+      message: `Codex mode installed:\n  ~/.codex/AGENTS.md\n  ~/.codex/config.toml\n  ~/.codex/hooks.json\n  ~/.codex/hooks/ly-workflow.py\n  ~/.codex/agents/ccg-implement.toml\n  ~/.codex/agents/ccg-review.toml\n  ~/.codex/agents/ccg-research.toml\n  ~/.codex/.ccg-version (${packageVersion})`,
     }
   }
   catch (error) {
@@ -595,7 +587,7 @@ export async function uninstallCodexMode(): Promise<{ success: boolean, removed:
     join(codexHome, 'agents', 'ccg-implement.toml'),
     join(codexHome, 'agents', 'ccg-review.toml'),
     join(codexHome, 'agents', 'ccg-research.toml'),
-    join(codexHome, 'hooks', 'ccg-workflow.py'),
+    join(codexHome, 'hooks', 'ly-workflow.py'),
     join(codexHome, 'hooks.json'),
     join(codexHome, '.ccg-version'),
   ]
@@ -789,7 +781,7 @@ export function showBinaryDownloadWarning(binDir: string): void {
     console.log()
   }
   console.log(ansis.white(`    或重新安装 / Or re-install:`))
-  console.log(ansis.cyan(`       npx ccg-workflow@latest`))
+  console.log(ansis.cyan(`       npx ly-workflow@latest`))
   console.log()
 }
 
@@ -892,7 +884,7 @@ async function installEngineFiles(ctx: InstallContext): Promise<void> {
   const engineSrcDir = join(ctx.templateDir, 'engine')
   if (!(await fs.pathExists(engineSrcDir))) return
 
-  const engineDestDir = join(ctx.installDir, '.ccg', 'engine')
+  const engineDestDir = join(ctx.installDir, '.ly', 'engine')
 
   try {
     // Copy top-level engine .md files (model-router.md, phase-guide.md)
@@ -923,7 +915,7 @@ async function installHookScripts(ctx: InstallContext): Promise<void> {
   const hooksSrcDir = join(ctx.templateDir, 'hooks')
   if (!(await fs.pathExists(hooksSrcDir))) return
 
-  const hooksDestDir = join(ctx.installDir, 'hooks', 'ccg')
+  const hooksDestDir = join(ctx.installDir, 'hooks', 'ly')
   await fs.ensureDir(hooksDestDir)
 
   try {
@@ -946,7 +938,7 @@ async function installHookScripts(ctx: InstallContext): Promise<void> {
  */
 async function registerHooksInSettings(ctx: InstallContext): Promise<void> {
   const settingsPath = join(ctx.installDir, 'settings.json')
-  const hooksDir = join(ctx.installDir, 'hooks', 'ccg')
+  const hooksDir = join(ctx.installDir, 'hooks', 'ly')
 
   try {
     let settings: Record<string, unknown> = {}
@@ -1013,10 +1005,7 @@ export async function installWorkflows(
   force = false,
   config?: {
     routing?: {
-      mode?: string
-      frontend?: { models?: string[], primary?: string }
-      backend?: { models?: string[], primary?: string }
-      review?: { models?: string[] }
+      reviewer?: string
     }
     liteMode?: boolean
     mcpProvider?: string
@@ -1028,10 +1017,7 @@ export async function installWorkflows(
     force,
     config: {
       routing: config?.routing as InstallConfig['routing'] || {
-        mode: 'smart',
-        frontend: { models: ['antigravity'], primary: 'antigravity' },
-        backend: { models: ['codex'], primary: 'codex' },
-        review: { models: ['codex', 'antigravity'] },
+        reviewer: 'codex',
       },
       liteMode: config?.liteMode || false,
       mcpProvider: config?.mcpProvider || 'fast-context',
@@ -1054,17 +1040,17 @@ export async function installWorkflows(
   if (!(await fs.pathExists(ctx.templateDir))) {
     const errorMsg = `Template directory not found: ${ctx.templateDir} (PACKAGE_ROOT=${PACKAGE_ROOT}). `
       + `This usually means the npm package is incomplete or the cache is corrupted. `
-      + `Try: npm cache clean --force && npx ccg-workflow@latest`
+      + `Try: npm cache clean --force && npx ly-workflow@latest`
     ctx.result.errors.push(errorMsg)
     ctx.result.success = false
     return ctx.result
   }
 
   // Ensure base directories
-  await fs.ensureDir(join(installDir, 'commands', 'ccg'))
-  await fs.ensureDir(join(installDir, '.ccg'))
-  await fs.ensureDir(join(installDir, '.ccg', 'prompts'))
-  await fs.ensureDir(join(installDir, '.ccg', 'engine', 'strategies'))
+  await fs.ensureDir(join(installDir, 'commands', 'ly'))
+  await fs.ensureDir(join(installDir, '.ly'))
+  await fs.ensureDir(join(installDir, '.ly', 'prompts'))
+  await fs.ensureDir(join(installDir, '.ly', 'engine', 'strategies'))
 
   // Execute each install step
   await installCommandFiles(ctx, workflowIds)
@@ -1089,7 +1075,7 @@ export async function installWorkflows(
     ctx.result.success = false
   }
 
-  ctx.result.configPath = join(installDir, 'commands', 'ccg')
+  ctx.result.configPath = join(installDir, 'commands', 'ly')
   return ctx.result
 }
 
@@ -1126,12 +1112,12 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
     errors: [],
   }
 
-  const commandsDir = join(installDir, 'commands', 'ccg')
-  const agentsDir = join(installDir, 'agents', 'ccg')
-  const skillsDir = join(installDir, 'skills', 'ccg')
+  const commandsDir = join(installDir, 'commands', 'ly')
+  const agentsDir = join(installDir, 'agents', 'ly')
+  const skillsDir = join(installDir, 'skills', 'ly')
   const rulesDir = join(installDir, 'rules')
   const binDir = join(installDir, 'bin')
-  const ccgConfigDir = join(installDir, '.ccg')
+  const ccgConfigDir = join(installDir, '.ly')
 
   // Remove CCG commands directory
   try {
@@ -1166,7 +1152,7 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
   // Remove CCG rules files
   if (await fs.pathExists(rulesDir)) {
     try {
-      for (const ruleFile of ['ccg-skills.md', 'ccg-grok-search.md', 'ccg-skill-routing.md', 'ccg-codegraph.md']) {
+      for (const ruleFile of ['ly-skills.md', 'ccg-grok-search.md', 'ly-skill-routing.md', 'ly-codegraph.md']) {
         const rulePath = join(rulesDir, ruleFile)
         if (await fs.pathExists(rulePath)) {
           await fs.remove(rulePath)
@@ -1208,7 +1194,7 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
 
   // Remove CCG hook scripts directory (hooks/ccg/) — added by the v3.0 engine.
   // Older uninstall logic predates the hook engine and left these behind.
-  const hooksCcgDir = join(installDir, 'hooks', 'ccg')
+  const hooksCcgDir = join(installDir, 'hooks', 'ly')
   if (await fs.pathExists(hooksCcgDir)) {
     try {
       await fs.remove(hooksCcgDir)

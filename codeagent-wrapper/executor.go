@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -772,7 +771,7 @@ func buildCodexArgs(cfg *Config, targetArg string) []string {
 
 	args := []string{"e"}
 
-	// Default: auto-approve all operations (consistent with Gemini's -y behavior)
+	// Default: auto-approve all operations
 	// Users can disable this by setting CODEX_REQUIRE_APPROVAL=true
 	if !envFlagEnabled("CODEX_REQUIRE_APPROVAL") {
 		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
@@ -821,14 +820,12 @@ func runCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 	logger := injectedLogger
 
 	cfg := &Config{
-		Mode:        taskSpec.Mode,
-		Task:        taskSpec.Task,
-		SessionID:   taskSpec.SessionID,
-		WorkDir:     taskSpec.WorkDir,
-		Backend:     defaultBackendName,
-		Progress:    taskSpec.Progress,
-		GeminiModel: taskSpec.GeminiModel,
-		GrokModel:   taskSpec.GrokModel,
+		Mode:      taskSpec.Mode,
+		Task:      taskSpec.Task,
+		SessionID: taskSpec.SessionID,
+		WorkDir:   taskSpec.WorkDir,
+		Backend:   defaultBackendName,
+		Progress:  taskSpec.Progress,
 	}
 
 	commandName := codexCommand
@@ -858,23 +855,8 @@ func runCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 
 	useStdin := taskSpec.UseStdin
 	targetArg := taskSpec.Task
-
-	// Gemini/Antigravity CLI does not support "-" as stdin marker for -p flag.
-	// On macOS/Linux: pass the actual task text directly via -p (execve preserves
-	// multi-line args in argv). On Windows: npm's .cmd wrapper routes through
-	// cmd.exe which truncates multi-line args at the first newline (Issue #129).
-	// Use stdin pipe instead and omit -p so the CLI reads from piped stdin.
-	// Antigravity (agy) does NOT read stdin at all — it requires -p on every
-	// platform, including Windows (#146). The cmd.exe truncation risk is
-	// accepted because a truncated prompt is better than a silent no-op.
-	// Grok is a native binary (no .cmd shim), so -p is safe on every platform.
-	promptDirect := useStdin && ((cfg.Backend == "gemini" && !isWindows()) || cfg.Backend == "antigravity" || cfg.Backend == "grok")
-	promptStdinPipe := useStdin && cfg.Backend == "gemini" && isWindows()
-	if useStdin && !promptDirect && !promptStdinPipe {
+	if useStdin {
 		targetArg = "-"
-	}
-	if promptStdinPipe {
-		targetArg = ""
 	}
 
 	var codexArgs []string
@@ -969,7 +951,7 @@ func runCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 
 	if !silent {
 		// Note: Empty prefix ensures backend output is logged as-is without any wrapper format.
-		// This preserves the original stdout/stderr content from codex/claude/gemini backends.
+		// This preserves the original stdout/stderr content from codex/claude backends.
 		// Trade-off: Reduces distinguishability between stdout/stderr in logs, but maintains
 		// output fidelity which is critical for debugging backend-specific issues.
 		stdoutLogger = newLogWriter("", codexLogLineLimit)
@@ -998,12 +980,7 @@ func runCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 
 	// Set working directory for backends that don't support -C flag.
 	// - Codex: passes workdir via -C flag, skip cmd.Dir to avoid conflicts.
-	// - Gemini: use workDir as CWD. Previously used $HOME to avoid project .env
-	//   overriding global API keys (see github.com/google-gemini/gemini-cli/issues/2493),
-	//   but $HOME causes Gemini CLI to hang on long prompts due to directory scanning.
-	//   API keys are already protected via cmd.SetEnv() from loadMinimalEnvSettings().
-	//   Project dir is also passed via --include-directories in buildGeminiArgs().
-	// - Claude: uses cmd.Dir as project context (no .env loading issue).
+	// - Claude: uses cmd.Dir as project context.
 	if cfg.Mode != "resume" && cfg.WorkDir != "" {
 		switch commandName {
 		case "codex":
@@ -1033,7 +1010,7 @@ func runCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 
 	var stdinPipe io.WriteCloser
 	var err error
-	if useStdin && !promptDirect {
+	if useStdin {
 		stdinPipe, err = cmd.StdinPipe()
 		if err != nil {
 			logErrorFn("Failed to create stdin pipe: " + err.Error())
@@ -1096,48 +1073,7 @@ func runCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 		}
 	}
 
-	// Antigravity CLI outputs plain text (no JSON streaming).
-	// Read stdout directly instead of parsing JSON events.
-	isPlainTextBackend := cfg.Backend == "antigravity"
-
 	go func() {
-		if isPlainTextBackend {
-			scanner := bufio.NewScanner(stdoutReader)
-			scanner.Buffer(make([]byte, 0, 256*1024), 10*1024*1024)
-			var sb strings.Builder
-			firstLine := true
-			for scanner.Scan() {
-				line := scanner.Text()
-				if firstLine {
-					firstLine = false
-					select {
-					case messageSeen <- struct{}{}:
-					default:
-					}
-				}
-				if sb.Len() > 0 {
-					sb.WriteByte('\n')
-				}
-				sb.WriteString(line)
-				if onContentCallback != nil {
-					onContentCallback(line+"\n", "text")
-				}
-				if onProgressCallback != nil {
-					onProgressCallback(line)
-				}
-			}
-			msg := strings.TrimSpace(sb.String())
-			select {
-			case completeSeen <- struct{}{}:
-			default:
-			}
-			if globalWebServer != nil && webSessionID != "" {
-				globalWebServer.EndSession(webSessionID, cfg.Backend)
-			}
-			parseCh <- parseResult{message: msg}
-			return
-		}
-
 		msg, tid := parseJSONStreamInternalWithContent(stdoutReader, logWarnFn, logInfoFn, func() {
 			select {
 			case messageSeen <- struct{}{}:

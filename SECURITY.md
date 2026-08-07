@@ -13,8 +13,7 @@
 
 Instead, report them privately via one of the following:
 
-- **Email**: [fengshao1227@gmail.com](mailto:fengshao1227@gmail.com)
-- **GitHub Security Advisory**: [Report a vulnerability](https://github.com/fengshao1227/ccg-workflow/security/advisories/new)
+- **GitHub Security Advisory**: [Report a vulnerability](https://github.com/FE-runner/ly-workflow/security/advisories/new)
 
 ### What to include
 
@@ -33,9 +32,9 @@ Instead, report them privately via one of the following:
 
 The following are in scope:
 
-- `ccg-workflow` npm package
+- `ly-workflow` npm package
 - `codeagent-wrapper` binary
-- CCG hook scripts (`~/.claude/hooks/ccg/`)
+- CCG hook scripts (`~/.claude/hooks/ly/`)
 - Template files that get installed to user environments
 
 The following are out of scope:

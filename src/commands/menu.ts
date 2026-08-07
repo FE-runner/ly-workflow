@@ -296,7 +296,7 @@ function showHelp(): void {
  */
 function readCcgConfigSync(): any {
   try {
-    const configPath = join(homedir(), '.claude', '.ccg', 'config.toml')
+    const configPath = join(homedir(), '.claude', '.ly', 'config.toml')
     if (fs.pathExistsSync(configPath)) {
       return parseTOML(fs.readFileSync(configPath, 'utf-8'))
     }
@@ -408,8 +408,8 @@ async function configApi(): Promise<void> {
   if (!settings.permissions.allow)
     settings.permissions.allow = []
   const wrapperPerms = [
-    'Bash(~/.claude/bin/codeagent-wrapper --backend gemini*)',
     'Bash(~/.claude/bin/codeagent-wrapper --backend codex*)',
+    'Bash(~/.claude/bin/codeagent-wrapper --backend claude*)',
   ]
   for (const perm of wrapperPerms) {
     if (!settings.permissions.allow.includes(perm))
@@ -446,139 +446,35 @@ const OUTPUT_STYLES = [
 
 async function configModelRouting(): Promise<void> {
   const config = await readCcgConfig()
-  const isZh = (config?.general?.language || 'zh-CN') === 'zh-CN'
 
   console.log()
   console.log(ansis.cyan.bold(`  ${i18n.t('init:model.title')}`))
   console.log()
 
-  // Show current routing
-  const currentFrontend = config?.routing?.frontend?.primary || 'antigravity'
-  const currentBackend = config?.routing?.backend?.primary || 'codex'
-  const currentGeminiModel = config?.routing?.geminiModel || 'gemini-3.1-pro-preview'
-  const currentGrokModel = config?.routing?.grokModel || 'grok-4.5'
+  const currentReviewer = config?.routing?.reviewer || 'codex'
 
   console.log(ansis.gray(`  ${i18n.t('init:model.currentRouting')}:`))
-  console.log(`  ${ansis.cyan('Frontend:')} ${ansis.green(currentFrontend)}`)
-  console.log(`  ${ansis.cyan('Backend:')}  ${ansis.blue(currentBackend)}`)
-  if (currentFrontend === 'gemini' || currentBackend === 'gemini') {
-    console.log(`  ${ansis.cyan('Gemini:')}   ${ansis.gray(currentGeminiModel)}`)
-  }
-  if (currentFrontend === 'grok' || currentBackend === 'grok') {
-    console.log(`  ${ansis.cyan('Grok:')}     ${ansis.gray(currentGrokModel)}`)
-  }
+  console.log(`  ${ansis.cyan('Reviewer:')} ${ansis.green(currentReviewer)}`)
   console.log()
 
-  // Frontend model selection
-  const { selectedFrontend } = await inquirer.prompt([{
+  const { selectedReviewer } = await inquirer.prompt([{
     type: 'list',
-    name: 'selectedFrontend',
-    message: i18n.t('init:model.selectFrontend'),
-    choices: [
-      { name: `Antigravity ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'antigravity' },
-      { name: 'Gemini', value: 'gemini' },
-      { name: 'Codex', value: 'codex' },
-      { name: 'Grok', value: 'grok' },
-    ],
-    default: currentFrontend,
-  }])
-
-  // Backend model selection
-  const { selectedBackend } = await inquirer.prompt([{
-    type: 'list',
-    name: 'selectedBackend',
-    message: i18n.t('init:model.selectBackend'),
+    name: 'selectedReviewer',
+    message: i18n.t('init:model.selectReviewer'),
     choices: [
       { name: `Codex ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'codex' },
-      { name: 'Antigravity', value: 'antigravity' },
-      { name: 'Gemini', value: 'gemini' },
-      { name: 'Grok', value: 'grok' },
+      { name: 'Claude', value: 'claude' },
     ],
-    default: currentBackend,
+    default: currentReviewer,
   }])
 
-  // Gemini model name (if gemini is selected for any role)
-  let geminiModel = currentGeminiModel
-  if (selectedFrontend === 'gemini' || selectedBackend === 'gemini') {
-    const { selectedGeminiModel } = await inquirer.prompt([{
-      type: 'list',
-      name: 'selectedGeminiModel',
-      message: i18n.t('init:model.selectGeminiModel'),
-      choices: [
-        { name: `gemini-3.1-pro-preview ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'gemini-3.1-pro-preview' },
-        { name: 'gemini-2.5-flash', value: 'gemini-2.5-flash' },
-        { name: `${i18n.t('init:model.custom')}`, value: 'custom' },
-      ],
-      default: currentGeminiModel,
-    }])
-
-    if (selectedGeminiModel === 'custom') {
-      const { customModel } = await inquirer.prompt([{
-        type: 'input',
-        name: 'customModel',
-        message: i18n.t('init:model.enterCustomModel'),
-        validate: (v: string) => v.trim() !== '' || i18n.t('init:model.enterCustomModel'),
-      }])
-      geminiModel = customModel.trim()
-    }
-    else {
-      geminiModel = selectedGeminiModel
-    }
-  }
-
-  // Grok model name (if grok is selected for any role)
-  let grokModel = currentGrokModel
-  if (selectedFrontend === 'grok' || selectedBackend === 'grok') {
-    const { selectedGrokModel } = await inquirer.prompt([{
-      type: 'list',
-      name: 'selectedGrokModel',
-      message: i18n.t('init:model.selectGrokModel'),
-      choices: [
-        { name: `grok-4.5 ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'grok-4.5' },
-        { name: 'grok-composer-2.5-fast', value: 'grok-composer-2.5-fast' },
-        { name: `${i18n.t('init:model.custom')}`, value: 'custom' },
-      ],
-      default: currentGrokModel,
-    }])
-
-    if (selectedGrokModel === 'custom') {
-      const { customModel } = await inquirer.prompt([{
-        type: 'input',
-        name: 'customModel',
-        message: i18n.t('init:model.enterCustomModel'),
-        validate: (v: string) => v.trim() !== '' || i18n.t('init:model.enterCustomModel'),
-      }])
-      grokModel = customModel.trim()
-    }
-    else {
-      grokModel = selectedGrokModel
-    }
-  }
-
-  // Check if anything changed
-  if (selectedFrontend === currentFrontend && selectedBackend === currentBackend && geminiModel === currentGeminiModel && grokModel === currentGrokModel) {
+  if (selectedReviewer === currentReviewer) {
     console.log(ansis.gray(`  ${i18n.t('common:configNotModified')}`))
     return
   }
 
-  // Update config.toml
   if (config) {
-    config.routing.frontend = {
-      models: [selectedFrontend as any],
-      primary: selectedFrontend as any,
-      strategy: 'fallback',
-    }
-    config.routing.backend = {
-      models: [selectedBackend as any],
-      primary: selectedBackend as any,
-      strategy: 'fallback',
-    }
-    config.routing.review = {
-      models: [...new Set([selectedFrontend, selectedBackend])] as any,
-      strategy: 'parallel',
-    }
-    config.routing.geminiModel = geminiModel
-    config.routing.grokModel = grokModel
+    config.routing.reviewer = selectedReviewer
     await writeCcgConfig(config)
   }
 
@@ -589,7 +485,7 @@ async function configModelRouting(): Promise<void> {
   const spinner = ora(i18n.t('init:model.reinstalling')).start()
   try {
     const { execSync } = await import('node:child_process')
-    execSync('npx --yes ccg-workflow init --force --skip-prompt --skip-mcp', {
+    execSync('npx --yes ly-workflow init --force --skip-prompt --skip-mcp', {
       timeout: 300000,
       stdio: 'pipe',
       env: { ...process.env, CCG_UPDATE_MODE: 'true' },
@@ -863,8 +759,8 @@ async function handleInstallClaude(): Promise<void> {
  */
 async function checkIfGlobalInstall(): Promise<boolean> {
   try {
-    const { stdout } = await execAsync('npm list -g ccg-workflow --depth=0', { timeout: 5000 })
-    return stdout.includes('ccg-workflow@')
+    const { stdout } = await execAsync('npm list -g ly-workflow --depth=0', { timeout: 5000 })
+    return stdout.includes('ly-workflow@')
   }
   catch {
     return false
@@ -944,7 +840,7 @@ async function uninstall(): Promise<void> {
       console.log()
       console.log(`  ${i18n.t('menu:uninstall.runInNewTerminal')}`)
       console.log()
-      console.log(ansis.cyan.bold('    npm uninstall -g ccg-workflow'))
+      console.log(ansis.cyan.bold('    npm uninstall -g ly-workflow'))
       console.log()
       console.log(ansis.gray(`  (${i18n.t('menu:uninstall.afterDone')})`))
     }
