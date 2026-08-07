@@ -1101,7 +1101,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
               console.log(`    ${ansis.green('✓')} PATH ${ansis.gray(`→ ${shellRcDisplay} (${i18n.t('init:pathAlreadyConfigured', { file: shellRcDisplay })})`)}`)
             }
             else {
-              const configLine = `\n# CCG multi-model collaboration system\n${exportCommand}\n`
+              const configLine = `\n# ly-workflow\n${exportCommand}\n`
               await fs.appendFile(shellRc, configLine, 'utf-8')
               console.log(`    ${ansis.green('✓')} PATH ${ansis.gray(`→ ${shellRcDisplay}`)}`)
             }

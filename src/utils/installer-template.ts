@@ -32,7 +32,7 @@ function findPackageRoot(startDir: string): string {
 
   // Fallback: warn loudly — this is the root cause of "silent install failure"
   console.error(
-    `[CCG] ⚠ PACKAGE_ROOT resolution failed: could not find package.json with templates/ directory.\n`
+    `[ly-workflow] ⚠ PACKAGE_ROOT resolution failed: could not find package.json with templates/ directory.\n`
     + `  Start dir: ${startDir}\n`
     + `  Last checked: ${dir}\n`
     + `  This will cause commands/skills/prompts to not be installed.\n`

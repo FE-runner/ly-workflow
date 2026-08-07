@@ -63,8 +63,16 @@
 
 ## 10. 验证
 
-- [ ] 10.1 宽口径复查：`grep -rniE "ccg[^a-z-]|Claude \+ Codex \+ Gemini|Multi-Model Collaboration|/ccg:|npx ccg" src` 逐条过一遍，结果里每一条要么已改掉、要么写进下面的排除清单——不能是"搜出来的比任务列表多但没处理"
-- [ ] 10.2 排除清单（明确不改，写明原因）：`templates/prompts/**`（下一个独立change范围）、`syncMcpToGemini`/`GrokSearch`相关代码、`.ccg`配置目录路径、`CcgConfig`类型等内部标识符
+- [x] 10.1 宽口径复查：`grep -rniE "ccg[^a-z-]|Claude \+ Codex \+ Gemini|Multi-Model Collaboration|/ccg:|npx ccg" src` 逐条过一遍，结果里每一条要么已改掉、要么写进下面的排除清单——不能是"搜出来的比任务列表多但没处理"
+  - 复查中额外修好: `menu.ts`(Codex模式提示文案)、`doctor.ts`(标签+`hooks/ccg/`检测路径应为`hooks/ly/`，与实际安装路径`hooks/ly`不一致的功能性 bug)、`installer.ts`(`registerHooksInSettings`/`uninstallWorkflows`同样的`hooks/ccg/`检测路径 bug)、`installer.ts`/`installer-template.ts`(`[CCG]`日志前缀)、`installer-mcp.ts`(生成的 ContextWeaver .env 注释)、`init.ts`(写入用户 shell rc 的注释行)
+- [x] 10.2 排除清单（明确不改，写明原因）：
+  - `templates/prompts/**`（下一个独立change范围）
+  - `syncMcpToGemini`/`GrokSearch`相关代码及其字符串（`installer-mcp.ts`里`CCG_MCP_IDS`常量、"No CCG MCP servers to sync..."消息、相关注释）
+  - `.ccg`配置目录路径（`config.ts`的`CCG_DIR`常量、`installer-template.ts`里`~/.claude/.ccg`路径替换正则、`installer.ts`里"Remove .ccg config directory"等注释与内部消息）
+  - `CcgConfig`类型等内部标识符（`CCG_UPDATE_MODE`环境变量名、`init.ts`里`__ccg_back__`/`__ccg_cancel__`哨兵值）
+  - `migration.ts` 全文件（专门处理 v1.x 遗留的`~/.ccg/`旧目录迁移逻辑，字符串本身就是要匹配的历史路径，不应改）
+  - 纯代码注释（不产生用户可见输出）：`src/index.ts:1`、`types/index.ts:12`、`installer.ts`里多处步骤说明注释、`skill-registry.ts`的 jsdoc、`version.test.ts`注释、`init.ts:973`注释
+  - 死代码：`installer.ts`里`installCcgEntryCommand()`/`_installCodexFilesInternal()`（未被任何调用路径引用，属于 CCG 3.0 引擎的历史遗留，不在本次品牌清理范围内，需要单独确认是否删除）
 - [ ] 10.3 `pnpm typecheck && pnpm build` 过
 - [ ] 10.4 本地跑一遍 `node bin/ly.mjs menu`：H帮助（确认核心命令+技能命令数量分组展示正常）、菜单项6、init首屏、`node bin/ly.mjs --help`、`node bin/ly.mjs doctor`、`node bin/ly.mjs status`、`node bin/ly.mjs uninstall`，确认文案对得上且没有崩溃
 - [ ] 10.5 模拟"未安装任何技能命令"和"装了impeccable"两种状态各跑一次 `ly menu` 的 H 帮助，确认技能命令数量随实际状态变化

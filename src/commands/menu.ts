@@ -611,7 +611,7 @@ async function handleCodexMode(): Promise<void> {
     message: isZh ? '选择操作' : 'Select action',
     choices: [
       { name: isZh ? '安装 / 更新 Codex 模式' : 'Install / Update Codex Mode', value: 'install' },
-      { name: isZh ? '卸载 Codex 模式（只删 CCG 文件，保留用户配置）' : 'Uninstall Codex Mode (CCG files only, preserves user config)', value: 'uninstall' },
+      { name: isZh ? '卸载 Codex 模式（只删 ly-workflow 文件，保留用户配置）' : 'Uninstall Codex Mode (ly-workflow files only, preserves user config)', value: 'uninstall' },
       { name: isZh ? '返回' : 'Back', value: 'back' },
     ],
   }])
@@ -644,8 +644,8 @@ async function handleCodexMode(): Promise<void> {
 
   // Install
   console.log(isZh
-    ? '  安装 CCG Codex 模式到 ~/.codex/，让 Codex CLI 作为主导者编排多模型。'
-    : '  Install CCG Codex mode to ~/.codex/, enabling Codex CLI as lead orchestrator.',
+    ? '  安装 ly-workflow Codex 模式到 ~/.codex/，让 Codex CLI 作为主导者编排多模型。'
+    : '  Install ly-workflow Codex mode to ~/.codex/, enabling Codex CLI as lead orchestrator.',
   )
   console.log()
   console.log(isZh ? '  将安装:' : '  Will install:')
