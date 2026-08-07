@@ -39,12 +39,12 @@ export async function doctor(): Promise<void> {
     detail: `${nodeVer}${major < 20 ? ' (requires >=20)' : ''}`,
   })
 
-  // 2. CCG config
+  // 2. ly-workflow config
   const config = await readCcgConfig()
   checks.push({
-    label: 'CCG config',
+    label: 'ly-workflow config',
     status: config ? OK : WARN,
-    detail: config ? `v${config.general?.version || '?'}, lang=${config.general?.language || '?'}` : 'Not found (~/.claude/.ccg/config.toml)',
+    detail: config ? `v${config.general?.version || '?'}, lang=${config.general?.language || '?'}` : 'Not found (~/.claude/.ly/config.toml)',
   })
 
   // 3. Commands
@@ -76,7 +76,7 @@ export async function doctor(): Promise<void> {
       for (const entries of Object.values(hooksConfig) as any[]) {
         for (const entry of (Array.isArray(entries) ? entries : [])) {
           const cmds = (entry?.hooks || []) as any[]
-          if (cmds.some((h: any) => typeof h?.command === 'string' && h.command.includes('hooks/ccg/'))) {
+          if (cmds.some((h: any) => typeof h?.command === 'string' && h.command.includes('hooks/ly/'))) {
             hooksRegistered++
           }
         }
@@ -149,7 +149,7 @@ export async function doctor(): Promise<void> {
 
   // Output
   console.log()
-  console.log(ansis.cyan.bold(`  CCG Doctor v${packageVersion}`))
+  console.log(ansis.cyan.bold(`  ly-workflow Doctor v${packageVersion}`))
   console.log()
   for (const { label, status, detail } of checks) {
     console.log(`  ${status} ${ansis.bold(label.padEnd(20))} ${ansis.gray(detail)}`)
@@ -228,7 +228,7 @@ export async function status(): Promise<void> {
 
   // Output
   console.log()
-  console.log(ansis.cyan.bold('  CCG Status'))
+  console.log(ansis.cyan.bold('  ly-workflow Status'))
   console.log()
   console.log(`  ${ansis.bold('Version')}        ${installedVer}${installedVer !== latestVer ? ansis.yellow(` (latest: ${latestVer})`) : ansis.green(' (up to date)')}`)
   console.log(`  ${ansis.bold('Commands')}       ${cmds.length}`)

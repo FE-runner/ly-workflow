@@ -291,7 +291,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
         console.log()
         console.log(ansis.cyan(i18n.t('update:installed', { count: config.workflows.installed.length })))
         for (const cmd of config.workflows.installed) {
-          console.log(`  ${ansis.gray('•')} /ccg:${cmd}`)
+          console.log(`  ${ansis.gray('•')} /ly:${cmd}`)
         }
       }
     }

@@ -187,7 +187,7 @@ async function copyMdTemplates(
   const installed: string[] = []
   if (!(await fs.pathExists(srcDir))) {
     // Log warning — helps diagnose "0 commands installed" issues
-    console.error(`[CCG] Template source directory not found: ${srcDir}`)
+    console.error(`[ly-workflow] Template source directory not found: ${srcDir}`)
     return installed
   }
 
@@ -243,11 +243,9 @@ async function installCommandFiles(ctx: InstallContext, workflowIds: string[]): 
 description: "${workflow.descriptionEn}"
 ---
 
-# /ccg:${cmd}
+# /ly:${cmd}
 
 ${workflow.description}
-
-> This command is part of CCG multi-model collaboration system.
 `
           await fs.writeFile(destFile, placeholder, 'utf-8')
           ctx.result.installedCommands.push(cmd)
@@ -329,7 +327,7 @@ async function collectSkillNames(dir: string, depth = 0): Promise<string[]> {
     // Only suppress ENOENT (dir not found); log other errors that indicate real problems
     const code = (error as NodeJS.ErrnoException).code
     if (code !== 'ENOENT') {
-      console.error(`[CCG] Failed to read skills directory ${dir}: ${code || error}`)
+      console.error(`[ly-workflow] Failed to read skills directory ${dir}: ${code || error}`)
     }
   }
   return names
@@ -760,8 +758,8 @@ export function showBinaryDownloadWarning(binDir: string): void {
   console.log(ansis.red.bold(`  ║     Binary download failed (network issue)                 ║`))
   console.log(ansis.red.bold(`  ╚════════════════════════════════════════════════════════════╝`))
   console.log()
-  console.log(ansis.yellow(`  多模型协作命令 (/ccg:workflow, /ccg:plan 等) 需要此文件才能工作。`))
-  console.log(ansis.yellow(`  Multi-model commands require this binary to work.`))
+  console.log(ansis.yellow(`  Codex 审查命令 (/ly:review-plan, /ly:review-code) 需要此文件才能工作。`))
+  console.log(ansis.yellow(`  Codex review commands require this binary to work.`))
   console.log()
   console.log(ansis.cyan(`  手动修复 / Manual fix:`))
   console.log()
@@ -975,7 +973,7 @@ async function registerHooksInSettings(ctx: InstallContext): Promise<void> {
       const ccgCommand = (def.hooks[0] as Record<string, unknown>).command as string
       const existingIdx = eventHooks.findIndex((h) => {
         const hHooks = (h.hooks || []) as Record<string, unknown>[]
-        return hHooks.some(hh => typeof hh.command === 'string' && hh.command.includes('hooks/ccg/'))
+        return hHooks.some(hh => typeof hh.command === 'string' && hh.command.includes('hooks/ly/'))
       })
 
       if (existingIdx >= 0) {
@@ -1216,7 +1214,7 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
       if (hooks && typeof hooks === 'object') {
         const isCcgEntry = (h: any): boolean => {
           const hHooks = (h?.hooks || []) as any[]
-          return hHooks.some(hh => typeof hh?.command === 'string' && /hooks[\\/]ccg[\\/]/.test(hh.command))
+          return hHooks.some(hh => typeof hh?.command === 'string' && /hooks[\\/]ly[\\/]/.test(hh.command))
         }
         let modified = false
         for (const event of Object.keys(hooks)) {

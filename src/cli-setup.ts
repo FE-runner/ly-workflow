@@ -16,24 +16,24 @@ import { installCodexMode, uninstallCodexMode, uninstallWorkflows } from './util
 function customizeHelp(sections: any[]): any[] {
   sections.unshift({
     title: '',
-    body: ansis.cyan.bold(`CCG - Claude + Codex + Gemini v${version}`),
+    body: ansis.cyan.bold(`ly-workflow — Claude 主导开发, Codex 独立审查 v${version}`),
   })
 
   sections.push({
     title: ansis.yellow(i18n.t('cli:help.commands')),
     body: [
-      `  ${ansis.cyan('ccg')}              ${i18n.t('cli:help.commandDescriptions.showMenu')}`,
-      `  ${ansis.cyan('ccg init')} | ${ansis.cyan('i')}     ${i18n.t('cli:help.commandDescriptions.initConfig')}`,
-      `  ${ansis.cyan('ccg config mcp')}   ${i18n.t('cli:help.commandDescriptions.configMcp')}`,
-      `  ${ansis.cyan('ccg diagnose-mcp')} ${i18n.t('cli:help.commandDescriptions.diagnoseMcp')}`,
-      `  ${ansis.cyan('ccg fix-mcp')}      ${i18n.t('cli:help.commandDescriptions.fixMcp')}`,
-      `  ${ansis.cyan('ccg doctor')}       Check installation health`,
-      `  ${ansis.cyan('ccg status')}       Show installation overview`,
-      `  ${ansis.cyan('ccg codex-mode')}   Install/uninstall Codex-Led mode`,
-      `  ${ansis.cyan('ccg uninstall')}    Uninstall CCG (non-interactive)`,
+      `  ${ansis.cyan('ly')}              ${i18n.t('cli:help.commandDescriptions.showMenu')}`,
+      `  ${ansis.cyan('ly init')} | ${ansis.cyan('i')}     ${i18n.t('cli:help.commandDescriptions.initConfig')}`,
+      `  ${ansis.cyan('ly config mcp')}   ${i18n.t('cli:help.commandDescriptions.configMcp')}`,
+      `  ${ansis.cyan('ly diagnose-mcp')} ${i18n.t('cli:help.commandDescriptions.diagnoseMcp')}`,
+      `  ${ansis.cyan('ly fix-mcp')}      ${i18n.t('cli:help.commandDescriptions.fixMcp')}`,
+      `  ${ansis.cyan('ly doctor')}       Check installation health`,
+      `  ${ansis.cyan('ly status')}       Show installation overview`,
+      `  ${ansis.cyan('ly codex-mode')}   Install/uninstall Codex-Led mode`,
+      `  ${ansis.cyan('ly uninstall')}    Uninstall ly-workflow (non-interactive)`,
       '',
       ansis.gray(`  ${i18n.t('cli:help.shortcuts')}`),
-      `  ${ansis.cyan('ccg i')}            ${i18n.t('cli:help.shortcutDescriptions.quickInit')}`,
+      `  ${ansis.cyan('ly i')}            ${i18n.t('cli:help.shortcutDescriptions.quickInit')}`,
     ].join('\n'),
   })
 
@@ -57,14 +57,14 @@ function customizeHelp(sections: any[]): any[] {
     title: ansis.yellow(i18n.t('cli:help.examples')),
     body: [
       ansis.gray(`  # ${i18n.t('cli:help.exampleDescriptions.showInteractiveMenu')}`),
-      `  ${ansis.cyan('npx ccg')}`,
+      `  ${ansis.cyan('npx ly-workflow')}`,
       '',
       ansis.gray(`  # ${i18n.t('cli:help.exampleDescriptions.runFullInitialization')}`),
-      `  ${ansis.cyan('npx ccg init')}`,
-      `  ${ansis.cyan('npx ccg i')}`,
+      `  ${ansis.cyan('npx ly-workflow init')}`,
+      `  ${ansis.cyan('npx ly-workflow i')}`,
       '',
       ansis.gray(`  # ${i18n.t('cli:help.exampleDescriptions.customModels')}`),
-      `  ${ansis.cyan('npx ccg i --reviewer claude')}`,
+      `  ${ansis.cyan('npx ly-workflow i --reviewer claude')}`,
       '',
     ].join('\n'),
   })
@@ -140,12 +140,12 @@ export async function setupCommands(cli: CAC): Promise<void> {
 
   // Doctor: environment health check
   cli
-    .command('doctor', 'Check CCG installation health')
+    .command('doctor', 'Check ly-workflow installation health')
     .action(async () => { await doctor() })
 
   // Status: show current installation overview
   cli
-    .command('status', 'Show CCG installation status')
+    .command('status', 'Show ly-workflow installation status')
     .action(async () => { await status() })
 
   // Codex mode: non-interactive install/uninstall
@@ -176,19 +176,19 @@ export async function setupCommands(cli: CAC): Promise<void> {
       }
       else {
         console.error(ansis.red(`Unknown action: ${action}`))
-        console.log(ansis.gray('Usage: ccg codex-mode <install|uninstall>'))
+        console.log(ansis.gray('Usage: ly codex-mode <install|uninstall>'))
         process.exitCode = 1
       }
     })
 
-  // Uninstall CCG (Claude Code mode): non-interactive
+  // Uninstall ly-workflow (Claude Code mode): non-interactive
   cli
-    .command('uninstall', 'Uninstall CCG workflows from ~/.claude/ (non-interactive)')
+    .command('uninstall', 'Uninstall ly-workflow workflows from ~/.claude/ (non-interactive)')
     .action(async () => {
       const installDir = join(homedir(), '.claude')
       const result = await uninstallWorkflows(installDir)
       if (result.success) {
-        console.log(ansis.green('✓ CCG uninstalled'))
+        console.log(ansis.green('✓ ly-workflow uninstalled'))
         if (result.removedCommands.length > 0) console.log(ansis.gray(`  Commands: ${result.removedCommands.length} removed`))
         if (result.removedHooks) console.log(ansis.gray('  Hooks: removed'))
         if (result.removedBin) console.log(ansis.gray('  Binary: removed'))

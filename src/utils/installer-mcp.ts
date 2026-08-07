@@ -176,7 +176,7 @@ export async function installContextWeaver(config: ContextWeaverConfig): Promise
     const contextWeaverDir = join(homedir(), '.contextweaver')
     await fs.ensureDir(contextWeaverDir)
 
-    const envContent = `# ContextWeaver 配置 (由 CCG 自动生成)
+    const envContent = `# ContextWeaver 配置 (由 ly-workflow 自动生成)
 
 # Embedding API - 硅基流动
 EMBEDDINGS_API_KEY=${siliconflowApiKey}
