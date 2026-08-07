@@ -18,6 +18,12 @@
 - [ ] 2.3 删除 agents：`planner.md` `ui-ux-designer.md` `team-architect.md` `team-qa.md` `team-reviewer.md` `init-architect.md` `get-current-datetime.md`
 - [ ] 2.4 删除 `templates/prompts/gemini/` `templates/prompts/grok/` `templates/prompts/antigravity/` 三个整目录
 - [ ] 2.5 确认 `templates/prompts/claude/` `templates/prompts/codex/` 未被误删，保留完整
+- [ ] 2.6 删除 `templates/commands-legacy/` 整个目录（18 个旧版多模型命令：workflow/plan/execute/team*/frontend/backend/codex-exec/feat/analyze/debug/optimize/test/review/enhance）
+- [ ] 2.7 `src/utils/installer-data.ts`：删除 `LEGACY_CONFIGS` 常量、`getLegacyCommandIds()` 导出函数，`WORKFLOW_CONFIGS` 改为仅等于 `CORE_CONFIGS`（并同步更新 `CORE_CONFIGS` 里已删除的 spec-*/go 条目）
+- [ ] 2.8 `src/utils/installer.ts`：删除 `getLegacyCommandIds` 的 import 与调用（`installer.ts:224`/`235`），及 `commands-legacy` 源目录路由分支，安装逻辑统一从 `commands/` 读取
+- [ ] 2.9 `src/commands/init.ts`：删除 `installMode: 'v3' | 'legacy'` 类型与"旧版兼容"交互选项（`init.ts:719` 附近），删除 `update()` 中检测既有安装含旧命令并自动切换 `installMode = 'legacy'` 的保留逻辑（`init.ts:246-253`）
+- [ ] 2.10 `package.json` `files` 字段移除 `templates/commands-legacy/` 条目
+- [ ] 2.11 更新 `src/utils/__tests__/installer.test.ts`（`LEGACY_TEMPLATES_DIR` 相关断言）与 `injectConfigVariables.test.ts`（`commands-legacy/backend.md` 等路径断言），移除对 legacy 目录的依赖
 
 ## 3. 新增 /ly:* 命令（templates/commands/）
 
@@ -26,8 +32,8 @@
 - [ ] 3.3 新建 `propose.md`：委托 `opsx:propose`，转发 `$ARGUMENTS`
 - [ ] 3.4 新建 `apply.md`：委托 `opsx:apply`，转发 `$ARGUMENTS`
 - [ ] 3.5 新建 `archive.md`：委托 `opsx:archive`，转发 `$ARGUMENTS`
-- [ ] 3.6 新建 `review-plan.md`：按优先级解析目标 change（显式参数 > 唯一存在的change > 多个候选时询问用户），读取 proposal/design/tasks（缺失的容错跳过），调用 `codeagent-wrapper --backend codex` + `codex/reviewer.md` 角色（路径 `~/.claude/.ly/prompts/codex/reviewer.md`），输出方案级发现
-- [ ] 3.7 新建 `review-code.md`：判定 diff 范围（`git diff HEAD` 优先；无未提交变更且有历史提交则 `git diff HEAD~1`；仅单个commit无`HEAD~1`时改用 `git show HEAD`），调用 `codeagent-wrapper --backend codex` + `codex/reviewer.md` 角色（路径同上），输出 Critical/Warning/Info 分级结果，无发现时明确说明
+- [ ] 3.6 新建 `review-plan.md`：按优先级解析目标 change（显式参数 > 唯一存在的非archive change > 多个候选时询问用户），枚举`openspec/changes/`时排除`archive/`目录及其内容，读取 proposal/design/tasks（缺失的容错跳过），调用 `codeagent-wrapper --backend codex` + `codex/reviewer.md` 角色（路径 `~/.claude/.ly/prompts/codex/reviewer.md`），输出方案级发现
+- [ ] 3.7 新建 `review-code.md`：判定 diff 范围（`git diff HEAD` 优先；无未提交变更且有历史提交则 `git diff HEAD~1`；仅单个commit无`HEAD~1`时改用 `git show HEAD`；仓库零commit时`git rev-parse HEAD`会失败, 改用`git diff --cached`），额外用 `git status --porcelain` 抓取`??`未跟踪文件并把内容并入审查上下文（避免新建未add文件被漏审, 零commit场景同样适用），调用 `codeagent-wrapper --backend codex` + `codex/reviewer.md` 角色（路径同上），输出 Critical/Warning/Info 分级结果，无发现时明确说明
 
 ## 4. 类型与配置简化（src/）
 

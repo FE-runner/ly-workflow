@@ -1,18 +1,19 @@
 ## Context
 
-见 proposal.md「Why」。当前仓库 `templates/commands/` 共 12 个现役命令：`go.md`（驱动 `templates/engine/` 里的 model-router + 9 个 strategy 文件做多模型分派）、5 个 `spec-*.md`（CCG 自研的 OpenSpec 包装层）、以及 `clean-branches`/`commit`/`context`/`init`/`rollback`/`worktree` 共 6 个不涉及模型路由的工具命令。`codeagent-wrapper` 是无第三方依赖的 Go 二进制，`Backend` 接口（`backend.go`）已用一致的模式接入 5 个后端（codex/claude/gemini/antigravity/grok），删除三个只需移除对应 struct + 注册表条目，执行引擎（executor/parser/logger/server）不涉及具体后端类型，天然隔离。
+见 proposal.md「Why」。当前仓库 `templates/commands/` 共 12 个现役核心命令：`go.md`（驱动 `templates/engine/` 里的 model-router + 9 个 strategy 文件做多模型分派）、5 个 `spec-*.md`（CCG 自研的 OpenSpec 包装层）、以及 `clean-branches`/`commit`/`context`/`init`/`rollback`/`worktree` 共 6 个不涉及模型路由的工具命令。除此之外，`templates/commands-legacy/` 还有 18 个可选安装的旧版多模型命令（`workflow`/`plan`/`execute`/`team*`/`frontend`/`backend`/`codex-exec`/`feat`/`analyze`/`debug`/`optimize`/`test`/`review`/`enhance`），由 `installer-data.ts` 的 `LEGACY_CONFIGS` 注册，`init.ts` 向导提供"旧版兼容"选项主动安装，且 `update()` 检测到既有安装含旧版命令时会自动继续保留安装——这条自动保留路径若不清除，`ly-workflow` 升级时会把旧多模型命令原样带回来，直接违背本次变更目的。`codeagent-wrapper` 是无第三方依赖的 Go 二进制，`Backend` 接口（`backend.go`）已用一致的模式接入 5 个后端（codex/claude/gemini/antigravity/grok），删除三个只需移除对应 struct + 注册表条目，执行引擎（executor/parser/logger/server）不涉及具体后端类型，天然隔离。
 
 ## Goals / Non-Goals
 
 **Goals:**
-- 终态命令集共 12 个：删除 6 个（`spec-init`/`spec-research`/`spec-plan`/`spec-impl`/`spec-review`/`go`），重写 1 个（`init`），新增 6 个（`explore`/`propose`/`apply`/`archive`/`review-plan`/`review-code`），保持不变 5 个（`clean-branches`/`commit`/`context`/`rollback`/`worktree`）
+- 终态命令集共 12 个：删除 6 个核心命令（`spec-init`/`spec-research`/`spec-plan`/`spec-impl`/`spec-review`/`go`），重写 1 个（`init`），新增 6 个（`explore`/`propose`/`apply`/`archive`/`review-plan`/`review-code`），保持不变 5 个（`clean-branches`/`commit`/`context`/`rollback`/`worktree`）
+- `templates/commands-legacy/` 18 个旧版命令及其安装机制（`LEGACY_CONFIGS`、`getLegacyCommandIds()`、`init.ts` 的"旧版兼容"选项、`update()` 的自动保留逻辑）全部移除，终态不存在任何可选装的旧多模型命令入口
 - Go wrapper 只保留 codex + claude 两个 backend，其余代码零改动
 - 项目改名落地到所有安装路径、CLI 入口、文档
 - 文档整体重写但保留 LICENSE 原文与 git 历史
 
 **Non-Goals:**
 - 不改造 codeagent-wrapper 的执行引擎、SSE Web UI、日志系统
-- 不为质量关卡技能（verify-*）、域知识秘典、impeccable 工具集做任何调整
+- 不为质量关卡技能（verify-*）、域知识秘典、impeccable 工具集的**内容/逻辑**做任何调整——但它们的**安装命名空间**随整体改名统一变化（`~/.claude/skills/ccg/` → `~/.claude/skills/ly/`），这属于第 5 节"项目改名"的路径替换范围，不是单独的功能改动
 - 不追求向后兼容旧的 `/ccg:*` 命令名（此次是 BREAKING 改名，不做别名兼容层）
 
 ## Decisions
