@@ -22,8 +22,8 @@
 
 ## 4. doctor.ts 标题
 
-- [ ] 4.1 `doctor.ts:152` "CCG Doctor" 改为 ly-workflow 对应命名
-- [ ] 4.2 `doctor.ts:231` "CCG Status" 同样处理
+- [x] 4.1 `doctor.ts:152` "CCG Doctor" 改为 ly-workflow 对应命名
+- [x] 4.2 `doctor.ts:231` "CCG Status" 同样处理
 
 ## 5. cli-setup.ts help（区分两类调用场景，不能用同一种改法）
 

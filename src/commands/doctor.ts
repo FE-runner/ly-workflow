@@ -149,7 +149,7 @@ export async function doctor(): Promise<void> {
 
   // Output
   console.log()
-  console.log(ansis.cyan.bold(`  CCG Doctor v${packageVersion}`))
+  console.log(ansis.cyan.bold(`  ly-workflow Doctor v${packageVersion}`))
   console.log()
   for (const { label, status, detail } of checks) {
     console.log(`  ${status} ${ansis.bold(label.padEnd(20))} ${ansis.gray(detail)}`)
@@ -228,7 +228,7 @@ export async function status(): Promise<void> {
 
   // Output
   console.log()
-  console.log(ansis.cyan.bold('  CCG Status'))
+  console.log(ansis.cyan.bold('  ly-workflow Status'))
   console.log()
   console.log(`  ${ansis.bold('Version')}        ${installedVer}${installedVer !== latestVer ? ansis.yellow(` (latest: ${latestVer})`) : ansis.green(' (up to date)')}`)
   console.log(`  ${ansis.bold('Commands')}       ${cmds.length}`)
