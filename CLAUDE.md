@@ -2,13 +2,18 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-07 (v1.0.0)
+**Last Updated**: 2026-08-07 (v1.1.0)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-07 (v1.1.0) — CLI 品牌残留清理 + 分类卸载修复
+- 🐛 **fix(cli)**：清理 CLI 展示层残留的旧品牌名 "CCG - Claude + Codex + Gemini" 及 `/ccg:` 前缀；`showHelp()` 改为运行时读目录动态展示已装命令。
+- 🐛 **fix(installer)**：修复跳过安装 impeccable skill 分类时的卸载/清理不完整——按分类过滤复制源、清理历史遗留目录、用生成器指纹校验清理对应命令文件（避免误删用户自定义同名文件）。
+- ✨ **新增 spec**：`openspec/specs/cli-skill-category-lifecycle/spec.md`。
 
 ### 2026-08-07 (v1.0.0) — 首个版本，二次开发型改造
 - 🔄 **架构重构**：从"Gemini前端 + Codex后端 + Claude编排"的多模型协作系统，简化为两角色工作流——Claude Code 自己完成聊天/分析/规划/实施，Codex 只在两个节点做审查关卡（方案审查 + 代码审查）。
