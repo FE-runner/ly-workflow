@@ -185,8 +185,8 @@ async function installGrokSearchMcp(keys: {
 
 export async function init(options: InitOptions = {}): Promise<void> {
   console.log()
-  console.log(ansis.cyan.bold(`  CCG - Claude + Codex + Gemini`))
-  console.log(ansis.gray(`  Multi-Model Collaboration Workflow`))
+  console.log(ansis.cyan.bold(`  ly-workflow`))
+  console.log(ansis.gray(`  Claude 主导开发, Codex 独立审查`))
   console.log()
 
   // ═══════════════════════════════════════════════════════
@@ -990,7 +990,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
     console.log()
     console.log(ansis.cyan(`  ${i18n.t('init:installedCommands')}`))
     result.installedCommands.forEach((cmd) => {
-      console.log(`    ${ansis.green('✓')} /ccg:${cmd}`)
+      console.log(`    ${ansis.green('✓')} /ly:${cmd}`)
     })
 
     // Show installed prompts
