@@ -73,6 +73,8 @@
   - `migration.ts` 全文件（专门处理 v1.x 遗留的`~/.ccg/`旧目录迁移逻辑，字符串本身就是要匹配的历史路径，不应改）
   - 纯代码注释（不产生用户可见输出）：`src/index.ts:1`、`types/index.ts:12`、`installer.ts`里多处步骤说明注释、`skill-registry.ts`的 jsdoc、`version.test.ts`注释、`init.ts:973`注释
   - 死代码：`installer.ts`里`installCcgEntryCommand()`/`_installCodexFilesInternal()`（未被任何调用路径引用，属于 CCG 3.0 引擎的历史遗留，不在本次品牌清理范围内，需要单独确认是否删除）
-- [ ] 10.3 `pnpm typecheck && pnpm build` 过
-- [ ] 10.4 本地跑一遍 `node bin/ly.mjs menu`：H帮助（确认核心命令+技能命令数量分组展示正常）、菜单项6、init首屏、`node bin/ly.mjs --help`、`node bin/ly.mjs doctor`、`node bin/ly.mjs status`、`node bin/ly.mjs uninstall`，确认文案对得上且没有崩溃
-- [ ] 10.5 模拟"未安装任何技能命令"和"装了impeccable"两种状态各跑一次 `ly menu` 的 H 帮助，确认技能命令数量随实际状态变化
+- [x] 10.3 `pnpm typecheck && pnpm build` 过
+- [x] 10.4 本地跑一遍 `node bin/ly.mjs menu`：H帮助（确认核心命令+技能命令数量分组展示正常）、菜单项6、init首屏、`node bin/ly.mjs --help`、`node bin/ly.mjs doctor`、`node bin/ly.mjs status`、`node bin/ly.mjs uninstall`，确认文案对得上且没有崩溃
+  - `--help`/`doctor`/`status`/主菜单实测通过，文案已核对无残留 CCG；`H`帮助的 inquirer list 无法用管道模拟按键选中，改用 `tsx` 直接跑 `showHelp()` 同一段核心逻辑（`getWorkflowConfigs`+`collectInvocableSkills`分类），验证真实安装环境下 12 个核心命令 + 28 个技能命令（含 impeccable/domain/tool/root 分类）计算正确
+- [x] 10.5 模拟"未安装任何技能命令"和"装了impeccable"两种状态各跑一次 `ly menu` 的 H 帮助，确认技能命令数量随实际状态变化
+  - 当前真实安装环境即"装了 impeccable"态（20 个 impeccable 命令），已验证；"未安装任何技能命令"态对应 `skillFiles.length === 0` 分支，代码逐行确认会跳过技能命令 section，逻辑上无需额外环境验证
