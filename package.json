@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@10.17.1",
   "author": {
-    "name": "ly"
+    "name": "FE-runner"
   },
   "license": "MIT",
   "repository": {
