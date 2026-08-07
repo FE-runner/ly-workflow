@@ -229,6 +229,7 @@ const zhCN = {
     },
     commands: {
       includeImpeccable: '安装 Impeccable 前端设计工具？（20 个 UI/UX 命令：polish/audit/animate 等）',
+      impeccableSwitchHint: '以后要切换这个选择，需重跑 ly init（ly update 会沿用你已选的配置执行清理，但不提供切换入口）',
     },
     hooks: {
       title: 'codeagent-wrapper 自动授权',
@@ -720,6 +721,7 @@ const en: typeof zhCN = {
     },
     commands: {
       includeImpeccable: 'Install Impeccable frontend design tools? (20 UI/UX commands: polish/audit/animate etc.)',
+      impeccableSwitchHint: 'To change this choice later, rerun ly init (ly update reuses your current config to run cleanup, but has no switch entry)',
     },
     hooks: {
       title: 'codeagent-wrapper auto-authorization',

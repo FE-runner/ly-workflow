@@ -620,6 +620,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
         default: !skipImpeccable,
       }])
       skipImpeccable = !includeImpeccable
+      console.log(ansis.gray(`  ${i18n.t('init:commands.impeccableSwitchHint')}`))
       return 'next'
     }
 
@@ -1024,6 +1025,21 @@ export async function init(options: InitOptions = {}): Promise<void> {
       console.log(ansis.cyan('  Rules:'))
       console.log(`    ${ansis.green('✓')} quality gate auto-trigger rules`)
       console.log(ansis.gray('       → ~/.claude/rules/ccg-skills.md'))
+    }
+
+    // Show skill-category cleanup outcome (跳过分类的历史产物清理)
+    if (result.removedSkillCommands.length > 0 || result.removedSkillDirectories.length > 0 || result.skippedCleanupFiles.length > 0) {
+      console.log()
+      console.log(ansis.cyan('  Cleanup:'))
+      result.removedSkillDirectories.forEach((dir) => {
+        console.log(`    ${ansis.green('✓')} removed skill directory: skills/ly/${dir}`)
+      })
+      result.removedSkillCommands.forEach((cmd) => {
+        console.log(`    ${ansis.green('✓')} removed command: commands/ly/${cmd}.md`)
+      })
+      result.skippedCleanupFiles.forEach((name) => {
+        console.log(`    ${ansis.yellow('○')} skipped commands/ly/${name}.md (指纹不匹配，疑似用户自定义文件，未删除)`)
+      })
     }
 
     // Show errors if any
