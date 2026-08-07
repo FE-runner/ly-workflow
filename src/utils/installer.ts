@@ -2,11 +2,12 @@ import type { InstallResult } from '../types'
 import { homedir } from 'node:os'
 import ansis from 'ansis'
 import fs from 'fs-extra'
-import { basename, join } from 'pathe'
+import { basename, join, relative, sep } from 'pathe'
 import { getWorkflowById } from './installer-data'
 import { PACKAGE_ROOT, injectConfigVariables, replaceHomePathsInTemplate } from './installer-template'
 import { readCcgConfig } from './config'
-import { installSkillCommands } from './skill-registry'
+import { CATEGORY_DIR_MAP, installSkillCommands } from './skill-registry'
+import type { SkillCategory } from './skill-registry'
 import { version as packageVersion } from '../../package.json'
 
 // ═══════════════════════════════════════════════════════
@@ -347,6 +348,18 @@ async function removeDirCollectMdNames(dir: string): Promise<string[]> {
 }
 
 /**
+ * 根据当前安装配置算出应被跳过安装/清理的 SkillCategory 集合。
+ * skill目录复制过滤（installSkillFiles）与命令清理（installSkillGeneratedCommands）共用同一份判断。
+ */
+function computeSkipCategories(config: InstallConfig): SkillCategory[] {
+  const skipCategories: SkillCategory[] = []
+  if (config.skipImpeccable) {
+    skipCategories.push('impeccable')
+  }
+  return skipCategories
+}
+
+/**
  * Install skill files from templates/skills/ → ~/.claude/skills/ccg/
  * Includes v1.7.73 legacy layout migration.
  */
@@ -385,10 +398,28 @@ async function installSkillFiles(ctx: InstallContext): Promise<void> {
 
     // Recursive copy: preserves full directory tree
     // Always overwrite to ensure fresh install gets all files
+    const skipCategories = computeSkipCategories(ctx.config)
+    const skipDirNames = skipCategories.map(c => CATEGORY_DIR_MAP[c]).filter(Boolean)
     await fs.copy(skillsTemplateDir, skillsDestDir, {
       overwrite: true,
       errorOnExist: false,
+      filter: (src: string) => {
+        if (skipDirNames.length === 0) return true
+        const rel = relative(skillsTemplateDir, src)
+        if (rel === '') return true
+        const head = rel.split(sep)[0]
+        return !skipDirNames.includes(head)
+      },
     })
+
+    // 清理目标目录里被跳过分类的历史遗留子目录（覆盖本变更上线前就已安装的场景）
+    for (const dirName of skipDirNames) {
+      const staleDir = join(skillsDestDir, dirName)
+      if (await fs.pathExists(staleDir)) {
+        await fs.remove(staleDir)
+        ctx.result.removedSkillDirectories.push(dirName)
+      }
+    }
 
     // Remove security domain files — contains red team/pentest reference content
     // that triggers antivirus/corporate security tool false positives.
@@ -459,12 +490,9 @@ async function installSkillGeneratedCommands(ctx: InstallContext): Promise<void>
       }
     }
 
-    const skipCategories: import('./skill-registry').SkillCategory[] = []
-    if (ctx.config.skipImpeccable) {
-      skipCategories.push('impeccable')
-    }
+    const skipCategories = computeSkipCategories(ctx.config)
 
-    const generated = await installSkillCommands(
+    const { generated, removedSkillCommands, skippedCleanupFiles } = await installSkillCommands(
       skillsTemplateDir,
       skillsInstallDir,
       commandsDir,
@@ -475,6 +503,12 @@ async function installSkillGeneratedCommands(ctx: InstallContext): Promise<void>
     if (generated.length > 0) {
       ctx.result.installedCommands.push(...generated)
       ctx.result.installedSkillCommands = generated.length
+    }
+    if (removedSkillCommands.length > 0) {
+      ctx.result.removedSkillCommands.push(...removedSkillCommands)
+    }
+    if (skippedCleanupFiles.length > 0) {
+      ctx.result.skippedCleanupFiles.push(...skippedCleanupFiles)
     }
   }
   catch (error) {
@@ -1030,6 +1064,9 @@ export async function installWorkflows(
       installedPrompts: [],
       errors: [],
       configPath: '',
+      removedSkillCommands: [],
+      removedSkillDirectories: [],
+      skippedCleanupFiles: [],
     },
   }
 

@@ -72,6 +72,12 @@ export interface InstallResult {
   configPath: string
   binPath?: string
   binInstalled?: boolean
+  /** 因分类被跳过而删除的历史命令文件名（不含 .md） */
+  removedSkillCommands: string[]
+  /** 因分类被跳过而整体删除的历史技能目录名 */
+  removedSkillDirectories: string[]
+  /** 文件名与被跳过分类的skill撞车、但指纹校验不通过而跳过清理的文件名 */
+  skippedCleanupFiles: string[]
 }
 
 // ace-tool 配置
