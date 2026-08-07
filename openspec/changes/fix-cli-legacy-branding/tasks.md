@@ -38,8 +38,8 @@
 
 ## 6. diagnose-mcp.ts 提示
 
-- [ ] 6.1 `diagnose-mcp.ts:39` `npx ccg fix-mcp` 改为 `npx ly-workflow fix-mcp`
-- [ ] 6.2 `diagnose-mcp.ts:83` `npx ccg diagnose-mcp` 改为 `npx ly-workflow diagnose-mcp`
+- [x] 6.1 `diagnose-mcp.ts:39` `npx ccg fix-mcp` 改为 `npx ly-workflow fix-mcp`
+- [x] 6.2 `diagnose-mcp.ts:83` `npx ccg diagnose-mcp` 改为 `npx ly-workflow diagnose-mcp`
 
 ## 7. installer.ts 用户可见输出
 
