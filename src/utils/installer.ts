@@ -243,11 +243,9 @@ async function installCommandFiles(ctx: InstallContext, workflowIds: string[]): 
 description: "${workflow.descriptionEn}"
 ---
 
-# /ccg:${cmd}
+# /ly:${cmd}
 
 ${workflow.description}
-
-> This command is part of CCG multi-model collaboration system.
 `
           await fs.writeFile(destFile, placeholder, 'utf-8')
           ctx.result.installedCommands.push(cmd)
@@ -760,8 +758,8 @@ export function showBinaryDownloadWarning(binDir: string): void {
   console.log(ansis.red.bold(`  ║     Binary download failed (network issue)                 ║`))
   console.log(ansis.red.bold(`  ╚════════════════════════════════════════════════════════════╝`))
   console.log()
-  console.log(ansis.yellow(`  多模型协作命令 (/ccg:workflow, /ccg:plan 等) 需要此文件才能工作。`))
-  console.log(ansis.yellow(`  Multi-model commands require this binary to work.`))
+  console.log(ansis.yellow(`  Codex 审查命令 (/ly:review-plan, /ly:review-code) 需要此文件才能工作。`))
+  console.log(ansis.yellow(`  Codex review commands require this binary to work.`))
   console.log()
   console.log(ansis.cyan(`  手动修复 / Manual fix:`))
   console.log()

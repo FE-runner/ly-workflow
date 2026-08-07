@@ -43,8 +43,8 @@
 
 ## 7. installer.ts 用户可见输出
 
-- [ ] 7.1 `installer.ts:246` 模板缺失时的命令占位符：`# /ccg:${cmd}` 改为 `# /ly:${cmd}`，"This command is part of CCG multi-model collaboration system." 改为不引用旧品牌/旧架构的描述
-- [ ] 7.2 `installer.ts:763` 二进制下载失败提示"多模型协作命令 (/ccg:workflow, /ccg:plan 等)"——这两个命令名本身已不存在，改为准确列出实际依赖该二进制的命令（`review-plan`/`review-code`）
+- [x] 7.1 `installer.ts:246` 模板缺失时的命令占位符：`# /ccg:${cmd}` 改为 `# /ly:${cmd}`，"This command is part of CCG multi-model collaboration system." 改为不引用旧品牌/旧架构的描述
+- [x] 7.2 `installer.ts:763` 二进制下载失败提示"多模型协作命令 (/ccg:workflow, /ccg:plan 等)"——这两个命令名本身已不存在，改为准确列出实际依赖该二进制的命令（`review-plan`/`review-code`）
 
 ## 8. i18n 死 key 清理 + 活跃品牌文案
 
