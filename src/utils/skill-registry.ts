@@ -15,8 +15,25 @@ import { basename, join, relative, sep } from 'pathe'
 // Types
 // ═══════════════════════════════════════════════════════
 
+// 新增可选分类前，需先扩展这个联合类型、下方 inferCategory() 的目录映射、
+// 以及 CATEGORY_DIR_MAP 三处；清理逻辑（installSkillFiles/installSkillCommands）
+// 本身届时可直接复用，不需要重写。
 export type SkillCategory = 'tool' | 'domain' | 'orchestration' | 'impeccable' | 'root'
 export type SkillRuntimeType = 'scripted' | 'knowledge'
+
+/**
+ * 分类标识 → 模板/安装目录名的显式映射。
+ * 分类标识不等于目录名（如 tool→tools、domain→domains 单复数不一致），
+ * 复制过滤（fs.copy filter）与历史目录清理（fs.remove）共用这份真源。
+ * root 不对应一个可整体删除的子目录（技能直接放在 skills 根下），留空字符串。
+ */
+export const CATEGORY_DIR_MAP: Record<SkillCategory, string> = {
+  tool: 'tools',
+  domain: 'domains',
+  orchestration: 'orchestration',
+  impeccable: 'impeccable',
+  root: '',
+}
 
 export interface SkillMeta {
   /** kebab-case slug, e.g. 'red-team' */
@@ -267,13 +284,52 @@ export function generateCommandContent(skill: SkillMeta, skillsInstallDir: strin
 }
 
 /**
+ * 校验命令文件内容是否命中"本生成器产出"的指纹：
+ * `# <skill名称>` 标题行 + 该skill安装路径子串（SKILL.md 路径或 run_skill.js 路径）两者都命中才算。
+ * 用于清理候选文件时区分"本工具历史生成"与"用户自定义同名文件"。
+ */
+function hasGeneratedFingerprint(content: string, skill: SkillMeta, skillsInstallDir: string): boolean {
+  const titleLine = `# ${skill.name}`
+  const hasTitle = content.split('\n').some(line => line.trim() === titleLine)
+  if (!hasTitle) return false
+
+  if (skill.runtimeType === 'scripted') {
+    return content.includes(join(skillsInstallDir, 'run_skill.js'))
+  }
+  return content.includes(join(skillsInstallDir, skill.relPath, 'SKILL.md'))
+}
+
+/**
+ * 扫描当前模板里指定分类下定义的skill名称清单。
+ * 名称清单是运行时确定性事实（当前已装 npm 包里的 SKILL.md 扫描结果），
+ * 跟历史命令文件是否带标记无关——天然覆盖本变更上线前的历史安装。
+ */
+function collectSkillNamesByCategory(skillsTemplateDir: string, categories: SkillCategory[]): Set<string> {
+  if (categories.length === 0) return new Set()
+  return new Set(
+    collectInvocableSkills(skillsTemplateDir)
+      .filter(s => categories.includes(s.category))
+      .map(s => s.name),
+  )
+}
+
+export interface InstallSkillCommandsResult {
+  /** 本次新生成的命令名称列表 */
+  generated: string[]
+  /** 被跳过分类、且指纹校验通过后删除的历史命令名称列表 */
+  removedSkillCommands: string[]
+  /** 文件名撞车但指纹不匹配（疑似用户自定义），跳过清理的文件名列表 */
+  skippedCleanupFiles: string[]
+}
+
+/**
  * Install auto-generated commands for all user-invocable skills.
  *
  * @param skillsTemplateDir - Path to templates/skills/ (source)
  * @param skillsInstallDir - Path to ~/.claude/skills/ccg/ (installed destination)
  * @param commandsDir - Path to ~/.claude/commands/ccg/ (command output)
  * @param existingCommandNames - Set of command names already defined in installer-data.ts (to avoid conflicts)
- * @returns List of generated command names
+ * @returns Generated command names + cleanup outcome for skipped categories
  */
 export async function installSkillCommands(
   skillsTemplateDir: string,
@@ -281,9 +337,9 @@ export async function installSkillCommands(
   commandsDir: string,
   existingCommandNames: Set<string>,
   skipCategories: SkillCategory[] = [],
-): Promise<string[]> {
-  const invocableSkills = collectInvocableSkills(skillsTemplateDir)
-    .filter(s => !skipCategories.includes(s.category))
+): Promise<InstallSkillCommandsResult> {
+  const allInvocableSkills = collectInvocableSkills(skillsTemplateDir)
+  const invocableSkills = allInvocableSkills.filter(s => !skipCategories.includes(s.category))
   const generated: string[] = []
 
   await fs.ensureDir(commandsDir)
@@ -298,5 +354,24 @@ export async function installSkillCommands(
     generated.push(skill.name)
   }
 
-  return generated
+  // 清理：被跳过分类的skill名称清单里，命中commandsDir已存在的文件——覆盖历史安装
+  const removedSkillCommands: string[] = []
+  const skippedCleanupFiles: string[] = []
+  const skippedSkillNames = collectSkillNamesByCategory(skillsTemplateDir, skipCategories)
+  for (const name of skippedSkillNames) {
+    const cmdPath = join(commandsDir, `${name}.md`)
+    if (!(await fs.pathExists(cmdPath))) continue
+
+    const skill = allInvocableSkills.find(s => s.name === name)
+    const content = await fs.readFile(cmdPath, 'utf-8').catch(() => '')
+    if (skill && hasGeneratedFingerprint(content, skill, skillsInstallDir)) {
+      await fs.remove(cmdPath)
+      removedSkillCommands.push(name)
+    }
+    else {
+      skippedCleanupFiles.push(name)
+    }
+  }
+
+  return { generated, removedSkillCommands, skippedCleanupFiles }
 }
