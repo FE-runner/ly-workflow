@@ -48,12 +48,12 @@
 
 ## 8. i18n 死 key 清理 + 活跃品牌文案
 
-- [ ] 8.1 grep 确认 `i18n.t(` 调用里没有引用 `welcome`/`subtitle` 两个 key（中英文各一份），确认零引用后从 `i18n/index.ts` 删除
-- [ ] 8.2 `i18n/index.ts:352,843`（`menu:title`）"CCG 主菜单"/"CCG Main Menu"去掉品牌名
-- [ ] 8.3 `i18n/index.ts:37,528,354,845`（`initConfig`/`menu:options.init`）"初始化 CCG 多模型协作系统"/"初始化 CCG 配置"改为不含旧品牌/旧架构描述的文案
-- [ ] 8.4 `i18n/index.ts:362,853,479,970`（`menu:options.uninstall`/卸载确认文案）"卸载 CCG"/"确定要卸载 CCG 吗..."去掉品牌名
-- [ ] 8.5 `i18n/index.ts:367,858`（"CCG 命令 (v3):"）去掉品牌名，同时核对`v3`版本号标注是否也已过时（若过时一并去掉或更新）
-- [ ] 8.6 `i18n/index.ts:115,606,194,685`（`apiSelfManaged`/`skipNoticeTitle`）"CCG 不介入"/"CCG 不会修改..."改为不含品牌名的等价描述
+- [x] 8.1 grep 确认 `i18n.t(` 调用里没有引用 `welcome`/`subtitle` 两个 key（中英文各一份），确认零引用后从 `i18n/index.ts` 删除
+- [x] 8.2 `i18n/index.ts:352,843`（`menu:title`）"CCG 主菜单"/"CCG Main Menu"去掉品牌名
+- [x] 8.3 `i18n/index.ts:37,528,354,845`（`initConfig`/`menu:options.init`）"初始化 CCG 多模型协作系统"/"初始化 CCG 配置"改为不含旧品牌/旧架构描述的文案
+- [x] 8.4 `i18n/index.ts:362,853,479,970`（`menu:options.uninstall`/卸载确认文案）"卸载 CCG"/"确定要卸载 CCG 吗..."去掉品牌名
+- [x] 8.5 `i18n/index.ts:367,858`（"CCG 命令 (v3):"）去掉品牌名，同时核对`v3`版本号标注是否也已过时（若过时一并去掉或更新）
+- [x] 8.6 `i18n/index.ts:115,606,194,685`（`apiSelfManaged`/`skipNoticeTitle`）"CCG 不介入"/"CCG 不会修改..."改为不含品牌名的等价描述
 
 ## 9. 模板文档路径纠错（统一盘点，不只挑一处）
 
