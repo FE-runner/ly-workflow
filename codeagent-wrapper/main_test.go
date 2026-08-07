@@ -3942,6 +3942,9 @@ func TestRunForwardSignals(t *testing.T) {
 
 // Backend-focused coverage suite to ensure run() paths stay exercised under the focused pattern.
 func TestBackendRunCoverage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping coverage aggregator in short mode — subtests spawn real processes + real webserver ports sharing global state (codexCommand/PID-keyed log paths), flaky under CI load; each subtest has its own standalone test for correctness coverage")
+	}
 	suite := []struct {
 		name string
 		fn   func(*testing.T)
