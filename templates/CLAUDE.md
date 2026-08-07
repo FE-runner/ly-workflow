@@ -2,7 +2,7 @@
 
 > [根目录](../CLAUDE.md) > **templates**
 
-**Last Updated**: 2026-08-07
+**Last Updated**: 2026-08-08
 
 ---
 
@@ -25,7 +25,8 @@
 | `explore.md` `propose.md` `apply.md` `archive.md` | 薄壳委托 | 直接调用对应 `opsx:*` 技能 |
 | `review-plan.md` | 真逻辑 | Codex 审方案 |
 | `review-code.md` | 真逻辑 | Codex 审代码，Critical/Warning/Info 分级 |
-| `commit.md` `rollback.md` `clean-branches.md` `worktree.md` | Git 工具 | 不变 |
+| `commit.md` `rollback.md` `clean-branches.md` | Git 工具 | 不变 |
+| `worktree.md` | Git 工具 | 默认项目外 `../.ly/项目名/`；新增隔离检测、`--local` 项目内选项（强制 gitignore 校验）、创建后 baseline 验证 |
 | `context.md` | 项目上下文管理 | 不变 |
 
 ## 已删除（v1.0.0 改造）

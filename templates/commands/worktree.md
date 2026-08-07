@@ -33,10 +33,13 @@ description: '管理 Git Worktree：在 ../.ly/项目名/ 目录创建，支持 
 | `--track` | 跟踪远程分支 |
 | `--detach` | 分离 HEAD |
 | `--lock` | 锁定 worktree |
+| `--local` | 强制项目内 `.worktrees/`（默认项目外，避免误 commit 风险） |
 
 ---
 
 ## 目录结构
+
+默认（项目外，IDE 集成友好）：
 
 ```
 parent-directory/
@@ -50,6 +53,17 @@ parent-directory/
         └── debug/          # 调试 worktree
 ```
 
+项目内（传 `--local` 时启用）：
+
+```
+your-project/
+├── .git/
+├── src/
+└── .worktrees/             # 必须已加入 .gitignore
+    ├── feature-ui/
+    └── hotfix/
+```
+
 ---
 
 ## 执行工作流
@@ -58,11 +72,18 @@ parent-directory/
 
 `[模式：创建]`
 
-1. 验证 Git 仓库
-2. 计算路径：`../.ly/项目名/<path>`
-3. 创建 worktree
-4. 自动复制环境文件（`.env` 等）
-5. 可选：用 IDE 打开
+1. **检测是否已在 worktree 内**：比较 `git rev-parse --git-dir` 与 `--git-common-dir`，不同则已在隔离环境中，跳过创建（提示当前路径与分支）。
+   - 用 `git rev-parse --show-superproject-working-tree` 排除子模块误判（子模块也满足 `--git-dir != --git-common-dir`，但不是 worktree）。
+2. **确定目录**（优先级从高到低）：
+   - 用户本次显式指定路径 → 直接用
+   - 传 `--local` → 用项目内 `.worktrees/`（不再靠"目录已存在"自动判断，避免误触发）
+   - 默认 `../.ly/项目名/<path>`（项目外，见上方目录结构）
+3. **`--local` 时必须校验已忽略**：`git check-ignore -q .worktrees`。未忽略则先写入 `.gitignore` 并提交，再继续创建——防止 worktree 内容被误提交进仓库。
+4. 创建 worktree（`git worktree add <path> -b <branch>`）
+5. 自动复制环境文件（`.env` 等）
+6. **验证 baseline**：自动检测并跑项目安装/测试命令（`npm install && npm test` / `cargo build && cargo test` / `pip install -r requirements.txt && pytest` / `go mod download && go test ./...` 等），确认新 worktree 干净可用后才报告完成；测试失败则汇报失败详情，询问是继续还是先排查。
+7. 可选：用 IDE 打开
+8. **权限失败兜底**：`git worktree add` 因 sandbox 权限被拒时，提示用户已降级为原地工作，不再创建 worktree。
 
 ### Migrate - 迁移内容
 
@@ -120,9 +141,14 @@ parent-directory/
 3. **环境文件** – 自动复制 `.gitignore` 中的 `.env` 文件
 4. **路径安全** – 始终使用绝对路径防止嵌套问题
 5. **分支保护** – 验证分支未被其他地方使用
+6. **隔离检测** – 创建前先判断是否已在 worktree 内，避免嵌套创建
+7. **项目内目录护栏** – `--local` 时强制校验 `.worktrees/` 已加入 `.gitignore`，未忽略先补；默认不走项目内，避免误 commit
 
 ## 注意事项
 
 - Worktree 共享 `.git` 目录，节省磁盘空间
 - 迁移仅限未提交改动，已提交内容用 `git cherry-pick`
 - 支持 Windows、macOS、Linux
+- 默认项目外创建，不需要 `--local` 时不碰 `.gitignore`
+- `--local` 且 `.worktrees/` 未被忽略时会先写 `.gitignore` 并提交，再继续创建
+- 创建后会跑一次项目 setup + baseline 测试，确认新 worktree 干净可用
