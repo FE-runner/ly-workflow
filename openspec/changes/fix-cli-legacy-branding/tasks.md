@@ -1,17 +1,17 @@
 ## 1. init.ts / update.ts 展示文案
 
-- [ ] 1.1 `init.ts:188-189` 首屏 banner 从 "CCG - Claude + Codex + Gemini" / "Multi-Model Collaboration Workflow" 改为反映 Claude 主导+Codex 审查两角色定位的文案
-- [ ] 1.2 `init.ts:993` `console.log`里`/ccg:${cmd}`前缀改为`/ly:${cmd}`
-- [ ] 1.3 `update.ts:294` 同样的`/ccg:${cmd}`前缀改为`/ly:${cmd}`
+- [x] 1.1 `init.ts:188-189` 首屏 banner 从 "CCG - Claude + Codex + Gemini" / "Multi-Model Collaboration Workflow" 改为反映 Claude 主导+Codex 审查两角色定位的文案
+- [x] 1.2 `init.ts:993` `console.log`里`/ccg:${cmd}`前缀改为`/ly:${cmd}`
+- [x] 1.3 `update.ts:294` 同样的`/ccg:${cmd}`前缀改为`/ly:${cmd}`
 
 ## 2. menu.ts 展示层
 
-- [ ] 2.1 `menu.ts:104-105` header 里的 "Claude + Codex + Gemini" / "Multi-Model Collaboration" 同步改成两角色文案
-- [ ] 2.2 `menu.ts:164` 菜单项1描述"安装 CCG 工作流"去掉旧品牌名
-- [ ] 2.3 `menu.ts:169` 菜单项6标签 "前端/后端模型切换" 改为准确描述（实际只是切换 reviewer: codex/claude），中英文都改
-- [ ] 2.4 `menu.ts:176` 分组标题字面量`'CCG'`改为不带品牌名的分组名（如"帮助与卸载"）
-- [ ] 2.5 `menu.ts:178` "移除 CCG 配置"去掉旧品牌名
-- [ ] 2.6 `menu.ts:812` uninstall 结果里 `/ccg:${cmd}` 前缀改为 `/ly:${cmd}`
+- [x] 2.1 `menu.ts:104-105` header 里的 "Claude + Codex + Gemini" / "Multi-Model Collaboration" 同步改成两角色文案
+- [x] 2.2 `menu.ts:164` 菜单项1描述"安装 CCG 工作流"去掉旧品牌名
+- [x] 2.3 `menu.ts:169` 菜单项6标签 "前端/后端模型切换" 改为准确描述（实际只是切换 reviewer: codex/claude），中英文都改
+- [x] 2.4 `menu.ts:176` 分组标题字面量`'CCG'`改为不带品牌名的分组名（如"帮助与卸载"）
+- [x] 2.5 `menu.ts:178` "移除 CCG 配置"去掉旧品牌名
+- [x] 2.6 `menu.ts:812` uninstall 结果里 `/ccg:${cmd}` 前缀改为 `/ly:${cmd}`
 
 ## 3. showHelp() 改为动态读目录（见 design.md 决策）
 

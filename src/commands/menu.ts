@@ -101,8 +101,8 @@ function drawHeader(statusParts: string[]): void {
     console.log(boxRow(centerLine(ansis.bold.white(line), INNER_W)))
   }
   console.log(empty)
-  console.log(boxRow(centerLine(ansis.gray('Claude + Codex + Gemini'), INNER_W)))
-  console.log(boxRow(centerLine(ansis.gray('Multi-Model Collaboration'), INNER_W)))
+  console.log(boxRow(centerLine(ansis.gray('Claude Code + Codex Review'), INNER_W)))
+  console.log(boxRow(centerLine(ansis.gray('Two-Role Dev Workflow'), INNER_W)))
   console.log(empty)
   if (statusParts.length > 0) {
     const statusLine = statusParts.join(ansis.gray('  |  '))
@@ -161,21 +161,21 @@ export async function showMainMenu(): Promise<void> {
       pageSize: 20,
       choices: [
         groupSep(isZh ? 'Claude Code' : 'Claude Code'),
-        item('1', i18n.t('menu:options.init'), isZh ? '安装 CCG 工作流' : 'Install CCG workflows'),
+        item('1', i18n.t('menu:options.init'), isZh ? '安装 ly-workflow' : 'Install ly-workflow'),
         item('2', i18n.t('menu:options.update'), isZh ? '更新到最新版本' : 'Update to latest version'),
         item('3', i18n.t('menu:options.configMcp'), isZh ? '代码检索 MCP 工具' : 'Code retrieval MCP tool'),
         item('4', i18n.t('menu:options.configApi'), isZh ? '自定义 API 端点' : 'Custom API endpoint'),
         item('5', i18n.t('menu:options.configStyle'), isZh ? '选择输出人格' : 'Choose output personality'),
-        item('6', i18n.t('menu:options.configModel'), isZh ? '前端/后端模型切换' : 'Switch frontend/backend models'),
+        item('6', i18n.t('menu:options.configModel'), isZh ? '切换审查模型 (Codex/Claude)' : 'Switch reviewer model (Codex/Claude)'),
 
         groupSep(isZh ? '其他工具' : 'Tools'),
         item('X', isZh ? 'Codex 模式' : 'Codex Mode', isZh ? '安装 Codex 主导的多模型编排' : 'Install Codex-led multi-model orchestration'),
         item('T', i18n.t('menu:options.tools'), 'ccusage, CCometixLine'),
         item('C', i18n.t('menu:options.installClaude'), isZh ? '安装/重装 CLI' : 'Install/reinstall CLI'),
 
-        groupSep('CCG'),
+        groupSep(isZh ? '帮助与卸载' : 'Help & Uninstall'),
         item('H', i18n.t('menu:options.help'), isZh ? '查看全部斜杠命令' : 'View all slash commands'),
-        item('-', i18n.t('menu:options.uninstall'), isZh ? '移除 CCG 配置' : 'Remove CCG config'),
+        item('-', i18n.t('menu:options.uninstall'), isZh ? '移除 ly-workflow 配置' : 'Remove ly-workflow config'),
 
         new inquirer.Separator(ansis.gray('─'.repeat(42))),
         { name: `  ${ansis.red('Q.')} ${i18n.t('menu:options.exit')}`, value: 'Q' },
@@ -809,7 +809,7 @@ async function uninstall(): Promise<void> {
       console.log()
       console.log(ansis.cyan(`  ${i18n.t('menu:uninstall.removedCommands')}`))
       for (const cmd of result.removedCommands) {
-        console.log(`    ${ansis.gray('•')} /ccg:${cmd}`)
+        console.log(`    ${ansis.gray('•')} /ly:${cmd}`)
       }
     }
 
