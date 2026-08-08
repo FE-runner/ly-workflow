@@ -44,6 +44,7 @@
 
 ### Modified Capabilities
 - `ly-review-gates`：审查-修复循环从只覆盖 `/ly:review-code` 扩展到同时覆盖 `/ly:review-plan`
+- `ly-lifecycle-commands`：原"Explore/Propose/Apply/Archive 命令是纯委托"这条统一约束被拆开——`propose` 不再是纯委托（新增总开关+编排），`apply` 允许追加一句通用提示，`explore`/`archive` 维持纯委托不变
 
 ## Impact
 

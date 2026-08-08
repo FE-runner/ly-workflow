@@ -62,6 +62,7 @@
 
 - [x] 7.1 更新根 `CLAUDE.md` 变更记录，补充本次新增的 `/ly:worktree switch [--auto]` 能力、`/ly:review-code`/`/ly:review-plan` 的审查-修复循环（含分歧未决、审查失败兜底、全局轮数上限、`--commit-each-round`）、`/ly:propose` 的总开关 + 收尾编排
 - [x] 7.2 删除根 `CLAUDE.md`"关键设计决策"第 1 条"委托而非重新封装"的原文表述（该原则本次废止，见 design.md Decision 20），改为客观描述现状：`propose.md` 已包含总开关/commit/审查/worktree 编排逻辑，`apply.md`/`archive.md`/`explore.md` 目前仍是薄壳但不再受任何原则约束，后续可按需增加编排
+- [x] 7.3 补齐 `ly-lifecycle-commands` 主 spec 的 delta（归档前发现的遗漏）：主 spec 里"Explore/Propose/Apply/Archive 命令是纯委托"这条 Requirement 与 propose.md 的实际行为直接冲突，之前的 proposal.md 也没把 `ly-lifecycle-commands` 列入 Modified Capabilities——补一份 `specs/ly-lifecycle-commands/spec.md` 的 MODIFIED Requirement，拆开四个命令各自的边界，并同步更新 proposal.md 的 Modified Capabilities 列表
 
 ## 8. 验证
 
