@@ -9,7 +9,7 @@ description: '管理 Git Worktree：在 ../.ly/项目名/ 目录创建，支持 
 ## 使用方法
 
 ```bash
-/worktree <add|list|remove|prune|migrate> [options]
+/worktree <add|list|remove|prune|migrate|switch> [options]
 ```
 
 ## 子命令
@@ -21,6 +21,7 @@ description: '管理 Git Worktree：在 ../.ly/项目名/ 目录创建，支持 
 | `remove <path>` | 删除指定 worktree |
 | `prune` | 清理无效引用 |
 | `migrate <target>` | 迁移内容到目标 worktree |
+| `switch <change-name> [--auto]` | 按 OpenSpec change 名一键定位或创建隔离 worktree，输出续接实施的命令 |
 
 ## 选项
 
@@ -34,6 +35,7 @@ description: '管理 Git Worktree：在 ../.ly/项目名/ 目录创建，支持 
 | `--detach` | 分离 HEAD |
 | `--lock` | 锁定 worktree |
 | `--local` | 强制项目内 `.worktrees/`（默认项目外，避免误 commit 风险） |
+| `--auto`（仅 `switch`） | 续接命令追加"实施完成后自动依次调用 `/ly:review-code --commit-each-round`，按其全部终止条件运行"的指令 |
 
 ---
 
@@ -95,6 +97,42 @@ your-project/
 4. 安全迁移
 5. 确认结果
 
+### Switch - 按 change 切换/创建 worktree
+
+`[模式：切换]`
+
+面向已存在、已提交的 OpenSpec change，一键定位或创建对应的隔离 worktree，输出续接实施的命令，不自动执行、不自动切会话。
+
+1. **隔离检测**（复用 Add 步骤 1）：已在 worktree 内时**默认不创建**，提示当前所在路径/分支并询问是否仍要为目标 change 新建独立 worktree（默认否）。用户不确认 → 输出当前路径/分支，直接结束，不进入后续步骤。用户明确确认 → 继续。
+2. **前置校验**：
+   - `openspec/changes/<change-name>/proposal.md` **与 `tasks.md` 均必须存在**——只有 `proposal.md` 没有 `tasks.md` 时报错并提示"该 change 尚未生成 tasks.md，请先完成规划（如 `/opsx:propose`）再执行 switch"。
+   - `git status --porcelain -- openspec/changes/<change-name>/` 必须为空（无未提交/未跟踪内容），否则报错提示先 commit（worktree 不会带入未提交文件，不做自动迁移；需要迁移用 `migrate`）。
+   - `<change-name>` 必须匹配 `^[a-z0-9]+(-[a-z0-9]+)*$`，分支名额外过 `git check-ref-format --branch`，不匹配直接报错，不做任何猜测式纠正。
+3. **判断目标路径是否已是已注册的 worktree**（`git worktree list --porcelain`）：
+   - **是** → 直接定位，跳过下面的分支拓扑校验与创建/baseline，展示路径/分支，进入步骤 6 输出续接命令。
+   - **否**（本次需要从 base ref 新建或挂载分支）→ 继续步骤 4。
+4. **分支拓扑校验**（仅"否"分支适用）：确认该 change 目录下 artifact 的最近一次 commit 是目标 base ref（仓库默认分支最新提交）的祖先（`git merge-base --is-ancestor <artifact-commit> <base-ref>`）。不满足 → 报错拒绝，提示"该 change 的提交不在默认分支历史上，请先合并或 rebase 到默认分支，再执行 switch"，不创建任何 worktree/分支。
+5. **确定性处理矩阵**（用 `git worktree list --porcelain` + `git branch --list <name>` 探测）：
+
+   | 目标路径状态 | 分支状态 | 处理 |
+   |---|---|---|
+   | 路径存在但非注册 worktree | 任意 | 报错拒绝："目标路径已存在但不是 Git worktree，请手动处理后重试"，不覆盖、不删除 |
+   | 路径不存在 | 分支不存在 | 分支基线从默认分支（`origin/HEAD` 解析，回退 `main`/`master`）最新提交切出：`git worktree add -b <branch> <path> <base-ref>`，输出实际使用的 base ref |
+   | 路径不存在 | 分支存在，未被其他 worktree 检出 | 直接挂载：`git worktree add <path> <branch>`（不加 `-b`） |
+   | 路径不存在 | 分支存在，已被其他 worktree 检出 | 报错拒绝，提示分支已被占用及占用该分支的 worktree 路径 |
+
+   创建/挂载后跑一次 baseline 验证（复用 Add 步骤 6）。
+6. **baseline 结果与创建结果分开报告**；baseline 失败时**默认不打印续接命令**，报告失败摘要并询问用户是否仍要显式继续（默认否）；仅当用户明确选择继续，才打印续接命令，且 prompt 文本携带失败摘要、要求新会话先处理环境问题。命中"已注册 worktree 直接定位"时跳过 baseline。
+7. **打印续接命令**（绝对路径 + shell 安全转义，不带 `--auto`）：
+   ```
+   cd <绝对路径> && claude "继续实施 change: <change-name>，读取 openspec/changes/<change-name>/tasks.md 按任务执行"
+   ```
+   传了 `--auto` 时，追加一句：
+   ```
+   实施完成后自动依次调用 /ly:review-code --commit-each-round，按其全部终止条件运行（清零/熔断/分歧未决/无法安全修复/验证失败/审查调用失败/达到全局轮数上限），不需要人工确认
+   ```
+   两种情况下命令本身都只是打印文本，当前会话不做进一步动作（不自动 `cd`、不自动启动新会话）。
+
 ---
 
 ## 示例
@@ -119,6 +157,21 @@ your-project/
 /worktree list
 /worktree remove feature-ui
 /worktree prune
+
+# 按 change 切换/创建隔离 worktree
+/worktree switch add-user-auth
+
+# 带自动续接实施+审查
+/worktree switch add-user-auth --auto
+
+# change 未提交时报错
+# > 该 change 有未提交内容，请先 commit 后重试
+
+# change 提交不在默认分支历史上时报错
+# > 该 change 的提交不在默认分支历史上，请先合并或 rebase 到默认分支，再执行 switch
+
+# change 缺少 tasks.md 时报错
+# > 该 change 尚未生成 tasks.md，请先完成规划（如 /opsx:propose）再执行 switch
 ```
 
 ## 输出示例
@@ -152,3 +205,4 @@ your-project/
 - 默认项目外创建，不需要 `--local` 时不碰 `.gitignore`
 - `--local` 且 `.worktrees/` 未被忽略时会先写 `.gitignore` 并提交，再继续创建
 - 创建后会跑一次项目 setup + baseline 测试，确认新 worktree 干净可用
+- `switch` 只打印续接命令，不自动执行、不自动切会话（`--auto` 不改变这一点，只改变打印文案）；要求目标 change 已有 `proposal.md` 与 `tasks.md` 且已提交；新建场景要求该 change 的提交在默认分支历史上，已注册 worktree 场景不受此限制；孤儿 worktree（关联 change 已删除/重命名）需人工 `remove`/`prune`

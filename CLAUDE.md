@@ -10,6 +10,12 @@
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
 
+### 2026-08-08 — Change 生命周期自动化：审查-修复循环 + worktree switch + propose 总开关
+- ✨ **`/ly:review-code`/`/ly:review-plan` 新增审查-修复循环**：Critical 清零或触发终止条件（熔断/分歧未决/无法安全修复/验证失败/审查调用失败/达到全局轮数上限）才停止；Codex 报告的 Critical 不再是自动生效的裁决——Claude 先判断是否认可，不认可则不修复但要写反驳理由，同一问题连续两轮分歧则触发"分歧未决"转人工。`/ly:review-plan` 同步补上 Critical/Warning/Info 分级（此前是不分级的问题清单）。两者都支持 `--commit-each-round` 标志，由循环自身逐轮提交。
+- ✨ **`/ly:worktree` 新增 `switch <change-name> [--auto]` 子命令**：按 OpenSpec change 名一键定位或创建隔离 worktree，只打印续接命令不自动执行；含分支拓扑校验（已注册 worktree 直接定位跳过校验，新建场景要求 change 提交在默认分支历史上）、命名合法性校验、baseline 失败默认阻断。
+- 🔄 **`/ly:propose` 从零逻辑委托壳升级为编排入口**：调用 `opsx:propose` 前先问一次总开关（要不要走自动化收尾），commit 不受开关影响永远执行；开关开启时依次调用 `/ly:review-plan --commit-each-round`、（Critical 清零后）询问是否 `/ly:worktree switch --auto`。`/ly:apply` 保持薄壳，只追加一句通用提示。
+- 🔄 **废止"薄壳不附加自定义逻辑"这条项目级原则**：见下方"关键设计决策"。
+
 ### 2026-08-07 (v1.1.0) — CLI 品牌残留清理 + 分类卸载修复
 - 🐛 **fix(cli)**：清理 CLI 展示层残留的旧品牌名 "CCG - Claude + Codex + Gemini" 及 `/ccg:` 前缀；`showHelp()` 改为运行时读目录动态展示已装命令。
 - 🐛 **fix(installer)**：修复跳过安装 impeccable skill 分类时的卸载/清理不完整——按分类过滤复制源、清理历史遗留目录、用生成器指纹校验清理对应命令文件（避免误删用户自定义同名文件）。
@@ -56,13 +62,13 @@ npx ly-workflow menu    # 交互式菜单
 |------|------|
 | `/ly:init` | 生成 CLAUDE.md（原生 `init` 技能）+ `openspec init` |
 | `/ly:explore` | 委托 `opsx:explore` |
-| `/ly:propose` | 委托 `opsx:propose` |
-| `/ly:apply` | 委托 `opsx:apply` |
+| `/ly:propose` | 问总开关 → 委托 `opsx:propose` → commit → （开关开启时）审查循环 → 询问隔离 worktree |
+| `/ly:apply` | 委托 `opsx:apply` + 追加通用 worktree 提示 |
 | `/ly:archive` | 委托 `opsx:archive` |
-| `/ly:review-plan` | 读取活跃 change 的 proposal/design/tasks，Codex 审查方案合理性 |
-| `/ly:review-code` | 读取 git diff，Codex 审查代码，Critical/Warning/Info 分级 |
+| `/ly:review-plan` | 读取目标 change 的 proposal/design/tasks，Codex 分级审查，审查-修复循环直到清零或触发终止条件 |
+| `/ly:review-code` | 读取 git diff，Codex 分级审查，审查-修复循环直到清零或触发终止条件 |
 
-不变的 Git 工具：`/ly:commit` `/ly:rollback` `/ly:clean-branches` `/ly:worktree`。
+不变的 Git 工具：`/ly:commit` `/ly:rollback` `/ly:clean-branches`；`/ly:worktree` 新增 `switch <change-name> [--auto]` 子命令。
 
 ### 典型工作流
 
@@ -74,7 +80,7 @@ npx ly-workflow menu    # 交互式菜单
 
 ## 关键设计决策
 
-1. **委托而非重新封装**：`explore`/`propose`/`apply`/`archive` 只做参数转发，不加自定义校验/编排逻辑——OpenSpec 原生流程已经是 Claude 自己跑的干净实现。
+1. **`propose` 是编排入口，`apply`/`archive`/`explore` 仍是薄壳，但不受任何"必须是薄壳"的原则约束**：`propose.md` 已经包含总开关询问、commit、审查循环调用、worktree 询问等编排逻辑；`apply.md`/`archive.md`/`explore.md` 目前只做参数转发+（apply）一句通用提示，是基于当前范围的独立判断，不是被某条项目原则强制的"薄壳"——原有的"委托而非重新封装"原则已废止（2026-08-08），后续任一命令要不要加编排逻辑，按需判断即可，不需要先论证是否例外。
 2. **审查走 codeagent-wrapper 而非直连 Codex API**：复用已有的 session 管理、进度回调、超时重试。
 3. **Go wrapper 只删 Backend 层**：`Backend` interface 保持不变，删除具体实现（Gemini/Grok/Antigravity）不影响执行引擎（并发调度/日志/SSE）。
 4. **LICENSE + git 历史不动**：文档整体重写，但版权声明和提交历史保留可追溯性。
