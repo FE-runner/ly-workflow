@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-08-08
+
+### Added
+- `/ly:review-code`/`/ly:review-plan` 新增审查-修复循环：Critical 清零或触发终止条件（熔断/分歧未决/无法安全修复/验证失败/审查调用失败/达到全局轮数上限，默认 20 轮）才停止；Codex 报告的 Critical 不再是自动生效的裁决，Claude 先判断是否认可，不认可则不修复但要写反驳理由，同一问题连续两轮分歧则触发"分歧未决"转人工
+- `/ly:review-plan` 补上 Critical/Warning/Info 三级分级输出（此前是不分级的问题清单）
+- `/ly:review-code`/`/ly:review-plan` 新增 `--commit-each-round` 标志，由循环自身在每轮修复+验证通过后逐轮提交
+- `/ly:worktree` 新增 `switch <change-name> [--auto]` 子命令：按 OpenSpec change 名一键定位或创建隔离 worktree，含分支拓扑祖先校验（已注册 worktree 直接定位跳过）、命名合法性校验、baseline 失败默认阻断续接命令；`--auto` 让续接命令要求新会话实施完自动跑审查循环
+- 新 spec：`openspec/specs/worktree-switch/spec.md`、`openspec/specs/ly-propose-flow/spec.md`
+
+### Changed
+- `/ly:propose` 从零逻辑委托壳升级为编排入口：调用 `opsx:propose` 前先问一次总开关（是否走自动化收尾），commit 不受开关影响永远执行；开关开启时依次调用 `/ly:review-plan --commit-each-round`，审查循环以 Critical 清零结束后询问是否 `/ly:worktree switch --auto`
+- `/ly:apply` 委托完成后追加一句不含具体 change 名的通用 worktree 切换提示
+- 废止"薄壳不附加自定义逻辑"这条项目级原则——`propose` 已是编排入口，`apply`/`archive`/`explore` 仍是薄壳但不再受该原则约束
+- `openspec/specs/ly-review-gates/spec.md`、`openspec/specs/ly-lifecycle-commands/spec.md` 同步合并本次 delta
+
+---
+
 ## [1.1.0] - 2026-08-07
 
 ### Fixed

@@ -2,7 +2,7 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-07 (v1.1.0)
+**Last Updated**: 2026-08-08 (v1.2.0)
 
 ---
 
@@ -10,7 +10,7 @@
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
 
-### 2026-08-08 — Change 生命周期自动化：审查-修复循环 + worktree switch + propose 总开关
+### 2026-08-08 (v1.2.0) — Change 生命周期自动化：审查-修复循环 + worktree switch + propose 总开关
 - ✨ **`/ly:review-code`/`/ly:review-plan` 新增审查-修复循环**：Critical 清零或触发终止条件（熔断/分歧未决/无法安全修复/验证失败/审查调用失败/达到全局轮数上限）才停止；Codex 报告的 Critical 不再是自动生效的裁决——Claude 先判断是否认可，不认可则不修复但要写反驳理由，同一问题连续两轮分歧则触发"分歧未决"转人工。`/ly:review-plan` 同步补上 Critical/Warning/Info 分级（此前是不分级的问题清单）。两者都支持 `--commit-each-round` 标志，由循环自身逐轮提交。
 - ✨ **`/ly:worktree` 新增 `switch <change-name> [--auto]` 子命令**：按 OpenSpec change 名一键定位或创建隔离 worktree，只打印续接命令不自动执行；含分支拓扑校验（已注册 worktree 直接定位跳过校验，新建场景要求 change 提交在默认分支历史上）、命名合法性校验、baseline 失败默认阻断。
 - 🔄 **`/ly:propose` 从零逻辑委托壳升级为编排入口**：调用 `opsx:propose` 前先问一次总开关（要不要走自动化收尾），commit 不受开关影响永远执行；开关开启时依次调用 `/ly:review-plan --commit-each-round`、（Critical 清零后）询问是否 `/ly:worktree switch --auto`。`/ly:apply` 保持薄壳，只追加一句通用提示。
@@ -107,4 +107,5 @@ codeagent-wrapper/        # Go 二进制（codex + claude backend）
 2. 更新 `CHANGELOG.md`（新条目在顶部）
 3. 更新本文件的变更记录
 4. Go 代码改动需同步 bump `codeagent-wrapper/main.go` 的 `version` 与 `src/utils/installer.ts` 的 `EXPECTED_BINARY_VERSION`
-5. `pnpm typecheck && pnpm build && pnpm test` 全绿后 `npm publish`
+5. `pnpm typecheck && pnpm build && pnpm test` 全绿后 commit
+6. **发布方式：GitHub Actions 自动发布**，不在本地跑 `npm publish`——打 tag `v<版本号>`（如 `v1.2.0`）并 push，`.github/workflows/release.yml` 监听 `push: tags: ['v*.*.*']` 自动触发发布
