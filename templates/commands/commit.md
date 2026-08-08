@@ -68,36 +68,7 @@ description: '智能 Git 提交：分析改动生成 Conventional Commit 信息�
 
 **语言**：根据最近 50 次提交判断中文/英文
 
-### 📦 阶段 5：Context 自动归档（若 .context/ 存在）
-
-`[模式：上下文归档]`
-
-**前置判断**：
-- 若 `.context/` 目录不存在 → 在提交成功后输出提示：`💡 建议执行 /ly:context init 启用决策追踪`，不阻断
-- 若 `.context/` 存在 → 执行以下步骤
-
-**从 git diff 自动生成 ContextEntry**：
-
-1. 获取当前分支名：`git branch --show-current`
-2. 获取暂存区变更：`git diff --cached --stat` + `git diff --cached`（完整 diff）
-3. **分析 diff 生成 ContextEntry**：
-   - `summary`：从阶段 4 生成的 commit message 中取首行
-   - `decisions`：分析 diff 中的关键变更（新增依赖、架构调整、接口变更、配置修改），推断决策理由
-   - `bugs`：若 commit type 为 `fix`，从 diff 中提取 bug 症状、根因、修复方式
-   - `changes.files`：从 `git diff --cached --name-only` 提取
-   - `tests`：若变更包含测试文件，记录测试相关信息
-4. **合并 session.log**（可选）：若 `.context/current/branches/<branch>/session.log` 存在且非空，将其中的手动记录合并到 decisions/bugs 中，然后清空 session.log
-5. **脱敏**：扫描 token/key/password/secret 模式 → 替换为 `[REDACTED]`
-6. **追加**：将 ContextEntry 作为一行追加到 `.context/history/commits.jsonl`
-7. **重生成**：更新 `.context/history/commits.md` 人类视图
-8. **暂存**：`git add .context/history/`
-9. **Trailer**：在 commit message 中添加 `Context-Id: <uuid>` trailer
-
-**ContextEntry 格式**参见 `/ly:context` 命令中的 Schema 定义。
-
-**失败降级**：若归档过程出错，不阻断提交。写入 minimal ContextEntry（仅 summary + files），继续正常提交。
-
-### ✅ 阶段 6：执行提交
+### ✅ 阶段 5：执行提交
 
 `[模式：执行]`
 

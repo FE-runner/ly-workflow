@@ -12,7 +12,7 @@ describe('createDefaultConfig', () => {
   const baseOptions = {
     language: 'zh-CN' as const,
     routing: createDefaultRouting(),
-    installedWorkflows: ['init-project', 'context'],
+    installedWorkflows: ['init-project', 'commit'],
   }
 
   it('sets version from package.json', () => {
@@ -35,7 +35,7 @@ describe('createDefaultConfig', () => {
 
   it('stores installed workflows', () => {
     const config = createDefaultConfig(baseOptions)
-    expect(config.workflows.installed).toEqual(['init-project', 'context'])
+    expect(config.workflows.installed).toEqual(['init-project', 'commit'])
   })
 
   it('defaults mcpProvider to fast-context', () => {

@@ -4,7 +4,7 @@ import type { WorkflowConfig } from '../types'
 // Command builder — adding a new command = 1 function call
 // ═══════════════════════════════════════════════════════
 
-type CommandCategory = 'development' | 'init' | 'git' | 'opsx' | 'review'
+type CommandCategory = 'init' | 'git' | 'opsx' | 'review'
 
 /**
  * Create a WorkflowConfig with sensible defaults.
@@ -41,7 +41,6 @@ function cmd(
 const CORE_CONFIGS: WorkflowConfig[] = [
   // ── Independent Tools ────────────────────────────────
   cmd('init-project', 0, 'init', '项目初始化', 'Project Init', '生成 CLAUDE.md，初始化 OpenSpec 目录结构', 'Generate CLAUDE.md, initialize OpenSpec directory structure', 'init'),
-  cmd('context', 1, 'development', '项目上下文管理', 'Project Context Manager', '初始化 .context 目录、记录决策日志、压缩归档、查看历史', 'Init .context dir, log decisions, compress, view history'),
 
   // ── Git ──────────────────────────────────────────────
   cmd('commit', 10, 'git', 'Git 提交', 'Git Commit', '智能生成 conventional commit 信息', 'Smart conventional commit message generation'),

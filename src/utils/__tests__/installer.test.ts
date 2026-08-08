@@ -27,9 +27,9 @@ const TEMPLATES_DIR = join(PACKAGE_ROOT, 'templates', 'commands')
 // A. Workflow registry consistency
 // ─────────────────────────────────────────────────────────────
 describe('workflow registry', () => {
-  it('getAllCommandIds returns the 12 core commands', () => {
+  it('getAllCommandIds returns the 11 core commands', () => {
     const ids = getAllCommandIds()
-    expect(ids.length).toBe(12)
+    expect(ids.length).toBe(11)
   })
 
   it('every command ID has a matching template file', () => {
@@ -208,7 +208,7 @@ describe('uninstallWorkflows E2E', () => {
     expect(installResult.success).toBe(true)
 
     // Verify files exist
-    expect(fs.existsSync(join(tmpDir, 'commands', 'ly', 'context.md'))).toBe(true)
+    expect(fs.existsSync(join(tmpDir, 'commands', 'ly', 'commit.md'))).toBe(true)
 
     // Now uninstall
     const uninstallResult = await uninstallWorkflows(tmpDir)
@@ -240,7 +240,7 @@ describe('installWorkflows — binary installation', () => {
 
   // 依赖真实网络下载 codeagent-wrapper 二进制，本地/CI 网络抖动会超时，跳过
   it.skip('installs codeagent-wrapper binary for current platform', async () => {
-    const result = await installWorkflows(['context'], tmpDir, true, {
+    const result = await installWorkflows(['commit'], tmpDir, true, {
       mcpProvider: 'skip',
     })
 
@@ -298,7 +298,7 @@ describe('skills namespace isolation', () => {
 
   // 依赖真实网络下载 codeagent-wrapper 二进制，本地/CI 网络抖动会超时，跳过
   it.skip('installs skills under skills/ly/ namespace', async () => {
-    const result = await installWorkflows(['context'], tmpDir, true, {
+    const result = await installWorkflows(['commit'], tmpDir, true, {
       mcpProvider: 'skip',
     })
     expect(result.success).toBe(true)

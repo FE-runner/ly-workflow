@@ -23,7 +23,6 @@ npx ly-workflow
 | `/ly:review-code` | Codex 审查代码变更，Critical/Warning/Info 分级输出 |
 | `/ly:archive` | 归档完成的 change（委托 `opsx:archive`） |
 | `/ly:commit` `/ly:rollback` `/ly:clean-branches` `/ly:worktree` | Git 工具 |
-| `/ly:context` | 项目上下文管理（`.context/` 目录） |
 
 ## 典型工作流
 

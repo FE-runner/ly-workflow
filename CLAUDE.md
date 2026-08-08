@@ -62,7 +62,7 @@ npx ly-workflow menu    # 交互式菜单
 | `/ly:review-plan` | 读取活跃 change 的 proposal/design/tasks，Codex 审查方案合理性 |
 | `/ly:review-code` | 读取 git diff，Codex 审查代码，Critical/Warning/Info 分级 |
 
-不变的 Git 工具：`/ly:commit` `/ly:rollback` `/ly:clean-branches` `/ly:worktree`，以及项目上下文管理 `/ly:context`。
+不变的 Git 工具：`/ly:commit` `/ly:rollback` `/ly:clean-branches` `/ly:worktree`。
 
 ### 典型工作流
 

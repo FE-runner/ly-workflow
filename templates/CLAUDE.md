@@ -10,14 +10,14 @@
 
 | 目录 | 用途 | 安装目标 |
 |------|------|----------|
-| `commands/` | 12 个 slash command | `~/.claude/commands/ly/` |
+| `commands/` | 11 个 slash command | `~/.claude/commands/ly/` |
 | `commands/agents/` | 目前为空（旧 agent 已随多模型引擎删除） | — |
 | `prompts/codex/` `prompts/claude/` | 审查/角色提示词（只留 codex+claude） | `~/.claude/.ly/prompts/` |
 | `skills/` | 质量关卡 + 域知识 + impeccable 工具（逻辑不变，命名空间随改名调整） | `~/.claude/skills/ly/` |
 | `rules/` | `ly-skills.md`/`ly-skill-routing.md`/`ly-codegraph.md` | `~/.claude/rules/` |
 | `output-styles/` | 8 种输出风格 | `~/.claude/output-styles/` |
 
-## commands/（12 个）
+## commands/（11 个）
 
 | 命令 | 类型 | 说明 |
 |------|------|------|
@@ -27,7 +27,6 @@
 | `review-code.md` | 真逻辑 | Codex 审代码，Critical/Warning/Info 分级 |
 | `commit.md` `rollback.md` `clean-branches.md` | Git 工具 | 不变 |
 | `worktree.md` | Git 工具 | 默认项目外 `../.ly/项目名/`；新增隔离检测、`--local` 项目内选项（强制 gitignore 校验）、创建后 baseline 验证 |
-| `context.md` | 项目上下文管理 | 不变 |
 
 ## 已删除（v1.0.0 改造）
 
@@ -35,6 +34,10 @@
 - `templates/commands-legacy/`（18 个旧版多模型命令）
 - `templates/prompts/{gemini,grok,antigravity}/`
 - agents：`planner.md` `ui-ux-designer.md` `team-*.md` `init-architect.md` `get-current-datetime.md`
+
+## 已删除（后续）
+
+- `commands/context.md`（`.context/` 决策审计链，小项目场景价值有限、无人维护，移除）及 `commit.md` 中对应的 Context 自动归档阶段；`prompts/codex/*.md` 中的 `.context Awareness` 段一并清理
 
 ## 模板变量系统
 
