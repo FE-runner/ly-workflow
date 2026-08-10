@@ -51,4 +51,4 @@
 - [x] 6.10 走查未指定 change 名时从当前 worktree 反查的场景：反查成功（唯一匹配）直接使用，反查失败（零个或多个匹配）时按优先级继续尝试或询问用户
 - [x] 6.11 走查 `switch` 新增的分支校验：目标路径已注册但分支不是 `<change-name>` 时拒绝执行、不定位、不输出续接命令；分支相等时正常跳过拓扑校验直接定位
 - [x] 6.12 走查从另一个 worktree 内调用 `switch`/`apply` 的场景，以及从主仓库子目录（非根目录）调用的场景：确认目标路径解析结果一致，不因当前所处路径不同而算错（`git rev-parse --git-common-dir` 输出需先转绝对路径再取父目录，所有路径比较前都 canonicalize）
-- [ ] 6.13 `openspec archive worktree-review-flow-refinement` 前确认 `git status` 干净或改动已按 change 生命周期规则逐步提交
+- [x] 6.13 `openspec archive worktree-review-flow-refinement` 前确认 `git status` 干净或改动已按 change 生命周期规则逐步提交
