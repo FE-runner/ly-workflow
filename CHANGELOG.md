@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-08-10
+
+### Added
+- `/ly:propose` 总开关改为"全自动 vs 手动逐步确认"两条路径：手动路径新增两处 worktree 询问点（方案提交后、审查循环终止后）与一处"要不要跑 review-plan 审查"询问
+- 无论全自动还是手动路径，审查循环以"清零"之外的任一终止原因结束时都问一次 worktree（不带 `--auto`），非正常终止统一处理为"退出自动模式，回到人工确认"
+- `/ly:apply` 执行前新增隔离检测：目标 change 名按固定优先级解析（显式参数 → 当前 worktree 反查 → 唯一未归档 change → 询问用户），已在该 change 的受控目标 worktree（固定路径 + 注册分支双重匹配）内跳过询问，不在或不匹配则先问一次要不要切换
+- `/ly:worktree switch` 定位到"目标路径已注册"时新增校验该路径当前分支是否严格等于目标 change 名，不匹配则拒绝执行、不直接定位——堵住"固定路径被占用导致 `/ly:apply` 侧新增保护被绕过"这个口子
+- `switch` 的续接命令统一按"是否带 `--auto`"和"是否有 baseline 失败摘要"组合出四种续接提示文案，确保"先处理 baseline"和"完成后自动审查"两个约束在交叉场景下都不丢失
+
+### Changed
+- `/ly:review-code`/`/ly:review-plan` 的全局轮数上限默认值从 20 轮降到 5 轮，并明确"清零优先于轮数上限"——第 N 轮（含第 5 轮）若结果本身是清零，按清零处理，不因命中轮数上限而误报
+- `/ly:worktree switch` 的目标路径解析统一以 `git rev-parse --git-common-dir` 反推的主仓库位置为基准，不依赖调用发生时所处 worktree 的相对路径
+
+### Known Limitations
+- 本次隔离检测的目标是防误操作，不是防故意绕过：不校验目标分支 `HEAD` 是否真的包含该 change 当前的 artifact，也不强制 `/ly:worktree switch` 的续接命令必须经过 `/ly:apply`（续接提示仍是建议性引导）
+
+---
+
 ## [1.3.0] - 2026-08-10
 
 ### Added

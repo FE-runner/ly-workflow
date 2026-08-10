@@ -23,13 +23,13 @@
 |------|------|------|
 | `init.md` | 真逻辑 | 生成 CLAUDE.md + `openspec init` + 自动 commit |
 | `explore.md` | 薄壳委托 | 直接调用 `opsx:explore`，收敛到方案时提示转 `/ly:propose` |
-| `propose.md` | 真逻辑 | 委托 `opsx:propose` + 总开关编排（commit → 审查循环 → worktree 询问） |
-| `apply.md` | 真逻辑 | 委托 `opsx:apply` 实施 tasks + 自动 commit |
+| `propose.md` | 真逻辑 | 委托 `opsx:propose` + 全自动/手动两条路径编排（commit → 各自的审查循环 + worktree 询问） |
+| `apply.md` | 真逻辑 | 执行前隔离检测（固定路径+分支双重匹配）+ 委托 `opsx:apply` 实施 tasks + 自动 commit |
 | `archive.md` | 真逻辑 | 委托 `opsx:archive` 归档 + 自动 commit |
-| `review-plan.md` | 真逻辑 | Codex 审方案，审查-修复循环，默认每轮自动 commit（`--no-commit` 关闭） |
-| `review-code.md` | 真逻辑 | Codex 审代码，Critical/Warning/Info 分级，审查-修复循环，默认每轮自动 commit（`--no-commit` 关闭） |
+| `review-plan.md` | 真逻辑 | Codex 审方案，审查-修复循环（全局轮数上限 5 轮，清零优先），默认每轮自动 commit（`--no-commit` 关闭） |
+| `review-code.md` | 真逻辑 | Codex 审代码，Critical/Warning/Info 分级，审查-修复循环（全局轮数上限 5 轮，清零优先），默认每轮自动 commit（`--no-commit` 关闭） |
 | `commit.md` `rollback.md` `clean-branches.md` | Git 工具 | 不变 |
-| `worktree.md` | Git 工具 | 默认项目外 `../.ly/项目名/`；新增隔离检测、`--local` 项目内选项（强制 gitignore 校验）、创建后 baseline 验证 |
+| `worktree.md` | Git 工具 | 默认项目外 `../.ly/项目名/`；新增隔离检测、`--local` 项目内选项（强制 gitignore 校验）、创建后 baseline 验证；`switch` 定位已注册路径时新增分支校验（不匹配则拒绝，不直接定位） |
 
 ## 已删除（v1.0.0 改造）
 

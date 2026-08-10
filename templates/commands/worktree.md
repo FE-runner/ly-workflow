@@ -108,8 +108,10 @@ your-project/
    - `openspec/changes/<change-name>/proposal.md` **与 `tasks.md` 均必须存在**——只有 `proposal.md` 没有 `tasks.md` 时报错并提示"该 change 尚未生成 tasks.md，请先完成规划（如 `/opsx:propose`）再执行 switch"。
    - `git status --porcelain -- openspec/changes/<change-name>/` 必须为空（无未提交/未跟踪内容），否则报错提示先 commit（worktree 不会带入未提交文件，不做自动迁移；需要迁移用 `migrate`）。
    - `<change-name>` 必须匹配 `^[a-z0-9]+(-[a-z0-9]+)*$`，分支名额外过 `git check-ref-format --branch`，不匹配直接报错，不做任何猜测式纠正。
-3. **判断目标路径是否已是已注册的 worktree**（`git worktree list --porcelain`）：
-   - **是** → 直接定位，跳过下面的分支拓扑校验与创建/baseline，展示路径/分支，进入步骤 6 输出续接命令。
+3. **判断目标路径是否已是已注册的 worktree**（`git worktree list --porcelain`；目标路径以 `git rev-parse --git-common-dir` 反推的主仓库位置为基准计算——先把该输出转成绝对路径再取父目录，不依赖当前调用所处 worktree 的相对路径，保证从主工作区或从任意其他 worktree 调用时算出的路径一致；所有路径比较前均 canonicalize）：
+   - **是** → 额外校验该路径当前注册的分支名是否严格等于 `<change-name>`：
+     - **严格等于** → 直接定位，跳过下面的分支拓扑校验与创建/baseline，展示路径/分支，进入步骤 6 输出续接命令。
+     - **不等于** → 拒绝执行，报错提示"目标路径已注册但对应分支非 `<change-name>`（当前为 `<实际分支名>`），请手动处理后重试"，不直接定位、不进入步骤 6 输出续接命令。
    - **否**（本次需要从 base ref 新建或挂载分支）→ 继续步骤 4。
 4. **分支拓扑校验**（仅"否"分支适用）：确认该 change 目录下 artifact 的最近一次 commit 是目标 base ref（仓库默认分支最新提交）的祖先（`git merge-base --is-ancestor <artifact-commit> <base-ref>`）。不满足 → 报错拒绝，提示"该 change 的提交不在默认分支历史上，请先合并或 rebase 到默认分支，再执行 switch"，不创建任何 worktree/分支。
 5. **确定性处理矩阵**（用 `git worktree list --porcelain` + `git branch --list <name>` 探测）：
@@ -169,6 +171,9 @@ your-project/
 
 # change 提交不在默认分支历史上时报错
 # > 该 change 的提交不在默认分支历史上，请先合并或 rebase 到默认分支，再执行 switch
+
+# 目标路径已注册但分支不匹配时报错
+# > 目标路径已注册但对应分支非 add-user-auth（当前为 hotfix），请手动处理后重试
 
 # change 缺少 tasks.md 时报错
 # > 该 change 尚未生成 tasks.md，请先完成规划（如 /opsx:propose）再执行 switch

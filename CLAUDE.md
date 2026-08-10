@@ -2,13 +2,20 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-10 (v1.3.0)
+**Last Updated**: 2026-08-10 (v1.4.0)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-10 (v1.4.0) — propose 全自动/手动两路径 + apply 隔离检测 + switch 分支校验
+- ✨ **`/ly:propose` 总开关改为"全自动 vs 手动"两条路径**：手动路径新增两处 worktree 询问点（方案提交后、审查循环终止后）与一处"要不要跑审查"询问；无论哪条路径，审查循环以"清零"之外的任一原因终止时都问一次 worktree（不带 `--auto`），非正常终止统一视为"退出自动模式，回到人工确认"。
+- ✨ **`/ly:apply` 新增执行前隔离检测**：目标 change 名按固定优先级解析（显式参数 → 当前 worktree 反查 → 唯一未归档 change → 询问用户），已在该 change 的受控目标 worktree（固定路径 `../.ly/<项目名>/<change-name>` + 注册分支双重匹配）内跳过询问，不在或不匹配则先问一次要不要切换。
+- ✨ **`/ly:worktree switch` 新增分支校验**：定位到"目标路径已注册"时，校验该路径当前分支是否严格等于目标 change 名，不匹配则拒绝执行、不直接定位——补上"固定路径被占用导致 `/ly:apply` 侧保护被绕过"这个口子；路径解析统一以 `git rev-parse --git-common-dir` 反推主仓库位置为基准。
+- 🔄 **`/ly:review-code`/`/ly:review-plan` 全局轮数上限 20→5**，并明确"清零优先于轮数上限"。
+- ⚠️ **已知限制**：本次隔离检测只防误操作，不防故意绕过——不校验目标分支 `HEAD` 是否真的包含该 change 当前的 artifact，也不强制 `switch` 续接命令必须经过 `/ly:apply`。
 
 ### 2026-08-10 (v1.3.0) — 全流程 commit 覆盖：init/apply/archive 补commit，review循环默认自动commit
 - ✨ **`/ly:init`/`/ly:apply`/`/ly:archive` 补上自动 commit**：三者原先产生文件变动后不提交，现分别在生成 CLAUDE.md+openspec 结构、实施 tasks、归档 change 后自动 commit；无可提交内容或 commit 失败时跳过并如实报告，不中断主流程。
@@ -69,13 +76,13 @@ npx ly-workflow menu    # 交互式菜单
 |------|------|
 | `/ly:init` | 生成 CLAUDE.md（原生 `init` 技能）+ `openspec init` + 自动 commit |
 | `/ly:explore` | 委托 `opsx:explore` |
-| `/ly:propose` | 问总开关 → 委托 `opsx:propose` → commit → （开关开启时）审查循环 → 询问隔离 worktree |
-| `/ly:apply` | 委托 `opsx:apply` + 自动 commit + 追加通用 worktree 提示 |
+| `/ly:propose` | 问"全自动/手动" → 委托 `opsx:propose` → commit → 两条路径各自的审查循环 + worktree 询问编排 |
+| `/ly:apply` | 执行前隔离检测（固定路径+分支双重匹配，不匹配问 worktree）→ 委托 `opsx:apply` + 自动 commit + 追加通用 worktree 提示 |
 | `/ly:archive` | 委托 `opsx:archive` + 自动 commit |
-| `/ly:review-plan` | 读取目标 change 的 proposal/design/tasks，Codex 分级审查，审查-修复循环直到清零或触发终止条件，默认每轮自动 commit（`--no-commit` 关闭） |
-| `/ly:review-code` | 读取 git diff，Codex 分级审查，审查-修复循环直到清零或触发终止条件，默认每轮自动 commit（`--no-commit` 关闭） |
+| `/ly:review-plan` | 读取目标 change 的 proposal/design/tasks，Codex 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），默认每轮自动 commit（`--no-commit` 关闭） |
+| `/ly:review-code` | 读取 git diff，Codex 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），默认每轮自动 commit（`--no-commit` 关闭） |
 
-不变的 Git 工具：`/ly:commit` `/ly:rollback` `/ly:clean-branches`；`/ly:worktree` 新增 `switch <change-name> [--auto]` 子命令。
+不变的 Git 工具：`/ly:commit` `/ly:rollback` `/ly:clean-branches`；`/ly:worktree` 的 `switch <change-name> [--auto]` 子命令新增分支校验（定位已注册路径时确认注册分支严格等于 `<change-name>`）。
 
 ### 典型工作流
 
