@@ -6,7 +6,7 @@ description: '读取 OpenSpec change 的 proposal/design/tasks，Codex 分级审
 
 审查当前 OpenSpec change 的方案是否合理，聚焦遗漏边界、范围不清晰、风险点——不是逐行代码风格。输出 Critical/Warning/Info 分级结果（与 `/ly:review-code` 一致）。若存在 Critical，进入审查-修复循环：Claude 判断是否认可每条 Critical，认可则修改该 change 的 artifact 并自动重新审查，直到清零或触发终止条件。
 
-支持可选标志 `--commit-each-round`：传入时每轮修复+验证通过后立即在循环内部提交；不传时维持"修复后留在工作区，不自动提交"的行为。
+默认每轮修复+验证通过后立即在循环内部提交；传入 `--no-commit` 时改为"修复后留在工作区，不自动提交"。
 
 ## 步骤
 
@@ -62,7 +62,7 @@ Bash({
 
 修复完成后运行一次 `openspec validate --changes <change-name>`。验证失败 → 立即停止循环，不再进行下一轮修复，报告本轮改动的文件清单及 `openspec validate` 的失败信息，说明需要人工介入。
 
-**4.4 `--commit-each-round`（若传入该标志）**
+**4.4 提交本轮改动（默认行为，`--no-commit` 时跳过）**
 
 验证通过后，若本轮存在实际改动，立即在循环内部执行一次 commit：仅暂存并提交本轮实际改动的文件，提交信息形如 `fix: review-plan feedback (round N) - <change-name>`。若本轮全部 Critical 都被判定为不认可（没有实际改动），不创建空 commit。**若 commit 本身执行失败**，立即停止循环，不进入下一轮审查，报告 Git 返回的原始错误信息及本轮改动的文件清单。
 
@@ -80,7 +80,7 @@ Bash({
 4. **无法安全自动修复**：需要产品/业务决策、依赖当前会话不具备的信息，或 Claude 判断信息不足——不得进行猜测性修改
 5. **修复后验证失败**：见 4.3（`openspec validate` 未通过）
 6. **审查调用失败**：见步骤 3
-7. **提交失败**（仅 `--commit-each-round`）：见 4.4
+7. **提交失败**（默认开启提交时）：见 4.4
 8. **达到全局轮数上限**（20 轮）
 
 触发条件 2-8 时，立即停止循环，报告中必须明确指出触发的具体条件、涉及的问题（文件/类别/章节/判定依据），并说明需要人工介入。"分歧未决"额外要求并列展示 Codex 每一轮的原始发现与 Claude 每一轮的反驳理由。循环期间的 Warning/Info 不参与终止判定，只在最终报告列出**最后一轮**结果。

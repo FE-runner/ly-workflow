@@ -85,7 +85,7 @@
 3. 无法安全自动修复：某个 Critical 的修复需要产品/业务决策、依赖当前会话不具备的外部凭据、会改变已发布的公开 API 或接口契约, 或 Claude 判断当前上下文信息不足以给出确定性修复——命中时不得进行猜测性修改
 4. 修复后验证失败：`/ly:review-code` 某一轮修复后运行的测试/类型检查/构建未通过, 或 `/ly:review-plan` 某一轮修复后 `openspec validate` 未通过
 5. 分歧未决：Claude 对某个 Critical 判断为不认可（详见下一条 Requirement）, 且该 Critical 在下一轮审查中仍被 Codex 判定为同一问题存在
-6. 提交失败（仅在传入 `--commit-each-round` 时适用）：见"`--commit-each-round` 标志控制循环是否自行逐轮提交"，本轮 commit 本身执行失败
+6. 提交失败（除非传入 `--no-commit`）：见"每轮修复默认自动提交, `--no-commit` 关闭"，本轮 commit 本身执行失败
 
 触发终止条件 2 到 6 中任一时, 命令必须（SHALL）立即停止循环, 在报告中明确指出触发的具体条件、涉及的问题（文件、类别、锚点、判定依据）, 并说明后续需要人工介入, 不得继续自动修复。循环期间的 Warning 与 Info 发现不参与循环终止判定, 只在循环结束后的最终报告中列出**最后一轮**审查的结果, 不跨轮次合并汇总。
 
@@ -168,21 +168,21 @@
 - **WHEN** 循环连续 20 轮都发现新的、判同键各不相同的 Critical（因而既未清零、也未熔断、也未分歧未决）
 - **THEN** 命令在第 20 轮结束后停止循环, 报告"已达到全局轮数上限（20 轮）, 停止自动化", 附上完整的 20 轮 Critical 摘要轨迹, 说明需要人工介入
 
-### Requirement: `--commit-each-round` 标志控制循环是否自行逐轮提交
-`/ly:review-code` 与 `/ly:review-plan` 都必须（SHALL）支持可选标志 `--commit-each-round`。传入该标志时, 循环在每一轮修复完成且该轮验证（`/ly:review-code` 为测试/类型检查/构建；`/ly:review-plan` 为 `openspec validate`）通过后, 必须（SHALL）立即在循环内部执行一次 commit（仅暂存并提交本轮实际改动的文件, 不做范围外的 `git add`），提交信息包含 `fix:` 前缀、目标标识（change 名或审查对象说明）与轮次序号。若本轮没有实际文件改动（例如该轮全部 Critical 都被判定为不认可）, SHALL NOT 创建空 commit。若 commit 本身执行失败（Git hook 拒绝、身份未配置、锁文件冲突等）, 必须（SHALL）将其视为独立的终止条件：立即停止循环, 不进入下一轮审查或后续编排, 报告 Git 返回的原始错误信息及本轮改动的文件清单。不传入该标志时, 命令 SHALL NOT 自动 commit, 修复结果留给调用方或用户自行处理, 与命令改动前的行为一致。
+### Requirement: 每轮修复默认自动提交, `--no-commit` 关闭
+`/ly:review-code` 与 `/ly:review-plan` 默认（不传任何标志）在每一轮修复完成且该轮验证（`/ly:review-code` 为测试/类型检查/构建；`/ly:review-plan` 为 `openspec validate`）通过后, 必须（SHALL）立即在循环内部执行一次 commit（仅暂存并提交本轮实际改动的文件, 不做范围外的 `git add`），提交信息包含 `fix:` 前缀、目标标识（change 名或审查对象说明）与轮次序号。若本轮没有实际文件改动（例如该轮全部 Critical 都被判定为不认可）, SHALL NOT 创建空 commit。若 commit 本身执行失败（Git hook 拒绝、身份未配置、锁文件冲突等）, 必须（SHALL）将其视为独立的终止条件：立即停止循环, 不进入下一轮审查或后续编排, 报告 Git 返回的原始错误信息及本轮改动的文件清单。传入可选标志 `--no-commit` 时, 命令 SHALL NOT 自动 commit, 修复结果留给调用方或用户自行处理。
 
-#### Scenario: 带 --commit-each-round 时逐轮提交
-- **WHEN** 用户（或编排该命令的上层流程）执行 `/ly:review-plan <change-name> --commit-each-round`, 第一轮发现 1 个 Critical 并修复、`openspec validate` 通过
+#### Scenario: 默认逐轮提交
+- **WHEN** 用户（或编排该命令的上层流程）执行 `/ly:review-plan <change-name>`（不带任何标志）, 第一轮发现 1 个 Critical 并修复、`openspec validate` 通过
 - **THEN** 命令在进入第二轮审查之前立即提交一次, 提交信息形如 `fix: review-plan feedback (round 1) - <change-name>`
 
-#### Scenario: 不带 --commit-each-round 时不自动提交
-- **WHEN** 用户直接执行 `/ly:review-code`（不带 `--commit-each-round`）, 循环修复了若干 Critical 后清零结束
-- **THEN** 命令不执行任何 commit, 修改的文件保持在工作区未提交状态, 与改动前的行为一致
+#### Scenario: 带 --no-commit 时不自动提交
+- **WHEN** 用户执行 `/ly:review-code --no-commit`, 循环修复了若干 Critical 后清零结束
+- **THEN** 命令不执行任何 commit, 修改的文件保持在工作区未提交状态
 
 #### Scenario: 本轮无实际改动, 不创建空 commit
-- **WHEN** 带 `--commit-each-round` 运行, 某一轮全部 Critical 都被 Claude 判定为不认可（未修改任何文件）
+- **WHEN** 默认自动提交行为下, 某一轮全部 Critical 都被 Claude 判定为不认可（未修改任何文件）
 - **THEN** 命令不执行 commit, 不产生空提交, 继续按分歧未决相关判定处理
 
 #### Scenario: commit 本身失败, 触发独立终止条件
-- **WHEN** 带 `--commit-each-round` 运行, 某一轮修复且验证通过后尝试 commit, 但因 pre-commit hook 拒绝或 Git 身份未配置导致 commit 失败
+- **WHEN** 默认自动提交行为下, 某一轮修复且验证通过后尝试 commit, 但因 pre-commit hook 拒绝或 Git 身份未配置导致 commit 失败
 - **THEN** 命令立即停止循环, 不进入下一轮审查, 报告 Git 返回的原始错误信息及本轮改动的文件清单, 说明需要人工处理

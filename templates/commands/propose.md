@@ -43,10 +43,10 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
 ### 6. 调用 review-plan 审查循环
 
 ```
-/ly:review-plan <change-name> --commit-each-round
+/ly:review-plan <change-name>
 ```
 
-`--commit-each-round` 让循环自己在每轮修复且验证（`openspec validate`）通过后 commit，`/ly:propose` 不从外部拦截或观察循环的中间轮次状态来触发提交（该 commit 本身失败也由循环自己作为独立终止条件处理，见 `/ly:review-plan` 的规则）。
+审查循环默认在每轮修复且验证（`openspec validate`）通过后自动 commit，`/ly:propose` 不从外部拦截或观察循环的中间轮次状态来触发提交（该 commit 本身失败也由循环自己作为独立终止条件处理，见 `/ly:review-plan` 的规则）。
 
 ### 7. 询问是否切换隔离 worktree（仅当循环终止原因为"Critical 清零"）
 
@@ -56,7 +56,7 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
 AskUserQuestion: "是否为此次改动新建隔离 worktree？"
 ```
 
-- **是** → 调用 `/ly:worktree switch <change-name> --auto`（总开关已经是"是"，切换后自然延续自动化——新 worktree 里实施完自动跑 `/ly:review-code --commit-each-round` 循环，不再为此单独询问）
+- **是** → 调用 `/ly:worktree switch <change-name> --auto`（总开关已经是"是"，切换后自然延续自动化——新 worktree 里实施完自动跑 `/ly:review-code` 循环，不再为此单独询问）
 - **否** → 留在当前工作区，流程结束
 
 **其余全部终止原因**——熔断、分歧未决、无法安全修复、验证失败、审查调用失败、达到全局轮数上限——都**不询问、不调用 switch**，直接输出对应的终止报告并结束编排。方案本身尚未收敛，不适合急着进隔离环境。

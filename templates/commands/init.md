@@ -41,7 +41,16 @@ Skill({ skill: "init", args: "$ARGUMENTS" })
    openspec init --tools claude
    ```
 
-### 步骤 3：汇总
+### 步骤 3：提交初始化产物
+
+```bash
+git add -- CLAUDE.md openspec/
+git commit -m "chore: init CLAUDE.md + openspec structure"
+```
+
+仅暂存本次初始化产生的文件（`CLAUDE.md`、`openspec/`），不用 `git add -A`。若无可提交内容（两者均已存在且未变化）或 `git commit` 失败，跳过提交，在汇总中如实报告，不中断步骤 4。
+
+### 步骤 4：汇总
 
 ```
 📋 初始化结果

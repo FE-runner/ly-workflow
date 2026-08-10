@@ -9,7 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.2.1] - 2026-08-10
+## [1.3.0] - 2026-08-10
+
+### Added
+- `/ly:init` 生成 CLAUDE.md + `openspec init` 后自动 commit（`CLAUDE.md`、`openspec/`）
+- `/ly:apply` 委托 `opsx:apply` 实施 tasks 后自动 commit 本次实际改动的文件
+- `/ly:archive` 委托 `opsx:archive` 归档后自动 commit `openspec/` 下的文件移动
+
+### Changed
+- `/ly:review-code`/`/ly:review-plan` 的每轮自动 commit 由"需显式传 `--commit-each-round`"改为默认行为，新增 `--no-commit` 用于关闭
+- `/ly:propose` 调用 review-plan、`/ly:worktree switch --auto` 的续接提示同步去掉现已冗余的 `--commit-each-round` 标志
+
+---
+
+
 
 ### Changed
 - `/ly:explore` 加一句转向提示：`opsx:explore` 原生支持讨论中直接创建 proposal/design/spec，但这样会跳过 `/ly:propose` 的编排（总开关、commit、review-plan 审查循环、worktree 询问）；讨论收敛到"要落地方案"时改为提示用户切换 `/ly:propose`，explore 本身不接管 artifact 创建

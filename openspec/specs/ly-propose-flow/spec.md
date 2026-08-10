@@ -42,14 +42,14 @@
 - **THEN** 命令停止后续自动化步骤，报告具体原因，SHALL NOT 继续调用 `/ly:review-plan` 或询问 worktree
 
 ### Requirement: 总开关开启时自动调用 review-plan 审查循环，由循环自身逐轮提交
-当且仅当总开关询问结果为"是"时，`/ly:propose` SHALL 在完成首次 commit 后自动调用 `/ly:review-plan <change-name> --commit-each-round`，该调用 SHALL 复用审查-修复循环规则（见 ly-review-gates 能力），并让循环自身在每轮修复且验证（`openspec validate`）通过后立即 commit，`/ly:propose` SHALL NOT 从外部拦截或观察循环的中间轮次状态来触发提交。
+当且仅当总开关询问结果为"是"时，`/ly:propose` SHALL 在完成首次 commit 后自动调用 `/ly:review-plan <change-name>`，该调用 SHALL 复用审查-修复循环规则（见 ly-review-gates 能力），并让循环自身（默认行为，除非显式传 `--no-commit`）在每轮修复且验证（`openspec validate`）通过后立即 commit，`/ly:propose` SHALL NOT 从外部拦截或观察循环的中间轮次状态来触发提交。
 
 #### Scenario: 审查循环中的逐轮提交由 review-plan 自身完成
-- **WHEN** 总开关开启，`/ly:propose` 调用 `/ly:review-plan <change-name> --commit-each-round`，第一轮发现 1 个 Critical 并修改了 `design.md`，`openspec validate` 通过
+- **WHEN** 总开关开启，`/ly:propose` 调用 `/ly:review-plan <change-name>`，第一轮发现 1 个 Critical 并修改了 `design.md`，`openspec validate` 通过
 - **THEN** `/ly:review-plan` 在进入第二轮审查前立即提交一次，提交信息形如 `fix: review-plan feedback (round 1) - <change-name>`；`/ly:propose` 不需要感知这次提交的具体时机
 
 ### Requirement: 审查循环结束后询问是否切换隔离 worktree，选是时启用自动续接
-`/ly:propose` SHALL 在审查循环终止原因为"Critical 清零"时，无论改动大小，SHALL 询问用户是否要为该 change 切换到隔离 worktree。循环以其余任一终止原因结束（熔断、分歧未决、无法安全修复、验证失败、审查调用失败、达到全局轮数上限）时，`/ly:propose` SHALL NOT 询问是否切换 worktree，SHALL NOT 调用 `/ly:worktree switch`，直接输出对应的终止报告并结束编排。用户对 worktree 询问选择"是"时，`/ly:propose` SHALL 调用 `/ly:worktree switch <change-name> --auto`（因为总开关已确认用户想要端到端自动化，切换后自动延续到"新 worktree 里实施完自动跑 `/ly:review-code --commit-each-round` 审查循环"，不再为此单独询问）。
+`/ly:propose` SHALL 在审查循环终止原因为"Critical 清零"时，无论改动大小，SHALL 询问用户是否要为该 change 切换到隔离 worktree。循环以其余任一终止原因结束（熔断、分歧未决、无法安全修复、验证失败、审查调用失败、达到全局轮数上限）时，`/ly:propose` SHALL NOT 询问是否切换 worktree，SHALL NOT 调用 `/ly:worktree switch`，直接输出对应的终止报告并结束编排。用户对 worktree 询问选择"是"时，`/ly:propose` SHALL 调用 `/ly:worktree switch <change-name> --auto`（因为总开关已确认用户想要端到端自动化，切换后自动延续到"新 worktree 里实施完自动跑 `/ly:review-code` 审查循环（默认逐轮自动提交）"，不再为此单独询问）。
 
 #### Scenario: 审查通过后询问，选是时带 --auto
 - **WHEN** `/ly:review-plan` 的审查-修复循环以 Critical 清零结束

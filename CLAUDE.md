@@ -2,13 +2,17 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-10 (v1.2.1)
+**Last Updated**: 2026-08-10 (v1.3.0)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-10 (v1.3.0) — 全流程 commit 覆盖：init/apply/archive 补commit，review循环默认自动commit
+- ✨ **`/ly:init`/`/ly:apply`/`/ly:archive` 补上自动 commit**：三者原先产生文件变动后不提交，现分别在生成 CLAUDE.md+openspec 结构、实施 tasks、归档 change 后自动 commit；无可提交内容或 commit 失败时跳过并如实报告，不中断主流程。
+- 🔄 **`/ly:review-code`/`/ly:review-plan` 每轮自动 commit 改为默认行为**：原先需显式传 `--commit-each-round`，现默认开启，新增 `--no-commit` 用于关闭；`/ly:propose`/`/ly:worktree switch --auto` 的续接提示同步去掉冗余标志。
 
 ### 2026-08-10 (v1.2.1) — explore 加转向提示，防止绕开 propose 编排
 - 🔄 **`/ly:explore` 加一句转向提示**：`opsx:explore` 原生支持讨论中直接创建 proposal/design/spec，但这样会跳过 `/ly:propose` 的编排（总开关、commit、review-plan 审查循环、worktree 询问）——讨论收敛到"要落地方案"时改为提示用户切换 `/ly:propose`，explore 本身不接管 artifact 创建。
@@ -63,13 +67,13 @@ npx ly-workflow menu    # 交互式菜单
 
 | 命令 | 用途 |
 |------|------|
-| `/ly:init` | 生成 CLAUDE.md（原生 `init` 技能）+ `openspec init` |
+| `/ly:init` | 生成 CLAUDE.md（原生 `init` 技能）+ `openspec init` + 自动 commit |
 | `/ly:explore` | 委托 `opsx:explore` |
 | `/ly:propose` | 问总开关 → 委托 `opsx:propose` → commit → （开关开启时）审查循环 → 询问隔离 worktree |
-| `/ly:apply` | 委托 `opsx:apply` + 追加通用 worktree 提示 |
-| `/ly:archive` | 委托 `opsx:archive` |
-| `/ly:review-plan` | 读取目标 change 的 proposal/design/tasks，Codex 分级审查，审查-修复循环直到清零或触发终止条件 |
-| `/ly:review-code` | 读取 git diff，Codex 分级审查，审查-修复循环直到清零或触发终止条件 |
+| `/ly:apply` | 委托 `opsx:apply` + 自动 commit + 追加通用 worktree 提示 |
+| `/ly:archive` | 委托 `opsx:archive` + 自动 commit |
+| `/ly:review-plan` | 读取目标 change 的 proposal/design/tasks，Codex 分级审查，审查-修复循环直到清零或触发终止条件，默认每轮自动 commit（`--no-commit` 关闭） |
+| `/ly:review-code` | 读取 git diff，Codex 分级审查，审查-修复循环直到清零或触发终止条件，默认每轮自动 commit（`--no-commit` 关闭） |
 
 不变的 Git 工具：`/ly:commit` `/ly:rollback` `/ly:clean-branches`；`/ly:worktree` 新增 `switch <change-name> [--auto]` 子命令。
 
@@ -83,7 +87,7 @@ npx ly-workflow menu    # 交互式菜单
 
 ## 关键设计决策
 
-1. **`propose` 是编排入口，`apply`/`archive`/`explore` 仍是薄壳，但不受任何"必须是薄壳"的原则约束**：`propose.md` 已经包含总开关询问、commit、审查循环调用、worktree 询问等编排逻辑；`apply.md`/`archive.md`/`explore.md` 目前只做参数转发+（apply）一句通用提示，是基于当前范围的独立判断，不是被某条项目原则强制的"薄壳"——原有的"委托而非重新封装"原则已废止（2026-08-08），后续任一命令要不要加编排逻辑，按需判断即可，不需要先论证是否例外。
+1. **`propose` 是编排入口，`init`/`apply`/`archive` 现在也各自带一段自动 commit 逻辑，`explore` 仍是纯薄壳**：`propose.md` 包含总开关询问、commit、审查循环调用、worktree 询问等编排逻辑；`init.md`/`apply.md`/`archive.md` 在委托对应 opsx 技能之后补了一段"提交本次产生的文件变动"，`explore.md` 只做参数转发+一句转向提示。是否要加编排逻辑按需判断即可，不受任何"必须是薄壳"的原则约束——原有的"委托而非重新封装"原则已废止（2026-08-08）。
 2. **审查走 codeagent-wrapper 而非直连 Codex API**：复用已有的 session 管理、进度回调、超时重试。
 3. **Go wrapper 只删 Backend 层**：`Backend` interface 保持不变，删除具体实现（Gemini/Grok/Antigravity）不影响执行引擎（并发调度/日志/SSE）。
 4. **LICENSE + git 历史不动**：文档整体重写，但版权声明和提交历史保留可追溯性。

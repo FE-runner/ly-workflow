@@ -58,12 +58,12 @@
 - **THEN** 系统打印续接命令，且 prompt 文本中携带 baseline 失败摘要并要求新会话先处理环境问题，再继续实施 tasks
 
 ### Requirement: `--auto` 标志只改变续接命令文案，不改变执行方式
-`/ly:worktree switch <change-name> --auto` SHALL 在续接命令的 prompt 文本中追加一句要求新会话在实施完 tasks 后自动依次调用 `/ly:review-code --commit-each-round`、按其全部终止条件运行（清零/熔断/分歧未决/无法安全修复/验证失败/审查调用失败/达到全局轮数上限，任一命中都停止）的指令，且要求该轮代码修复完成并通过验证后立即逐轮 commit；系统本身 SHALL NOT 因此改变"只打印不自动执行、不跨会话执行"的行为。
+`/ly:worktree switch <change-name> --auto` SHALL 在续接命令的 prompt 文本中追加一句要求新会话在实施完 tasks 后自动依次调用 `/ly:review-code`、按其全部终止条件运行（清零/熔断/分歧未决/无法安全修复/验证失败/审查调用失败/达到全局轮数上限，任一命中都停止）的指令；`/ly:review-code` 默认逐轮自动 commit（该轮代码修复完成并通过验证后立即提交），无需在续接指令中额外要求；系统本身 SHALL NOT 因此改变"只打印不自动执行、不跨会话执行"的行为。
 
 #### Scenario: 带 --auto 的续接命令
 - **WHEN** 用户执行 `/ly:worktree switch <change-name> --auto`，worktree 已就位，baseline 通过
-- **THEN** 系统输出形如 `cd ../.ly/<项目名>/<change-name> && claude "继续实施 change: <change-name>，读取 openspec/changes/<change-name>/tasks.md 按任务执行；实施完成后自动依次调用 /ly:review-code --commit-each-round，按其全部终止条件运行，不需要人工确认"` 的命令，仍然只打印、不自动执行
+- **THEN** 系统输出形如 `cd ../.ly/<项目名>/<change-name> && claude "继续实施 change: <change-name>，读取 openspec/changes/<change-name>/tasks.md 按任务执行；实施完成后自动依次调用 /ly:review-code，按其全部终止条件运行，不需要人工确认"` 的命令，仍然只打印、不自动执行
 
 #### Scenario: 不带 --auto 时文案不变
 - **WHEN** 用户执行 `/ly:worktree switch <change-name>`（不带 `--auto`）
-- **THEN** 系统输出的续接命令维持原文案，不包含自动审查的指令，也不带 `--commit-each-round`
+- **THEN** 系统输出的续接命令维持原文案，不包含自动审查的指令
