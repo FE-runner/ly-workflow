@@ -2,13 +2,16 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-08 (v1.2.0)
+**Last Updated**: 2026-08-10 (v1.2.1)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-10 (v1.2.1) — explore 加转向提示，防止绕开 propose 编排
+- 🔄 **`/ly:explore` 加一句转向提示**：`opsx:explore` 原生支持讨论中直接创建 proposal/design/spec，但这样会跳过 `/ly:propose` 的编排（总开关、commit、review-plan 审查循环、worktree 询问）——讨论收敛到"要落地方案"时改为提示用户切换 `/ly:propose`，explore 本身不接管 artifact 创建。
 
 ### 2026-08-08 (v1.2.0) — Change 生命周期自动化：审查-修复循环 + worktree switch + propose 总开关
 - ✨ **`/ly:review-code`/`/ly:review-plan` 新增审查-修复循环**：Critical 清零或触发终止条件（熔断/分歧未决/无法安全修复/验证失败/审查调用失败/达到全局轮数上限）才停止；Codex 报告的 Critical 不再是自动生效的裁决——Claude 先判断是否认可，不认可则不修复但要写反驳理由，同一问题连续两轮分歧则触发"分歧未决"转人工。`/ly:review-plan` 同步补上 Critical/Warning/Info 分级（此前是不分级的问题清单）。两者都支持 `--commit-each-round` 标志，由循环自身逐轮提交。
