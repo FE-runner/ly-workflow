@@ -2,13 +2,18 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-10 (v1.4.0)
+**Last Updated**: 2026-08-10 (v1.4.1)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-10 (v1.4.1) — review-plan 独立角色提示词 + 读取spec + 系统性误判终止条件
+- ✨ **`/ly:review-plan` 新增独立角色提示词 `plan-reviewer.md`**：明确禁止把"代码库尚未实现方案条目""tasks.md 任务未勾选"当 Critical（方案审查阶段的正常状态），`/ly:review-code` 不受影响仍用 `reviewer.md`。
+- ✨ **`/ly:review-plan` 读取范围扩展到该 change 的全部 delta spec（`specs/**/*.md`）**：使 Codex 能判断"spec 是否覆盖 proposal 的 What Changes"；修复对象同步扩展到这些 spec 文件，否则发现的问题无法被修复导致循环不清零。
+- ✨ **`/ly:review-code`/`/ly:review-plan` 共用终止条件新增第 9 类"审查对象类型持续系统性误判"**：连续 3 轮 Critical 均属同一大类系统性误判（不要求锚点匹配）即停止转人工——解决 Codex 每轮换锚点重复报同一类误判、现有熔断/分歧未决因锚点不匹配收不住、循环空转到轮数上限的问题。
 
 ### 2026-08-10 (v1.4.0) — propose 全自动/手动两路径 + apply 隔离检测 + switch 分支校验
 - ✨ **`/ly:propose` 总开关改为"全自动 vs 手动"两条路径**：手动路径新增两处 worktree 询问点（方案提交后、审查循环终止后）与一处"要不要跑审查"询问；无论哪条路径，审查循环以"清零"之外的任一原因终止时都问一次 worktree（不带 `--auto`），非正常终止统一视为"退出自动模式，回到人工确认"。

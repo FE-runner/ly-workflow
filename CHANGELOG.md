@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.1] - 2026-08-10
+
+### Added
+- `/ly:review-plan` 新增独立角色提示词 `templates/prompts/codex/plan-reviewer.md`：明确禁止把"代码库尚未实现该方案条目""tasks.md 任务未勾选"作为 Critical 依据（这是方案审查阶段的正常状态），checklist 聚焦文档本身的逻辑缺陷；`/ly:review-code` 不受影响，继续使用原 `reviewer.md`
+- `/ly:review-plan` 读取工件范围扩展到该 change 目录下的全部 delta spec 文件（`specs/**/*.md`），使 Codex 能判断"spec 是否覆盖 proposal 的 What Changes"；修复对象同步扩展到这些 spec 文件
+- `/ly:review-code`/`/ly:review-plan` 共用的终止条件新增第 9 类"审查对象类型持续系统性误判"：连续 3 轮 Critical 均被判定为同一大类系统性误判（不要求锚点匹配）即停止转人工，解决之前"Codex 每轮换锚点重复报同一类误判，现有熔断/分歧未决因锚点不匹配收不住"导致循环空转到轮数上限的问题
+
+---
+
 ## [1.4.0] - 2026-08-10
 
 ### Added
