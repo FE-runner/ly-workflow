@@ -4,7 +4,7 @@
 
 ## What Changes
 
-- 机械重命名 `src/` 下纯代码标识符/注释里的 `Ccg`/`CCG`/`ccg`（类型名、函数名、常量名、JSDoc、日志文案），排除 `src/utils/migration.ts`（该文件有一个独立于本次改名的既存 bug，修复超出本次范围，本次不动）
+- 机械重命名 `src/` 下（除 `src/utils/migration.ts` 外——该文件全部内容，包括其中的旧品牌残留、注释、字符串，均豁免于本次改名，原因见下方 Impact）纯代码标识符/注释里的 `Ccg`/`CCG`/`ccg`（类型名、函数名、常量名、JSDoc、日志文案）
 - 运行时文件名与 marker 字符串直接改名，不留兼容层：
   - `~/.claude/rules/ccg-fast-context.md` → `ly-fast-context.md`，`<!-- CCG-FAST-CONTEXT-* -->` → `<!-- LY-FAST-CONTEXT-* -->`
   - `~/.claude/rules/ccg-grok-search.md` → `ly-grok-search.md`，`<!-- CCG-GROK-SEARCH-PROMPT-* -->` → `<!-- LY-GROK-SEARCH-PROMPT-* -->`
@@ -35,5 +35,5 @@
 - **代码**：`src/types/`、`src/utils/config.ts`、`src/utils/installer.ts`、`src/utils/installer-mcp.ts`、`src/utils/installer-prompt.ts`、`src/utils/skill-registry.ts`、`src/commands/{init,menu,doctor,update,config-mcp}.ts`、`src/cli-setup.ts`、`src/index.ts`
 - **模板**：`templates/codex/agents/*.toml`（重命名）、`templates/codex/hooks/*.py`（重命名）、`templates/codex/hooks.json`、`templates/codex/AGENTS.md`、`templates/hooks/{session-start,task-utils,subagent-context,skill-router}.js`、`templates/prompts/{codex,claude}/*.md`
 - **资产**：`assets/logo/ccg-*.png` 整批删除
-- **不涉及**：`src/utils/migration.ts`（范围决策明确排除）、`README.md`/`CHANGELOG.md`（历史文档不改）、`package.json` description 里的历史性 "forked from ccg-workflow"（历史事实不改）
-- **执行阶段的本机清理**（非代码改动）：删除本机现存的 `~/.claude/rules/ccg-fast-context.md`，清掉 `~/.codex/AGENTS.md`/`~/.gemini/GEMINI.md` 里的旧 `<!-- CCG-FAST-CONTEXT-* -->` 标记块
+- **不涉及**：`src/utils/migration.ts`（整份文件豁免，含其中所有旧品牌字符串/注释——该文件有一个独立于本次改名的既存 bug，修复超出本次范围）、`README.md`/`CHANGELOG.md`（历史文档不改）、`package.json` description 里的历史性 "forked from ccg-workflow"（历史事实不改）
+- **执行阶段的本机清理**（非代码改动）：删除本机现存的 `~/.claude/rules/ccg-fast-context.md`；清掉 `~/.codex/AGENTS.md`/`~/.gemini/GEMINI.md` 里的旧 `<!-- CCG-FAST-CONTEXT-* -->` 标记块；若本机存在 `~/.claude/rules/ccg-grok-search.md`、旧 `<!-- CCG-GROK-SEARCH-PROMPT-* -->` 标记、`~/.codex/.ccg-version`、`~/.codex/agents/ccg-*.toml`、`~/.codex/hooks/ccg-workflow.py`、`*.ccg-update-bak` 备份文件，一并作为无主残留清理（新代码不再识别这些旧名称）

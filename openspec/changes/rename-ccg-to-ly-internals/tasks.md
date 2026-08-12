@@ -32,10 +32,12 @@
 ## 4. 验证
 
 - [ ] 4.1 `pnpm typecheck && pnpm build` 全绿
-- [ ] 4.2 `grep -rli ccg src/ templates/` 复查，确认只剩 `src/utils/migration.ts`（范围决策排除）
+- [ ] 4.2 复查 `src/` 与 `templates/`（`src/utils/migration.ts` 明确豁免，不检查）：分别 grep `Ccg`、`CCG`、`ccg-`、`\.ccg-`、`CCG:`，确认零命中；`grep -rli ccg` 作为兜底整体扫描
 - [ ] 4.3 抽查 `templates/codex/hooks.json` 命令路径、`src/utils/installer.ts` 里 Codex mode 安装/卸载的文件名数组，确认三处（写入路径、卸载路径、成功提示文案）互相一致
 
 ## 5. 本机一次性清理（非代码改动，执行阶段手动跑一次）
 
 - [ ] 5.1 `rm ~/.claude/rules/ccg-fast-context.md`
 - [ ] 5.2 从 `~/.codex/AGENTS.md` 和 `~/.gemini/GEMINI.md` 里删掉 `<!-- CCG-FAST-CONTEXT-START -->...<!-- CCG-FAST-CONTEXT-END -->` 整段
+- [ ] 5.3 若本机存在 `~/.claude/rules/ccg-grok-search.md`，先确认再删除；若 `~/.claude/CLAUDE.md` 或 `~/.codex/AGENTS.md`/`~/.gemini/GEMINI.md` 里残留 `<!-- CCG-GROK-SEARCH-PROMPT-START -->...<!-- CCG-GROK-SEARCH-PROMPT-END -->` 一并删除（新代码用新 marker 名，认不出旧的，不清理会导致下次写入新旧并存）
+- [ ] 5.4 检查本机是否存在 `~/.codex/.ccg-version`、`~/.codex/agents/ccg-*.toml`、`~/.codex/hooks/ccg-workflow.py`、任何 `*.ccg-update-bak` 备份文件——若存在，视为无主残留直接删除（新代码的安装/卸载逻辑已改用新文件名，不会再识别这些旧文件）
