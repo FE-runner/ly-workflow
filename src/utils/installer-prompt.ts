@@ -61,12 +61,12 @@ const FAST_CONTEXT_PROMPT = `# fast-context MCP 工具使用指南
 仅当需要读取 10+ 文件交叉比对、或多轮搜索会撑爆上下文时，才启动子代理。
 `
 
-const FC_MARKER_START = '<!-- CCG-FAST-CONTEXT-START -->'
-const FC_MARKER_END = '<!-- CCG-FAST-CONTEXT-END -->'
+const FC_MARKER_START = '<!-- LY-FAST-CONTEXT-START -->'
+const FC_MARKER_END = '<!-- LY-FAST-CONTEXT-END -->'
 
 /**
  * Write fast-context search guidance to:
- * 1. ~/.claude/rules/ccg-fast-context.md (Claude Code — auto-loaded via rules/)
+ * 1. ~/.claude/rules/ly-fast-context.md (Claude Code — auto-loaded via rules/)
  * 2. ~/.codex/AGENTS.md (Codex CLI — auto-loaded as global instructions)
  * 3. ~/.gemini/GEMINI.md (Gemini CLI — auto-loaded as global instructions)
  */
@@ -101,7 +101,7 @@ export async function writeFastContextPrompt(auxiliaryMode = false): Promise<voi
   // 1. Claude Code rules (standalone file, not appended)
   const rulesDir = join(homedir(), '.claude', 'rules')
   await fs.ensureDir(rulesDir)
-  await fs.writeFile(join(rulesDir, 'ccg-fast-context.md'), promptContent, 'utf-8')
+  await fs.writeFile(join(rulesDir, 'ly-fast-context.md'), promptContent, 'utf-8')
 
   // 2. Codex CLI global instructions (~/.codex/AGENTS.md)
   await injectIntoFile(join(homedir(), '.codex', 'AGENTS.md'))
@@ -130,7 +130,7 @@ export async function removeFastContextPrompt(): Promise<void> {
   }
 
   // 1. Remove Claude Code rules file
-  const rulePath = join(homedir(), '.claude', 'rules', 'ccg-fast-context.md')
+  const rulePath = join(homedir(), '.claude', 'rules', 'ly-fast-context.md')
   if (await fs.pathExists(rulePath)) {
     await fs.remove(rulePath)
   }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// CCG SubAgent Context Hook — PreToolUse (Bash|Agent matcher)
+// ly-workflow SubAgent Context Hook — PreToolUse (Bash|Agent matcher)
 // Injects spec + task context when:
 //   1. codeagent-wrapper is about to be called (Bash)
 //   2. Agent Team member is about to be spawned (Agent)
@@ -82,13 +82,13 @@ try {
   const contextParts = [];
 
   if (isTeamSpawn) {
-    contextParts.push(`<ccg-active-task>
+    contextParts.push(`<ly-active-task>
 Active task: ${task.dir}
 Task: ${task.title || task.id} (${task.status})
 Strategy: ${task.strategy}
 Phase: ${task.currentPhase}
 Agent role: ${detectedRole}
-</ccg-active-task>`);
+</ly-active-task>`);
   }
 
   // Read context.jsonl with role-based filtering
@@ -112,7 +112,7 @@ Agent role: ${detectedRole}
       }
     }
     if (specContents.length > 0) {
-      contextParts.push(`<ccg-specs>\n${specContents.join('\n\n')}\n</ccg-specs>`);
+      contextParts.push(`<ly-specs>\n${specContents.join('\n\n')}\n</ly-specs>`);
     }
   }
 
@@ -121,7 +121,7 @@ Agent role: ${detectedRole}
   const plan = readFileSafe(path.join(task.dir, 'plan.md'));
 
   if (prd || plan) {
-    const taskContext = ['<ccg-task-context>'];
+    const taskContext = ['<ly-task-context>'];
     if (prd) {
       const prdSummary = prd.length > 2000 ? prd.substring(0, 2000) + '\n...(truncated)' : prd;
       taskContext.push(`## Requirements\n${prdSummary}`);
@@ -130,7 +130,7 @@ Agent role: ${detectedRole}
       const planSummary = plan.length > 3000 ? plan.substring(0, 3000) + '\n...(truncated)' : plan;
       taskContext.push(`## Plan\n${planSummary}`);
     }
-    taskContext.push('</ccg-task-context>');
+    taskContext.push('</ly-task-context>');
     contextParts.push(taskContext.join('\n'));
   }
 
@@ -146,7 +146,7 @@ Agent role: ${detectedRole}
             return content ? `--- research/${f} ---\n${content.substring(0, 1500)}` : null;
           }).filter(Boolean);
           if (researchContents.length > 0) {
-            contextParts.push(`<ccg-research>\n${researchContents.join('\n\n')}\n</ccg-research>`);
+            contextParts.push(`<ly-research>\n${researchContents.join('\n\n')}\n</ly-research>`);
           }
         }
       } catch { /* silent */ }
@@ -155,7 +155,7 @@ Agent role: ${detectedRole}
 
   if (contextParts.length === 0) process.exit(0);
 
-  const injected = `<ccg-injected-context>\n${contextParts.join('\n\n')}\n</ccg-injected-context>`;
+  const injected = `<ly-injected-context>\n${contextParts.join('\n\n')}\n</ly-injected-context>`;
 
   // Agent/Team spawn: rewrite the spawned teammate's OWN prompt via updatedInput.
   // A PreToolUse hook's additionalContext only reaches the CALLING (lead) session,

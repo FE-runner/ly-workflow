@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// CCG Hook Shared Utilities
+// ly-workflow Hook Shared Utilities
 // Pure Node.js, zero external dependencies
 
 const fs = require('fs');
@@ -8,8 +8,8 @@ const path = require('path');
 function findProjectRoot(startDir) {
   let dir = startDir || process.cwd();
   for (let i = 0; i < 20; i++) {
-    if (fs.existsSync(path.join(dir, '.ccg', 'tasks'))) return dir;
-    if (fs.existsSync(path.join(dir, '.ccg'))) return dir;
+    if (fs.existsSync(path.join(dir, '.ly', 'tasks'))) return dir;
+    if (fs.existsSync(path.join(dir, '.ly'))) return dir;
     if (fs.existsSync(path.join(dir, '.git'))) return dir;
     const parent = path.dirname(dir);
     if (parent === dir) break;
@@ -34,7 +34,7 @@ function isTerminalStatus(status) {
 }
 
 function getActiveTask(projectRoot) {
-  const tasksDir = path.join(projectRoot, '.ccg', 'tasks');
+  const tasksDir = path.join(projectRoot, '.ly', 'tasks');
   if (!fs.existsSync(tasksDir)) return null;
 
   try {
@@ -130,7 +130,7 @@ function archiveTask(taskDir, projectRoot) {
   try {
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const archiveDir = path.join(projectRoot, '.ccg', 'tasks', 'archive', month);
+    const archiveDir = path.join(projectRoot, '.ly', 'tasks', 'archive', month);
     if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
     const name = path.basename(taskDir);
     const dest = path.join(archiveDir, name);
@@ -142,13 +142,13 @@ function archiveTask(taskDir, projectRoot) {
 function autoCommitTask(projectRoot, message) {
   try {
     const { execSync } = require('child_process');
-    execSync('git add .ccg/tasks/', { cwd: projectRoot, stdio: 'pipe' });
+    execSync('git add .ly/tasks/', { cwd: projectRoot, stdio: 'pipe' });
     const diff = execSync('git diff --cached --quiet', { cwd: projectRoot, stdio: 'pipe' }).toString();
     return false; // nothing to commit
   } catch {
     try {
       const { execSync } = require('child_process');
-      execSync(`git commit -m "${message || 'chore: archive ccg task'}"`, { cwd: projectRoot, stdio: 'pipe' });
+      execSync(`git commit -m "${message || 'chore: archive ly task'}"`, { cwd: projectRoot, stdio: 'pipe' });
       return true;
     } catch { return false; }
   }
@@ -157,7 +157,7 @@ function autoCommitTask(projectRoot, message) {
 function seedContextJsonl(taskDir, projectRoot) {
   const jsonlPath = path.join(taskDir, 'context.jsonl');
   if (fs.existsSync(jsonlPath)) return;
-  const specDir = path.join(projectRoot, '.ccg', 'spec');
+  const specDir = path.join(projectRoot, '.ly', 'spec');
   const lines = ['{"_example": "Fill with {\\\"file\\\": \\\"path\\\", \\\"reason\\\": \\\"why\\\"}. One entry per line. Seed rows (with _example key) are skipped."}'];
   if (fs.existsSync(specDir)) {
     try {
@@ -165,7 +165,7 @@ function seedContextJsonl(taskDir, projectRoot) {
         for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
           const rel = prefix ? `${prefix}/${e.name}` : e.name;
           if (e.isDirectory()) walk(path.join(dir, e.name), rel);
-          else if (e.name.endsWith('.md')) lines.push(JSON.stringify({ file: `.ccg/spec/${rel}`, reason: 'project spec' }));
+          else if (e.name.endsWith('.md')) lines.push(JSON.stringify({ file: `.ly/spec/${rel}`, reason: 'project spec' }));
         }
       };
       walk(specDir, '');

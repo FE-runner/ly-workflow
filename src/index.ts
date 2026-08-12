@@ -1,15 +1,15 @@
-// CCG - Claude + Codex + Gemini Multi-Model Collaboration System
+// ly-workflow — Claude Code 精简工作流：Claude 自己完成开发全流程，Codex 仅作审查关卡
 export * from './types'
 export { init } from './commands/init'
 export { showMainMenu } from './commands/menu'
 export { update } from './commands/update'
 export { i18n, initI18n, changeLanguage } from './i18n'
 export {
-  readCcgConfig,
-  writeCcgConfig,
+  readLyConfig,
+  writeLyConfig,
   createDefaultConfig,
   createDefaultRouting,
-  getCcgDir,
+  getLyDir,
   getConfigPath,
 } from './utils/config'
 export {

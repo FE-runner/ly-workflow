@@ -31,7 +31,7 @@ describe('compareVersions', () => {
     expect(compareVersions('1.7.66', '1.7.67')).toBe(-1)
   })
 
-  // Real-world CCG version scenarios
+  // Real-world ly-workflow version scenarios
   it('handles the update bug scenario: 1.7.67 vs 1.7.61', () => {
     expect(compareVersions('1.7.67', '1.7.61')).toBe(1)
   })

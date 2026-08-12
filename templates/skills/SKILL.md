@@ -1,12 +1,12 @@
 ---
 name: ly-skills
-description: CCG Skills - Quality gates, documentation generator, and multi-agent orchestration. Auto-installed by CCG workflow system.
+description: ly-workflow Skills - Quality gates, documentation generator, and multi-agent orchestration. Auto-installed by ly-workflow system.
 license: MIT
 user-invocable: false
 disable-model-invocation: false
 ---
 
-# CCG Skills
+# ly-workflow Skills
 
 ## Directory Structure
 
@@ -86,7 +86,7 @@ Provides:
 
 ---
 
-## Installed by CCG
+## Installed by ly-workflow
 
 These skills are automatically installed during `npx ly-workflow` initialization.
 To update: run `npx ly-workflow update` or `npx ly-workflow` again.

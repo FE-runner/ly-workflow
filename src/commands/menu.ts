@@ -12,7 +12,7 @@ import { version } from '../../package.json'
 import { configMcp } from './config-mcp'
 import { i18n } from '../i18n'
 import { collectInvocableSkills, getWorkflowConfigs, installCodexMode, uninstallCodexMode, uninstallWorkflows } from '../utils/installer'
-import { readCcgConfig, writeCcgConfig } from '../utils/config'
+import { readLyConfig, writeLyConfig } from '../utils/config'
 import { init } from './init'
 import { update } from './update'
 import { isWindows } from '../utils/platform'
@@ -129,7 +129,7 @@ function groupSep(label: string): InstanceType<typeof inquirer.Separator> {
 export async function showMainMenu(): Promise<void> {
   while (true) {
     // Read config for status display
-    const config = await readCcgConfig()
+    const config = await readLyConfig()
     const cmdCount = config?.workflows?.installed?.length || 0
     const lang = config?.general?.language || 'zh-CN'
     const mcpProvider = config?.mcp?.provider || '—'
@@ -248,7 +248,7 @@ const SKILL_CATEGORY_LABELS: Record<string, { zh: string, en: string }> = {
 }
 
 function showHelp(): void {
-  const config = readCcgConfigSync()
+  const config = readLyConfigSync()
   const isZh = (config?.general?.language || 'zh-CN') === 'zh-CN'
 
   console.log()
@@ -324,7 +324,7 @@ function showHelp(): void {
 /**
  * Synchronous config read for non-async contexts (help display)
  */
-function readCcgConfigSync(): any {
+function readLyConfigSync(): any {
   try {
     const configPath = join(homedir(), '.claude', '.ly', 'config.toml')
     if (fs.pathExistsSync(configPath)) {
@@ -475,7 +475,7 @@ const OUTPUT_STYLES = [
 // ═══════════════════════════════════════════════════════
 
 async function configModelRouting(): Promise<void> {
-  const config = await readCcgConfig()
+  const config = await readLyConfig()
 
   console.log()
   console.log(ansis.cyan.bold(`  ${i18n.t('init:model.title')}`))
@@ -505,7 +505,7 @@ async function configModelRouting(): Promise<void> {
 
   if (config) {
     config.routing.reviewer = selectedReviewer
-    await writeCcgConfig(config)
+    await writeLyConfig(config)
   }
 
   console.log()
@@ -518,7 +518,7 @@ async function configModelRouting(): Promise<void> {
     execSync('npx --yes ly-workflow init --force --skip-prompt --skip-mcp', {
       timeout: 300000,
       stdio: 'pipe',
-      env: { ...process.env, CCG_UPDATE_MODE: 'true' },
+      env: { ...process.env, LY_UPDATE_MODE: 'true' },
     })
     spinner.succeed(i18n.t('init:model.reinstallDone'))
   }
@@ -652,7 +652,7 @@ async function handleCodexMode(): Promise<void> {
   console.log('    ~/.codex/AGENTS.md              — orchestration instructions')
   console.log('    ~/.codex/config.toml             — multi-agent + timeout config')
   console.log('    ~/.codex/hooks.json + hooks/     — adaptive guardrail hook')
-  console.log('    ~/.codex/agents/ccg-*.toml       — sub-agent definitions')
+  console.log('    ~/.codex/agents/ly-*.toml       — sub-agent definitions')
   console.log()
 
   const { confirm } = await inquirer.prompt([{
@@ -785,7 +785,7 @@ async function handleInstallClaude(): Promise<void> {
 // ═══════════════════════════════════════════════════════
 
 /**
- * Check if CCG is installed globally via npm
+ * Check if ly-workflow is installed globally via npm
  */
 async function checkIfGlobalInstall(): Promise<boolean> {
   try {

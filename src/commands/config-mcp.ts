@@ -241,14 +241,14 @@ For example, when using the \\\`fastapi\\\` library to encapsulate an API endpoi
 
 async function writeGrokPromptToRules(): Promise<void> {
   const rulesDir = join(homedir(), '.claude', 'rules')
-  const rulePath = join(rulesDir, 'ccg-grok-search.md')
+  const rulePath = join(rulesDir, 'ly-grok-search.md')
 
   // Clean up legacy CLAUDE.md injection if present
   const claudeMdPath = join(homedir(), '.claude', 'CLAUDE.md')
   if (await fs.pathExists(claudeMdPath)) {
     const content = await fs.readFile(claudeMdPath, 'utf-8')
-    if (content.includes('CCG-GROK-SEARCH-PROMPT')) {
-      const cleaned = content.replace(/\n*<!-- CCG-GROK-SEARCH-PROMPT-START -->[\s\S]*?<!-- CCG-GROK-SEARCH-PROMPT-END -->\n*/g, '')
+    if (content.includes('LY-GROK-SEARCH-PROMPT')) {
+      const cleaned = content.replace(/\n*<!-- LY-GROK-SEARCH-PROMPT-START -->[\s\S]*?<!-- LY-GROK-SEARCH-PROMPT-END -->\n*/g, '')
       await fs.writeFile(claudeMdPath, cleaned, 'utf-8')
     }
   }
@@ -301,7 +301,7 @@ async function handleGrokSearch(): Promise<void> {
   if (result.success) {
     await writeGrokPromptToRules()
     console.log(ansis.green('✓ grok-search MCP 配置成功！'))
-    console.log(ansis.green('✓ 全局搜索提示词已写入 ~/.claude/rules/ccg-grok-search.md'))
+    console.log(ansis.green('✓ 全局搜索提示词已写入 ~/.claude/rules/ly-grok-search.md'))
     await syncMcpMirrors()
     console.log(ansis.gray('  重启 Claude Code CLI 使配置生效'))
   }

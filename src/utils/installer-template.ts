@@ -114,7 +114,7 @@ export function injectConfigVariables(content: string, config: {
 export function replaceHomePathsInTemplate(content: string, installDir: string): string {
   // Get absolute paths for replacement
   const userHome = homedir()
-  const ccgDir = join(installDir, '.ly')
+  const lyConfigDir = join(installDir, '.ly')
   const binDir = join(installDir, 'bin')
   const claudeDir = installDir // ~/.claude
 
@@ -126,8 +126,8 @@ export function replaceHomePathsInTemplate(content: string, installDir: string):
   let processed = content
 
   // Order matters: replace longer patterns first to avoid partial matches
-  // 1. Replace ~/.claude/.ccg with absolute path (longest match first)
-  processed = processed.replace(/~\/\.claude\/\.ccg/g, toForwardSlash(ccgDir))
+  // 1. Replace ~/.claude/.ly with absolute path (longest match first)
+  processed = processed.replace(/~\/\.claude\/\.ly/g, toForwardSlash(lyConfigDir))
 
   // 2. Replace ~/.claude/bin/codeagent-wrapper with absolute path + .exe on Windows
   //    CRITICAL: Windows Git Bash requires explicit .exe extension

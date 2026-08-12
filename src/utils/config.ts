@@ -1,31 +1,31 @@
-import type { CcgConfig, ModelRouting, SupportedLang } from '../types'
+import type { LyConfig, ModelRouting, SupportedLang } from '../types'
 import fs from 'fs-extra'
 import { homedir } from 'node:os'
 import { join } from 'pathe'
 import { parse, stringify } from 'smol-toml'
 import { version as packageVersion } from '../../package.json'
 
-// v1.4.0: 配置目录统一到 ~/.claude/.ccg/
-const CCG_DIR = join(homedir(), '.claude', '.ly')
-const CONFIG_FILE = join(CCG_DIR, 'config.toml')
+// v1.4.0: 配置目录统一到 ~/.claude/.ly/
+const LY_DIR = join(homedir(), '.claude', '.ly')
+const CONFIG_FILE = join(LY_DIR, 'config.toml')
 
-export function getCcgDir(): string {
-  return CCG_DIR
+export function getLyDir(): string {
+  return LY_DIR
 }
 
 export function getConfigPath(): string {
   return CONFIG_FILE
 }
 
-export async function ensureCcgDir(): Promise<void> {
-  await fs.ensureDir(CCG_DIR)
+export async function ensureLyDir(): Promise<void> {
+  await fs.ensureDir(LY_DIR)
 }
 
-export async function readCcgConfig(): Promise<CcgConfig | null> {
+export async function readLyConfig(): Promise<LyConfig | null> {
   try {
     if (await fs.pathExists(CONFIG_FILE)) {
       const content = await fs.readFile(CONFIG_FILE, 'utf-8')
-      return parse(content) as unknown as CcgConfig
+      return parse(content) as unknown as LyConfig
     }
   }
   catch {
@@ -34,8 +34,8 @@ export async function readCcgConfig(): Promise<CcgConfig | null> {
   return null
 }
 
-export async function writeCcgConfig(config: CcgConfig): Promise<void> {
-  await ensureCcgDir()
+export async function writeLyConfig(config: LyConfig): Promise<void> {
+  await ensureLyDir()
   const content = stringify(config as any)
   await fs.writeFile(CONFIG_FILE, content, 'utf-8')
 }
@@ -47,7 +47,7 @@ export function createDefaultConfig(options: {
   mcpProvider?: string
   liteMode?: boolean
   skipImpeccable?: boolean
-}): CcgConfig {
+}): LyConfig {
   return {
     general: {
       version: packageVersion,
@@ -60,8 +60,8 @@ export function createDefaultConfig(options: {
     },
     paths: {
       commands: join(homedir(), '.claude', 'commands', 'ly'),
-      prompts: join(CCG_DIR, 'prompts'), // v1.4.0: 移到配置目录
-      backup: join(CCG_DIR, 'backup'),
+      prompts: join(LY_DIR, 'prompts'), // v1.4.0: 移到配置目录
+      backup: join(LY_DIR, 'backup'),
     },
     mcp: {
       provider: options.mcpProvider || 'fast-context',

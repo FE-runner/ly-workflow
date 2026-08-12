@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'pathe'
 import { checkForUpdates, compareVersions } from '../utils/version'
 import { showBinaryDownloadWarning, verifyBinary } from '../utils/installer'
-import { readCcgConfig, writeCcgConfig } from '../utils/config'
+import { readLyConfig, writeLyConfig } from '../utils/config'
 import { migrateToV1_4_0, needsMigration } from '../utils/migration'
 import { i18n } from '../i18n'
 
@@ -28,7 +28,7 @@ export async function update(): Promise<void> {
     const { hasUpdate, currentVersion, latestVersion } = await checkForUpdates()
 
     // Check if local workflow version differs from running version
-    const config = await readCcgConfig()
+    const config = await readLyConfig()
     const localVersion = config?.general?.version || '0.0.0'
     const needsWorkflowUpdate = compareVersions(currentVersion, localVersion) > 0
 
@@ -87,7 +87,7 @@ export async function update(): Promise<void> {
 }
 
 /**
- * Check if CCG is installed globally via npm
+ * Check if ly-workflow is installed globally via npm
  */
 async function checkIfGlobalInstall(): Promise<boolean> {
   try {
@@ -218,7 +218,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
   // verifies, then cleans up backups. On failure, restores from backup.
 
   const installDir = join(homedir(), '.claude')
-  const BACKUP_SUFFIX = '.ccg-update-bak'
+  const BACKUP_SUFFIX = '.ly-update-bak'
 
   // Directories to back up before installing new version
   const backupTargets = [
@@ -229,7 +229,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
     join(installDir, '.ly', 'engine'),
   ]
 
-  // Step 3: Back up existing files (move to *.ccg-update-bak)
+  // Step 3: Back up existing files (move to *.ly-update-bak)
   spinner = ora(i18n.t('update:removingOld')).start()
 
   const backedUp: string[] = []
@@ -272,7 +272,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
       timeout: 300000, // 5min — binary download from GitHub Release may be slow (especially in China)
       env: {
         ...process.env,
-        CCG_UPDATE_MODE: 'true',
+        LY_UPDATE_MODE: 'true',
       },
     })
 
@@ -286,7 +286,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
       spinner.succeed(i18n.t('update:installDone'))
 
       // Read updated config to display installed commands
-      const config = await readCcgConfig()
+      const config = await readLyConfig()
       if (config?.workflows?.installed) {
         console.log()
         console.log(ansis.cyan(i18n.t('update:installed', { count: config.workflows.installed.length })))

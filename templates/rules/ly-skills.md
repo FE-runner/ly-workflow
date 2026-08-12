@@ -1,4 +1,4 @@
-# CCG Quality Gates — Auto-trigger Rules
+# ly-workflow Quality Gates — Auto-trigger Rules
 
 When working in a project, automatically invoke the corresponding quality gate skills based on the scenario below. These skills are installed at `~/.claude/skills/ly/` and can be called directly.
 

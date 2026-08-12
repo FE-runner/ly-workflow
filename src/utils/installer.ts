@@ -5,7 +5,7 @@ import fs from 'fs-extra'
 import { basename, join, relative, sep } from 'pathe'
 import { getWorkflowById } from './installer-data'
 import { PACKAGE_ROOT, injectConfigVariables, replaceHomePathsInTemplate } from './installer-template'
-import { readCcgConfig } from './config'
+import { readLyConfig } from './config'
 import { CATEGORY_DIR_MAP, installSkillCommands } from './skill-registry'
 import type { SkillCategory } from './skill-registry'
 import { version as packageVersion } from '../../package.json'
@@ -358,7 +358,7 @@ function computeSkipCategories(config: InstallConfig): SkillCategory[] {
 }
 
 /**
- * Install skill files from templates/skills/ → ~/.claude/skills/ccg/
+ * Install skill files from templates/skills/ → ~/.claude/skills/ly/
  * Includes v1.7.73 legacy layout migration.
  */
 async function installSkillFiles(ctx: InstallContext): Promise<void> {
@@ -372,14 +372,14 @@ async function installSkillFiles(ctx: InstallContext): Promise<void> {
   }
 
   try {
-    // Migration: move old v1.7.73 layout into skills/ccg/ namespace
+    // Migration: move old v1.7.73 layout into skills/ly/ namespace
     const oldSkillsRoot = join(ctx.installDir, 'skills')
-    const ccgLegacyItems = ['tools', 'orchestration', 'SKILL.md', 'run_skill.js']
+    const lyLegacyItems = ['tools', 'orchestration', 'SKILL.md', 'run_skill.js']
     const needsMigration = !await fs.pathExists(skillsDestDir)
       && await fs.pathExists(join(oldSkillsRoot, 'tools'))
     if (needsMigration) {
       await fs.ensureDir(skillsDestDir)
-      for (const item of ccgLegacyItems) {
+      for (const item of lyLegacyItems) {
         const oldPath = join(oldSkillsRoot, item)
         const newPath = join(skillsDestDir, item)
         if (await fs.pathExists(oldPath)) {
@@ -468,7 +468,7 @@ async function installSkillFiles(ctx: InstallContext): Promise<void> {
  * Auto-generate slash commands for user-invocable skills via Skill Registry.
  *
  * Scans templates/skills/ for SKILL.md files with `user-invocable: true` frontmatter,
- * then generates ~/.claude/commands/ccg/{name}.md for each — SKIPPING any name that
+ * then generates ~/.claude/commands/ly/{name}.md for each — SKIPPING any name that
  * already exists in installer-data.ts to avoid conflicts with complex multi-model commands.
  */
 async function installSkillGeneratedCommands(ctx: InstallContext): Promise<void> {
@@ -530,11 +530,11 @@ export async function installCodexMode(): Promise<{ success: boolean, message: s
     const codexHome = join(homedir(), '.codex')
     await fs.ensureDir(join(codexHome, 'agents'))
 
-    // Read CCG config once — reused for template variable injection across
+    // Read ly config once — reused for template variable injection across
     // AGENTS.md + hooks/ly-workflow.py so model routing (frontend/backend)
     // stays consistent with what the user configured (issue: codex mode still
     // referenced gemini after the antigravity default switch).
-    const config = await readCcgConfig()
+    const config = await readLyConfig()
     const injectOpts = {
       routing: config?.routing as any,
       liteMode: config?.performance?.liteMode || false,
@@ -593,12 +593,12 @@ export async function installCodexMode(): Promise<{ success: boolean, message: s
       await fs.writeFile(join(codexHome, 'hooks.json'), content, 'utf-8')
     }
 
-    // Write version marker so external tools can check which CCG version installed Codex mode
-    await fs.writeFile(join(codexHome, '.ccg-version'), packageVersion, 'utf-8')
+    // Write version marker so external tools can check which ly-workflow version installed Codex mode
+    await fs.writeFile(join(codexHome, '.ly-version'), packageVersion, 'utf-8')
 
     return {
       success: true,
-      message: `Codex mode installed:\n  ~/.codex/AGENTS.md\n  ~/.codex/config.toml\n  ~/.codex/hooks.json\n  ~/.codex/hooks/ly-workflow.py\n  ~/.codex/agents/ccg-implement.toml\n  ~/.codex/agents/ccg-review.toml\n  ~/.codex/agents/ccg-research.toml\n  ~/.codex/.ccg-version (${packageVersion})`,
+      message: `Codex mode installed:\n  ~/.codex/AGENTS.md\n  ~/.codex/config.toml\n  ~/.codex/hooks.json\n  ~/.codex/hooks/ly-workflow.py\n  ~/.codex/agents/ly-implement.toml\n  ~/.codex/agents/ly-review.toml\n  ~/.codex/agents/ly-research.toml\n  ~/.codex/.ly-version (${packageVersion})`,
     }
   }
   catch (error) {
@@ -607,28 +607,28 @@ export async function installCodexMode(): Promise<{ success: boolean, message: s
 }
 
 /**
- * Uninstall CCG Codex mode — only removes files installed by CCG, preserves user files.
+ * Uninstall ly-workflow Codex mode — only removes files installed by ly-workflow, preserves user files.
  */
 export async function uninstallCodexMode(): Promise<{ success: boolean, removed: string[], skipped: string[] }> {
   const codexHome = join(homedir(), '.codex')
   const removed: string[] = []
   const skipped: string[] = []
 
-  // CCG-managed files (exact paths)
-  const ccgFiles = [
-    join(codexHome, 'agents', 'ccg-implement.toml'),
-    join(codexHome, 'agents', 'ccg-review.toml'),
-    join(codexHome, 'agents', 'ccg-research.toml'),
+  // ly-managed files (exact paths)
+  const lyFiles = [
+    join(codexHome, 'agents', 'ly-implement.toml'),
+    join(codexHome, 'agents', 'ly-review.toml'),
+    join(codexHome, 'agents', 'ly-research.toml'),
     join(codexHome, 'hooks', 'ly-workflow.py'),
     join(codexHome, 'hooks.json'),
-    join(codexHome, '.ccg-version'),
+    join(codexHome, '.ly-version'),
   ]
 
-  // AGENTS.md — only remove if it contains CCG marker
+  // AGENTS.md — only remove if it contains ly-workflow marker
   const agentsMd = join(codexHome, 'AGENTS.md')
 
   try {
-    for (const file of ccgFiles) {
+    for (const file of lyFiles) {
       if (await fs.pathExists(file)) {
         await fs.remove(file)
         removed.push(file.replace(homedir(), '~'))
@@ -637,12 +637,12 @@ export async function uninstallCodexMode(): Promise<{ success: boolean, removed:
 
     if (await fs.pathExists(agentsMd)) {
       const content = await fs.readFile(agentsMd, 'utf-8')
-      if (content.includes('<!-- CCG:START')) {
+      if (content.includes('<!-- LY:START')) {
         await fs.remove(agentsMd)
         removed.push('~/.codex/AGENTS.md')
       }
       else {
-        skipped.push('~/.codex/AGENTS.md (not managed by CCG)')
+        skipped.push('~/.codex/AGENTS.md (not managed by ly-workflow)')
       }
     }
 
@@ -880,35 +880,11 @@ async function installBinaryFile(ctx: InstallContext): Promise<void> {
 }
 
 // ═══════════════════════════════════════════════════════
-// CCG 3.0 Engine installation
+// ly-workflow Engine installation
 // ═══════════════════════════════════════════════════════
 
 /**
- * Install the unified /ccg entry point command.
- * Installed to ~/.claude/commands/ccg.md (NOT commands/ccg/) for clean /ccg invocation.
- */
-async function installCcgEntryCommand(ctx: InstallContext): Promise<void> {
-  const srcFile = join(ctx.templateDir, 'commands', 'ccg.md')
-  const destFile = join(ctx.installDir, 'commands', 'ccg.md')
-
-  try {
-    if (await fs.pathExists(srcFile)) {
-      if (ctx.force || !(await fs.pathExists(destFile))) {
-        let content = await fs.readFile(srcFile, 'utf-8')
-        content = injectConfigVariables(content, ctx.config)
-        content = replaceHomePathsInTemplate(content, ctx.installDir)
-        await fs.writeFile(destFile, content, 'utf-8')
-      }
-      ctx.result.installedCommands.push('ccg (unified entry)')
-    }
-  }
-  catch (error) {
-    ctx.result.errors.push(`Failed to install /ccg entry: ${error}`)
-  }
-}
-
-/**
- * Install engine files from templates/engine/ → ~/.claude/.ccg/engine/
+ * Install engine files from templates/engine/ → ~/.claude/.ly/engine/
  * Includes model-router.md, phase-guide.md, and strategy files.
  * All .md files receive variable injection + path replacement.
  */
@@ -935,13 +911,13 @@ async function installEngineFiles(ctx: InstallContext): Promise<void> {
 }
 
 // ═══════════════════════════════════════════════════════
-// CCG 3.0 Hook installation
+// ly-workflow Hook installation
 // ═══════════════════════════════════════════════════════
 
 const HOOK_FILES = ['task-utils.js', 'workflow-state.js', 'session-start.js', 'subagent-context.js', 'skill-router.js']
 
 /**
- * Install CCG hook scripts to ~/.claude/hooks/ccg/
+ * Install ly-workflow hook scripts to ~/.claude/hooks/ly/
  */
 async function installHookScripts(ctx: InstallContext): Promise<void> {
   const hooksSrcDir = join(ctx.templateDir, 'hooks')
@@ -965,7 +941,7 @@ async function installHookScripts(ctx: InstallContext): Promise<void> {
 }
 
 /**
- * Register CCG hooks in ~/.claude/settings.json.
+ * Register ly-workflow hooks in ~/.claude/settings.json.
  * Merges with existing hooks — does not overwrite user's other hooks.
  */
 async function registerHooksInSettings(ctx: InstallContext): Promise<void> {
@@ -985,7 +961,7 @@ async function registerHooksInSettings(ctx: InstallContext): Promise<void> {
 
     const hooks = (settings.hooks || {}) as Record<string, unknown[]>
 
-    const ccgHookDefs = {
+    const lyHookDefs = {
       UserPromptSubmit: {
         hooks: [
           { type: 'command', command: `node ${join(hooksDir, 'workflow-state.js')}`, timeout: 10000 },
@@ -1002,9 +978,9 @@ async function registerHooksInSettings(ctx: InstallContext): Promise<void> {
       },
     }
 
-    for (const [event, def] of Object.entries(ccgHookDefs)) {
+    for (const [event, def] of Object.entries(lyHookDefs)) {
       const eventHooks = (hooks[event] || []) as Record<string, unknown>[]
-      const ccgCommand = (def.hooks[0] as Record<string, unknown>).command as string
+      const lyCommand = (def.hooks[0] as Record<string, unknown>).command as string
       const existingIdx = eventHooks.findIndex((h) => {
         const hHooks = (h.hooks || []) as Record<string, unknown>[]
         return hHooks.some(hh => typeof hh.command === 'string' && hh.command.includes('hooks/ly/'))
@@ -1152,9 +1128,9 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
   const skillsDir = join(installDir, 'skills', 'ly')
   const rulesDir = join(installDir, 'rules')
   const binDir = join(installDir, 'bin')
-  const ccgConfigDir = join(installDir, '.ly')
+  const lyConfigDir = join(installDir, '.ly')
 
-  // Remove CCG commands directory
+  // Remove ly-workflow commands directory
   try {
     result.removedCommands = await removeDirCollectMdNames(commandsDir)
   }
@@ -1163,7 +1139,7 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
     result.success = false
   }
 
-  // Remove CCG agents directory
+  // Remove ly-workflow agents directory
   try {
     result.removedAgents = await removeDirCollectMdNames(agentsDir)
   }
@@ -1172,7 +1148,7 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
     result.success = false
   }
 
-  // Remove CCG skills directory only (skills/ccg/) — preserves user's own skills
+  // Remove ly-workflow skills directory only (skills/ly/) — preserves user's own skills
   if (await fs.pathExists(skillsDir)) {
     try {
       result.removedSkills = await collectSkillNames(skillsDir)
@@ -1184,10 +1160,10 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
     }
   }
 
-  // Remove CCG rules files
+  // Remove ly-workflow rules files
   if (await fs.pathExists(rulesDir)) {
     try {
-      for (const ruleFile of ['ly-skills.md', 'ccg-grok-search.md', 'ly-skill-routing.md', 'ly-codegraph.md']) {
+      for (const ruleFile of ['ly-skills.md', 'ly-grok-search.md', 'ly-skill-routing.md', 'ly-codegraph.md']) {
         const rulePath = join(rulesDir, ruleFile)
         if (await fs.pathExists(rulePath)) {
           await fs.remove(rulePath)
@@ -1216,23 +1192,23 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
     }
   }
 
-  // Remove .ccg config directory (engine, prompts, strategies all live here)
-  if (await fs.pathExists(ccgConfigDir)) {
+  // Remove .ly config directory (engine, prompts, strategies all live here)
+  if (await fs.pathExists(lyConfigDir)) {
     try {
-      await fs.remove(ccgConfigDir)
+      await fs.remove(lyConfigDir)
       result.removedPrompts.push('ALL_PROMPTS_AND_CONFIGS')
     }
     catch (error) {
-      result.errors.push(`Failed to remove .ccg directory: ${error}`)
+      result.errors.push(`Failed to remove .ly directory: ${error}`)
     }
   }
 
-  // Remove CCG hook scripts directory (hooks/ccg/) — added by the v3.0 engine.
+  // Remove ly-workflow hook scripts directory (hooks/ly/) — added by the v3.0 engine.
   // Older uninstall logic predates the hook engine and left these behind.
-  const hooksCcgDir = join(installDir, 'hooks', 'ly')
-  if (await fs.pathExists(hooksCcgDir)) {
+  const hooksLyDir = join(installDir, 'hooks', 'ly')
+  if (await fs.pathExists(hooksLyDir)) {
     try {
-      await fs.remove(hooksCcgDir)
+      await fs.remove(hooksLyDir)
       result.removedHooks = true
     }
     catch (error) {
@@ -1241,22 +1217,22 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
     }
   }
 
-  // Deregister CCG hooks from settings.json — preserve the user's own hooks.
-  // CCG hook entries are identified by a command path that points at hooks/ccg/.
+  // Deregister ly-workflow hooks from settings.json — preserve the user's own hooks.
+  // ly-workflow hook entries are identified by a command path that points at hooks/ly/.
   const settingsPath = join(installDir, 'settings.json')
   if (await fs.pathExists(settingsPath)) {
     try {
       const settings = JSON.parse(await fs.readFile(settingsPath, 'utf-8')) as Record<string, any>
       const hooks = settings.hooks as Record<string, any[]> | undefined
       if (hooks && typeof hooks === 'object') {
-        const isCcgEntry = (h: any): boolean => {
+        const isLyEntry = (h: any): boolean => {
           const hHooks = (h?.hooks || []) as any[]
           return hHooks.some(hh => typeof hh?.command === 'string' && /hooks[\\/]ly[\\/]/.test(hh.command))
         }
         let modified = false
         for (const event of Object.keys(hooks)) {
           const arr = Array.isArray(hooks[event]) ? hooks[event] : []
-          const filtered = arr.filter(h => !isCcgEntry(h))
+          const filtered = arr.filter(h => !isLyEntry(h))
           if (filtered.length !== arr.length) {
             modified = true
             if (filtered.length === 0) delete hooks[event]

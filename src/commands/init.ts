@@ -6,7 +6,7 @@ import ora from 'ora'
 import { homedir } from 'node:os'
 import { join } from 'pathe'
 import { i18n, initI18n } from '../i18n'
-import { createDefaultConfig, ensureCcgDir, getCcgDir, readCcgConfig, writeCcgConfig } from '../utils/config'
+import { createDefaultConfig, ensureLyDir, getLyDir, readLyConfig, writeLyConfig } from '../utils/config'
 import { getCoreCommandIds, installAceTool, installAceToolRs, installContextWeaver, installFastContext, installMcpServer, installWorkflows, showBinaryDownloadWarning, syncMcpToCodex, writeFastContextPrompt } from '../utils/installer'
 import { isWindows } from '../utils/platform'
 import { migrateToV1_4_0, needsMigration } from '../utils/migration'
@@ -65,19 +65,19 @@ async function installHook(settingsPath: string): Promise<'permission'> {
 }
 
 /**
- * Write grok-search global prompt to ~/.claude/rules/ccg-grok-search.md
+ * Write grok-search global prompt to ~/.claude/rules/ly-grok-search.md
  * Uses rules/ directory for modularity — avoids bloating CLAUDE.md
  */
 async function appendGrokSearchPrompt(): Promise<void> {
   const rulesDir = join(homedir(), '.claude', 'rules')
-  const rulePath = join(rulesDir, 'ccg-grok-search.md')
+  const rulePath = join(rulesDir, 'ly-grok-search.md')
 
   // Also clean up legacy CLAUDE.md injection if present
   const claudeMdPath = join(homedir(), '.claude', 'CLAUDE.md')
   if (await fs.pathExists(claudeMdPath)) {
     const content = await fs.readFile(claudeMdPath, 'utf-8')
-    if (content.includes('CCG-GROK-SEARCH-PROMPT')) {
-      const cleaned = content.replace(/\n*<!-- CCG-GROK-SEARCH-PROMPT-START -->[\s\S]*?<!-- CCG-GROK-SEARCH-PROMPT-END -->\n*/g, '')
+    if (content.includes('LY-GROK-SEARCH-PROMPT')) {
+      const cleaned = content.replace(/\n*<!-- LY-GROK-SEARCH-PROMPT-START -->[\s\S]*?<!-- LY-GROK-SEARCH-PROMPT-END -->\n*/g, '')
       await fs.writeFile(claudeMdPath, cleaned, 'utf-8')
     }
   }
@@ -134,8 +134,8 @@ type StepReturn = 'next' | 'back' | 'cancel'
 type SummaryAction = 'confirm' | 'cancel' | StepId
 
 // Sentinel values injected into list choices for navigation.
-const BACK_SENTINEL = '__ccg_back__'
-const CANCEL_SENTINEL = '__ccg_cancel__'
+const BACK_SENTINEL = '__ly_back__'
+const CANCEL_SENTINEL = '__ly_cancel__'
 
 /**
  * Build navigation sentinels to append to a step's first list prompt.
@@ -196,7 +196,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
 
   if (!options.skipPrompt) {
     // Check if user already has a language preference
-    const existingConfig = await readCcgConfig()
+    const existingConfig = await readLyConfig()
     const savedLang = existingConfig?.general?.language
 
     if (savedLang) {
@@ -231,7 +231,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
 
   // Non-interactive mode: preserve existing config
   if (options.skipPrompt) {
-    const existingConfig = await readCcgConfig()
+    const existingConfig = await readLyConfig()
     if (existingConfig?.routing?.reviewer) {
       reviewer = existingConfig.routing.reviewer
     }
@@ -269,7 +269,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
   // Non-interactive mode (--skip-prompt): preserve existing settings
   // ═══════════════════════════════════════════════════════
   if (options.skipPrompt) {
-    const existingConfig = await readCcgConfig()
+    const existingConfig = await readLyConfig()
     if (existingConfig?.performance?.liteMode !== undefined) {
       liteMode = existingConfig.performance.liteMode
     }
@@ -290,7 +290,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
   // and restart if they mistyped a URL/KEY.
   // ═══════════════════════════════════════════════════════
   if (!options.skipPrompt) {
-    const existingConfig = await readCcgConfig()
+    const existingConfig = await readLyConfig()
 
     // Initialize from existing config so re-running init shows saved values as defaults
     if (existingConfig?.routing?.reviewer) {
@@ -798,7 +798,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
       }
     }
 
-    await ensureCcgDir()
+    await ensureLyDir()
 
     // Create config
     const config = createDefaultConfig({
@@ -811,7 +811,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
     })
 
     // Save config FIRST - ensure it's created even if installation fails
-    await writeCcgConfig(config)
+    await writeLyConfig(config)
 
     // Install workflows and commands
     const installDir = options.installDir || join(homedir(), '.claude')
@@ -922,11 +922,11 @@ export async function init(options: InitOptions = {}): Promise<void> {
       })
 
       if (grokResult.success) {
-        // Write global prompt to ~/.claude/rules/ccg-grok-search.md
+        // Write global prompt to ~/.claude/rules/ly-grok-search.md
         await appendGrokSearchPrompt()
         console.log()
         console.log(`    ${ansis.green('✓')} grok-search MCP ${ansis.gray('→ ~/.claude.json')}`)
-        console.log(`    ${ansis.green('✓')} ${i18n.t('init:grok.promptAppended')} ${ansis.gray('→ ~/.claude/rules/ccg-grok-search.md')}`)
+        console.log(`    ${ansis.green('✓')} ${i18n.t('init:grok.promptAppended')} ${ansis.gray('→ ~/.claude/rules/ly-grok-search.md')}`)
       }
       else {
         console.log()
@@ -971,7 +971,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
 
       // ═══════════════════════════════════════════════════════
       // Sync MCP servers to Codex (~/.codex/config.toml)
-      // Enables /ccg:codex-exec to use MCP tools (grok-search, context7, etc.)
+      // Enables Codex to use MCP tools (grok-search, context7, etc.)
       // ═══════════════════════════════════════════════════════
       const codexSyncResult = await syncMcpToCodex()
       if (codexSyncResult.success && codexSyncResult.synced.length > 0) {
@@ -1024,7 +1024,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
       console.log()
       console.log(ansis.cyan('  Rules:'))
       console.log(`    ${ansis.green('✓')} quality gate auto-trigger rules`)
-      console.log(ansis.gray('       → ~/.claude/rules/ccg-skills.md'))
+      console.log(ansis.gray('       → ~/.claude/rules/ly-skills.md'))
     }
 
     // Show skill-category cleanup outcome (跳过分类的历史产物清理)

@@ -1,5 +1,5 @@
-<!-- CCG:START — Managed by CCG Workflow. Do not edit this block manually. -->
-# CCG Multi-Model Orchestration (Codex-Led)
+<!-- LY:START — Managed by ly-workflow. Do not edit this block manually. -->
+# ly-workflow Multi-Model Orchestration (Codex-Led)
 
 You are the **lead orchestrator** of a multi-model development team. You think, you code, and you know when to call for backup.
 
@@ -29,7 +29,7 @@ L+ + 任意  → 双模型并行分析，制定 plan.md，spawn 子 Agent 并行
 ```
 
 **⛔ M 以上复杂度，分析和审查都必须是双模型（{{FRONTEND_PRIMARY}} + Claude 都调）。**
-这是 CCG 的核心价值——两个模型从不同角度分析同一个问题，交叉验证，弥补单模型盲区。只调一个模型 = 浪费了多模型协作的意义。
+这是 ly-workflow 的核心价值——两个模型从不同角度分析同一个问题，交叉验证，弥补单模型盲区。只调一个模型 = 浪费了多模型协作的意义。
 
 **不确定时，选高一级。** 宁可多做一步分析，不可写完才发现方向错了。
 
@@ -46,10 +46,10 @@ L+ + 任意  → 双模型并行分析，制定 plan.md，spawn 子 Agent 并行
 TASK_NAME="add-jwt-auth"  # 示例
 
 # 2. 创建目录
-mkdir -p .ccg/tasks/$TASK_NAME
+mkdir -p .ly/tasks/$TASK_NAME
 
 # 3. 写 task.json
-cat > .ccg/tasks/$TASK_NAME/task.json << 'TASKJSON'
+cat > .ly/tasks/$TASK_NAME/task.json << 'TASKJSON'
 {
   "id": "add-jwt-auth",
   "title": "用户请求摘要",
@@ -86,12 +86,12 @@ TASKJSON
 
 ```bash
 # 移动到归档目录
-mkdir -p .ccg/tasks/archive/$(date +%Y-%m)
-mv .ccg/tasks/$TASK_NAME .ccg/tasks/archive/$(date +%Y-%m)/
+mkdir -p .ly/tasks/archive/$(date +%Y-%m)
+mv .ly/tasks/$TASK_NAME .ly/tasks/archive/$(date +%Y-%m)/
 
 # 提交归档
-git add .ccg/tasks/
-git commit -m "chore: archive ccg task $TASK_NAME"
+git add .ly/tasks/
+git commit -m "chore: archive ly task $TASK_NAME"
 ```
 
 **绝不可以跳过归档。** 任务完成后必须归档，不管大小。
@@ -102,13 +102,13 @@ git commit -m "chore: archive ccg task $TASK_NAME"
 
 **写代码前必须检查**：
 ```bash
-ls .ccg/spec/ 2>/dev/null
+ls .ly/spec/ 2>/dev/null
 ```
 
 如果存在：
-- `.ccg/spec/backend/index.md` — 后端约定
-- `.ccg/spec/frontend/index.md` — 前端约定
-- `.ccg/spec/guides/index.md` — 通用指南
+- `.ly/spec/backend/index.md` — 后端约定
+- `.ly/spec/frontend/index.md` — 前端约定
+- `.ly/spec/guides/index.md` — 通用指南
 
 **读了就要遵守。** Spec 是项目的编码法律。
 
@@ -119,7 +119,7 @@ ls .ccg/spec/ 2>/dev/null
 - 发现的代码模式
 - 新引入的库/API 的使用约定
 
-如果有 → 追加到对应的 `.ccg/spec/{domain}/index.md`。
+如果有 → 追加到对应的 `.ly/spec/{domain}/index.md`。
 如果没有 → 跳过，不要强行凑。
 
 ## 4. Calling External Models — 调用模板
@@ -128,7 +128,7 @@ ls .ccg/spec/ 2>/dev/null
 
 ```bash
 ~/.claude/bin/codeagent-wrapper --progress --backend {{FRONTEND_PRIMARY}} - "$(pwd)" <<'FRONTEND_EOF'
-ROLE_FILE: ~/.claude/.ccg/prompts/{{FRONTEND_PRIMARY}}/$ROLE.md
+ROLE_FILE: ~/.claude/.ly/prompts/{{FRONTEND_PRIMARY}}/$ROLE.md
 <TASK>
 {任务描述 + 上下文}
 </TASK>
@@ -136,7 +136,7 @@ OUTPUT: {期望输出格式}
 FRONTEND_EOF
 &
 ~/.claude/bin/codeagent-wrapper --progress --backend claude - "$(pwd)" <<'CLAUDE_EOF'
-ROLE_FILE: ~/.claude/.ccg/prompts/claude/$ROLE.md
+ROLE_FILE: ~/.claude/.ly/prompts/claude/$ROLE.md
 <TASK>
 {任务描述 + 上下文}
 </TASK>
@@ -153,7 +153,7 @@ wait
 #### {{FRONTEND_PRIMARY}}（前端/UI 分析）
 ```bash
 ~/.claude/bin/codeagent-wrapper --progress --backend {{FRONTEND_PRIMARY}} - "$(pwd)" <<'EOF'
-ROLE_FILE: ~/.claude/.ccg/prompts/{{FRONTEND_PRIMARY}}/$ROLE.md
+ROLE_FILE: ~/.claude/.ly/prompts/{{FRONTEND_PRIMARY}}/$ROLE.md
 <TASK>
 {任务描述 + 上下文}
 </TASK>
@@ -164,7 +164,7 @@ EOF
 #### Claude（架构/安全/复杂推理）
 ```bash
 ~/.claude/bin/codeagent-wrapper --progress --backend claude - "$(pwd)" <<'EOF'
-ROLE_FILE: ~/.claude/.ccg/prompts/claude/$ROLE.md
+ROLE_FILE: ~/.claude/.ly/prompts/claude/$ROLE.md
 <TASK>
 {任务描述 + 上下文}
 </TASK>
@@ -210,14 +210,14 @@ M+ 复杂度的分析和审查，使用上方的"双模型并行"模板。不要
 ```
 # 所有 Layer 1 子代理在同一轮 spawn（= 真正并行）
 spawn_agent(
-  agent_type="ccg-implement",
+  agent_type="ly-implement",
   fork_turns="none",
-  message="Active task: .ccg/tasks/{name}\n\n## 文件范围（⛔ 硬性规则）\n只能创建或修改：\n- {file1}\n- {file2}\n严禁修改其他文件。\n\n## 实施步骤\n{steps from plan.md}\n\n## 验收标准\n{criteria}"
+  message="Active task: .ly/tasks/{name}\n\n## 文件范围（⛔ 硬性规则）\n只能创建或修改：\n- {file1}\n- {file2}\n严禁修改其他文件。\n\n## 实施步骤\n{steps from plan.md}\n\n## 验收标准\n{criteria}"
 )
 spawn_agent(
-  agent_type="ccg-implement",
+  agent_type="ly-implement",
   fork_turns="none",
-  message="Active task: .ccg/tasks/{name}\n\n## 文件范围\n- {file3}\n- {file4}\n\n## 实施步骤\n{steps}\n\n## 验收标准\n{criteria}"
+  message="Active task: .ly/tasks/{name}\n\n## 文件范围\n- {file3}\n- {file4}\n\n## 实施步骤\n{steps}\n\n## 验收标准\n{criteria}"
 )
 ```
 
@@ -244,9 +244,9 @@ Layer 1 全部完成后，再 spawn Layer 2 子代理（同样的模式）。
 spawn 审查代理：
 ```
 spawn_agent(
-  agent_type="ccg-review",
+  agent_type="ly-review",
   fork_turns="none",
-  message="审查 .ccg/tasks/{name} 的所有变更。\n运行: git diff\n检查: 正确性/安全/性能/规范\n输出: Critical/Warning/Info 分级报告"
+  message="审查 .ly/tasks/{name} 的所有变更。\n运行: git diff\n检查: 正确性/安全/性能/规范\n输出: Critical/Warning/Info 分级报告"
 )
 wait(review_agent)
 close_agent(review_agent)
@@ -257,7 +257,7 @@ Critical 问题 → spawn 修复代理。Warning → 视情况修复。
 #### ⛔ Spawn 铁律
 
 1. **fork_turns="none" 永远不可省略** — 省略 = 死锁
-2. **子代理禁止再 spawn** — ccg-implement.toml 已关闭 multi_agent
+2. **子代理禁止再 spawn** — ly-implement.toml 已关闭 multi_agent
 3. **每个文件同一时刻只有一个子代理可写** — 文件归属不可重叠
 4. **wait 超时要够长** — 默认 480s，复杂任务调到 600s
 5. **所有子代理必须 close** — 不 close = 资源泄漏
@@ -265,7 +265,7 @@ Critical 问题 → spawn 修复代理。Warning → 视情况修复。
 ### 写代码原则（两种模式通用）
 
 - **先读再写** — 修改文件前先读取完整内容，理解现有模式
-- **遵守 Spec** — .ccg/spec/ 里的约定是法律
+- **遵守 Spec** — .ly/spec/ 里的约定是法律
 - **不扩大范围** — plan 没说改的文件不要动
 - **测试驱动** — 新功能先写测试骨架，再写实现
 
@@ -288,13 +288,13 @@ Critical 问题 → spawn 修复代理。Warning → 视情况修复。
 ```bash
 # 必须并行调用两个模型审查 git diff
 ~/.claude/bin/codeagent-wrapper --progress --backend {{FRONTEND_PRIMARY}} - "$(pwd)" <<'EOF'
-ROLE_FILE: ~/.claude/.ccg/prompts/{{FRONTEND_PRIMARY}}/reviewer.md
+ROLE_FILE: ~/.claude/.ly/prompts/{{FRONTEND_PRIMARY}}/reviewer.md
 <TASK>审查以下代码变更：$(git diff)</TASK>
 OUTPUT: Critical/Warning/Info 分级审查报告
 EOF
 &
 ~/.claude/bin/codeagent-wrapper --progress --backend claude - "$(pwd)" <<'EOF'
-ROLE_FILE: ~/.claude/.ccg/prompts/claude/reviewer.md
+ROLE_FILE: ~/.claude/.ly/prompts/claude/reviewer.md
 <TASK>审查以下代码变更：$(git diff)</TASK>
 OUTPUT: Critical/Warning/Info 分级审查报告
 EOF
@@ -306,7 +306,7 @@ wait
 2. 综合双方意见，合并去重，分 Critical / Warning / Info
 3. Critical → 修复后重新双模型审查
 4. Warning → 建议修复
-5. 审查结果写入 `.ccg/tasks/$TASK_NAME/review.md`
+5. 审查结果写入 `.ly/tasks/$TASK_NAME/review.md`
 
 ## 7. Iron Rules — 铁律
 
@@ -317,4 +317,4 @@ wait
 5. **scope 是边界** — 只做用户要求的，不自作主张扩大范围
 6. **测试是底线** — 不跑测试不报告完成
 7. **归档是闭环** — 每个任务必须归档，让下次会话知道发生过什么
-<!-- CCG:END -->
+<!-- LY:END -->

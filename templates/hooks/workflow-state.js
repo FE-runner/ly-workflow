@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// CCG Workflow State Hook — UserPromptSubmit
+// ly-workflow State Hook — UserPromptSubmit
 // Injects per-turn breadcrumb based on active task state.
 // Includes loop detection: warns when same phase+nextAction repeats 3+ turns.
 // Runs on EVERY user message. Must be fast (<1s) and never crash.
@@ -24,7 +24,7 @@ try {
   const loop = detectLoop(turns, 3);
 
   const lines = [
-    '<ccg-state>',
+    '<ly-state>',
     `Task: ${task.title || task.id} (${task.status})`,
     `Strategy: ${task.strategy}`,
     `Phase: ${task.currentPhase}`,
@@ -47,7 +47,7 @@ try {
     lines.push('  5. Do NOT repeat the same action — that is what caused this loop');
   }
 
-  lines.push('</ccg-state>');
+  lines.push('</ly-state>');
 
   outputHook('UserPromptSubmit', lines.join('\n'));
 } catch {

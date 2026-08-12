@@ -1,4 +1,4 @@
-import type { CcgConfig, SupportedLang } from '../types'
+import type { LyConfig, SupportedLang } from '../types'
 
 export interface CliOptions {
   lang?: SupportedLang
@@ -10,4 +10,4 @@ export interface CliOptions {
   installDir?: string
 }
 
-export type { CcgConfig, SupportedLang }
+export type { LyConfig, SupportedLang }

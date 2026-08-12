@@ -280,12 +280,12 @@ export async function uninstallMcpServer(id: string): Promise<{ success: boolean
 }
 
 // ═══════════════════════════════════════════════════════
-// MCP Sync — Mirror CCG-relevant MCP servers
+// MCP Sync — Mirror ly-relevant MCP servers
 // to Codex (~/.codex/config.toml) and Gemini (~/.gemini/settings.json)
 // ═══════════════════════════════════════════════════════
 
-/** MCP server IDs that CCG manages and should sync to Codex/Gemini */
-const CCG_MCP_IDS = new Set([
+/** MCP server IDs that ly-workflow manages and should sync to Codex/Gemini */
+const LY_MCP_IDS = new Set([
   'grok-search',
   'context7',
   'ace-tool',
@@ -297,15 +297,15 @@ const CCG_MCP_IDS = new Set([
 type SyncResult = { success: boolean, message: string, synced: string[], removed: string[] }
 
 /**
- * Read Claude's MCP config and filter to CCG-managed servers.
+ * Read Claude's MCP config and filter to ly-managed servers.
  */
-async function getCcgMcpServersFromClaude(): Promise<Record<string, any>> {
+async function getLyMcpServersFromClaude(): Promise<Record<string, any>> {
   const claudeConfig = await readClaudeCodeConfig()
   const claudeMcpServers = claudeConfig?.mcpServers || {}
 
   const serversToSync: Record<string, any> = {}
   for (const [id, config] of Object.entries(claudeMcpServers)) {
-    if (CCG_MCP_IDS.has(id) && config) {
+    if (LY_MCP_IDS.has(id) && config) {
       serversToSync[id] = config
     }
   }
@@ -313,24 +313,24 @@ async function getCcgMcpServersFromClaude(): Promise<Record<string, any>> {
 }
 
 /**
- * Apply mirror logic: add/update servers from Claude, remove stale CCG servers.
+ * Apply mirror logic: add/update servers from Claude, remove stale ly servers.
  * Returns { synced, removed } arrays. Mutates targetServers in place.
  */
-function mirrorCcgServers(
+function mirrorLyServers(
   serversToSync: Record<string, any>,
   targetServers: Record<string, any>,
 ): { synced: string[], removed: string[] } {
   const synced: string[] = []
   const removed: string[] = []
 
-  // Add/update CCG servers
+  // Add/update ly servers
   for (const [id, claudeServer] of Object.entries(serversToSync)) {
     targetServers[id] = claudeServer
     synced.push(id)
   }
 
-  // Remove CCG servers that no longer exist in Claude
-  for (const id of CCG_MCP_IDS) {
+  // Remove ly servers that no longer exist in Claude
+  for (const id of LY_MCP_IDS) {
     if (!serversToSync[id] && targetServers[id]) {
       delete targetServers[id]
       removed.push(id)
@@ -351,15 +351,15 @@ function formatSyncMessage(target: string, synced: string[], removed: string[]):
 }
 
 /**
- * Sync (mirror) CCG-managed MCP servers from Claude's ~/.claude.json
+ * Sync (mirror) ly-managed MCP servers from Claude's ~/.claude.json
  * to Codex's ~/.codex/config.toml
  *
- * - Only touches servers in CCG_MCP_IDS — user's custom servers untouched.
+ * - Only touches servers in LY_MCP_IDS — user's custom servers untouched.
  * - Uses atomic write (temp file + rename) to prevent corruption.
  */
 export async function syncMcpToCodex(): Promise<SyncResult> {
   try {
-    const serversToSync = await getCcgMcpServersFromClaude()
+    const serversToSync = await getLyMcpServersFromClaude()
 
     // Read or create Codex config
     const codexConfigDir = join(homedir(), '.codex')
@@ -388,10 +388,10 @@ export async function syncMcpToCodex(): Promise<SyncResult> {
       codexServersToSync[id] = entry
     }
 
-    const { synced, removed } = mirrorCcgServers(codexServersToSync, codexConfig.mcp_servers)
+    const { synced, removed } = mirrorLyServers(codexServersToSync, codexConfig.mcp_servers)
 
     if (synced.length === 0 && removed.length === 0) {
-      return { success: true, message: 'No CCG MCP servers to sync or remove', synced: [], removed: [] }
+      return { success: true, message: 'No ly MCP servers to sync or remove', synced: [], removed: [] }
     }
 
     // Atomic write: temp file + rename
@@ -407,12 +407,12 @@ export async function syncMcpToCodex(): Promise<SyncResult> {
 }
 
 /**
- * Sync (mirror) CCG-managed MCP servers from Claude's ~/.claude.json
+ * Sync (mirror) ly-managed MCP servers from Claude's ~/.claude.json
  * to Gemini CLI's ~/.gemini/settings.json
  */
 export async function syncMcpToGemini(): Promise<SyncResult> {
   try {
-    const serversToSync = await getCcgMcpServersFromClaude()
+    const serversToSync = await getLyMcpServersFromClaude()
 
     // Read or create Gemini settings
     const geminiDir = join(homedir(), '.gemini')
@@ -428,10 +428,10 @@ export async function syncMcpToGemini(): Promise<SyncResult> {
       geminiSettings.mcpServers = {}
     }
 
-    const { synced, removed } = mirrorCcgServers(serversToSync, geminiSettings.mcpServers)
+    const { synced, removed } = mirrorLyServers(serversToSync, geminiSettings.mcpServers)
 
     if (synced.length === 0 && removed.length === 0) {
-      return { success: true, message: 'No CCG MCP servers to sync to Gemini', synced: [], removed: [] }
+      return { success: true, message: 'No ly MCP servers to sync to Gemini', synced: [], removed: [] }
     }
 
     await fs.writeJSON(geminiSettingsPath, geminiSettings, { spaces: 2 })

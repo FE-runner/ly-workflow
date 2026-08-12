@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CCG Workflow Hook for Codex CLI — Adaptive Guardrail
+ly-workflow Hook for Codex CLI — Adaptive Guardrail
 Injects per-turn guidance based on what Codex has/hasn't done.
 Not a rigid state machine — adapts to task complexity and progress.
 
@@ -30,10 +30,10 @@ def _is_terminal_status(status):
 
 
 def find_project_root():
-    """Walk up to find .ccg/ or .git/"""
+    """Walk up to find .ly/ or .git/"""
     d = os.environ.get("CODEX_PROJECT_DIR", os.getcwd())
     for _ in range(20):
-        if os.path.isdir(os.path.join(d, ".ccg")) or os.path.isdir(os.path.join(d, ".git")):
+        if os.path.isdir(os.path.join(d, ".ly")) or os.path.isdir(os.path.join(d, ".git")):
             return d
         parent = os.path.dirname(d)
         if parent == d:
@@ -44,7 +44,7 @@ def find_project_root():
 
 def get_active_task(root):
     """Find the most recent in_progress task."""
-    tasks_dir = os.path.join(root, ".ccg", "tasks")
+    tasks_dir = os.path.join(root, ".ly", "tasks")
     if not os.path.isdir(tasks_dir):
         return None
     for name in sorted(os.listdir(tasks_dir), reverse=True):
@@ -130,7 +130,7 @@ def build_guidance(task, progress, root):
         if task.get("nextAction"):
             parts.append(f"Next: {task['nextAction']}")
     else:
-        parts.append("No active task. Create one in .ccg/tasks/ before starting work.")
+        parts.append("No active task. Create one in .ly/tasks/ before starting work.")
         parts.append("Even small fixes need a task.json for tracking.")
         return parts
 
@@ -178,13 +178,13 @@ def build_guidance(task, progress, root):
             parts.append("Reminder: run tests after significant changes. Don't wait until the end.")
 
     # --- Spec reminder ---
-    spec_dir = os.path.join(root, ".ccg", "spec")
+    spec_dir = os.path.join(root, ".ly", "spec")
     if os.path.isdir(spec_dir) and phase in ("analysis", "implementation"):
         specs = []
         for sub in ("backend", "frontend", "guides"):
             idx = os.path.join(spec_dir, sub, "index.md")
             if os.path.isfile(idx):
-                specs.append(f".ccg/spec/{sub}/index.md")
+                specs.append(f".ly/spec/{sub}/index.md")
         if specs:
             parts.append("")
             parts.append(f"Spec files available: {', '.join(specs)} — read before writing code.")
@@ -193,24 +193,24 @@ def build_guidance(task, progress, root):
     if phase in ("completed", "done", "finished") or _is_terminal_status(task.get("status")):
         parts.append("")
         parts.append("⛔ Task completed. You MUST archive it now:")
-        parts.append(f"  mkdir -p .ccg/tasks/archive/$(date +%Y-%m) && mv .ccg/tasks/{task['_name']} .ccg/tasks/archive/$(date +%Y-%m)/")
-        parts.append("  git add .ccg/tasks/ && git commit -m \"chore: archive ccg task\"")
+        parts.append(f"  mkdir -p .ly/tasks/archive/$(date +%Y-%m) && mv .ly/tasks/{task['_name']} .ly/tasks/archive/$(date +%Y-%m)/")
+        parts.append("  git add .ly/tasks/ && git commit -m \"chore: archive ly task\"")
 
     return parts
 
 
-SUB_AGENT_NOTICE = """<ccg-sub-agent-notice>
+SUB_AGENT_NOTICE = """<ly-sub-agent-notice>
 SUB-AGENT NOTICE — READ FIRST IF SPAWNED VIA spawn_agent
 
 If your parent session spawned you via spawn_agent with an explicit task
 message, that message is your ONLY job.
 - Execute the parent message exactly as written, then mark yourself complete.
-- Ignore all CCG workflow guidance below this notice.
+- Ignore all ly-workflow guidance below this notice.
 - Do NOT call spawn_agent, wait, or close_agent.
-- Do NOT modify .ccg/tasks/* or any workflow state files.
+- Do NOT modify .ly/tasks/* or any workflow state files.
 - Do NOT run external model calls (codeagent-wrapper).
 - Only modify files explicitly listed in your dispatch message.
-</ccg-sub-agent-notice>"""
+</ly-sub-agent-notice>"""
 
 
 def is_sub_agent():
@@ -230,7 +230,7 @@ def main():
         root = find_project_root()
         if not root:
             return
-        if not os.path.isdir(os.path.join(root, ".ccg")):
+        if not os.path.isdir(os.path.join(root, ".ly")):
             return
 
         # Sub-agent: inject notice and skip workflow guidance
@@ -250,7 +250,7 @@ def main():
         if not lines:
             return
 
-        context = "<ccg-state>\n" + "\n".join(lines) + "\n</ccg-state>"
+        context = "<ly-state>\n" + "\n".join(lines) + "\n</ly-state>"
 
         print(json.dumps({
             "hookSpecificOutput": {

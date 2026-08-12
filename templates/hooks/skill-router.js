@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// CCG Skill Router Hook — UserPromptSubmit
+// ly-workflow Skill Router Hook — UserPromptSubmit
 // Detects domain keywords in user message and injects relevant skill content.
 // Fires alongside workflow-state.js on every user prompt.
 
@@ -73,7 +73,7 @@ try {
 
     let actionInstructions;
     if (modelAction.model === 'both') {
-      actionInstructions = `<ccg-model-action>
+      actionInstructions = `<ly-model-action>
 用户请求双模型${modelAction.role === 'reviewer' ? '审查' : '分析'}。请立即执行：
 
 1. 获取工作目录: WORKDIR=$(pwd)
@@ -81,32 +81,32 @@ try {
 
    Backend (codex):
    ${wrapperPath} --progress --backend codex - "$WORKDIR" <<'EOF'
-   ROLE_FILE: ${path.join(homeDir, '.claude', '.ccg', 'prompts', 'codex', modelAction.role + '.md')}
+   ROLE_FILE: ${path.join(homeDir, '.claude', '.ly', 'prompts', 'codex', modelAction.role + '.md')}
    <TASK>${modelAction.action}</TASK>
    EOF
 
    Frontend (gemini):
    ${wrapperPath} --progress --backend gemini - "$WORKDIR" <<'EOF'
-   ROLE_FILE: ${path.join(homeDir, '.claude', '.ccg', 'prompts', 'gemini', modelAction.role + '.md')}
+   ROLE_FILE: ${path.join(homeDir, '.claude', '.ly', 'prompts', 'gemini', modelAction.role + '.md')}
    <TASK>${modelAction.action}</TASK>
    EOF
 
 3. 等待结果，综合输出
-</ccg-model-action>`;
+</ly-model-action>`;
     } else {
-      actionInstructions = `<ccg-model-action>
+      actionInstructions = `<ly-model-action>
 用户请求使用 ${modelAction.model} 执行${modelAction.action}。请立即执行：
 
 1. 获取工作目录: WORKDIR=$(pwd)
 2. 调用模型:
 
    ${wrapperPath} --progress --backend ${modelAction.model} - "$WORKDIR" <<'EOF'
-   ROLE_FILE: ${path.join(homeDir, '.claude', '.ccg', 'prompts', modelAction.model, modelAction.role + '.md')}
+   ROLE_FILE: ${path.join(homeDir, '.claude', '.ly', 'prompts', modelAction.model, modelAction.role + '.md')}
    <TASK>${modelAction.action}</TASK>
    EOF
 
 3. 等待结果并输出
-</ccg-model-action>`;
+</ly-model-action>`;
     }
 
     outputHook('UserPromptSubmit', actionInstructions);
@@ -118,7 +118,7 @@ try {
 
   const cwd = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  const skillsBase = path.join(homeDir, '.claude', 'skills', 'ccg');
+  const skillsBase = path.join(homeDir, '.claude', 'skills', 'ly');
 
   if (!fs.existsSync(skillsBase)) process.exit(0);
 
@@ -137,7 +137,7 @@ try {
 
   if (injections.length === 0) process.exit(0);
 
-  const context = `<ccg-domain-knowledge>\n${injections.join('\n\n---\n\n')}\n</ccg-domain-knowledge>`;
+  const context = `<ly-domain-knowledge>\n${injections.join('\n\n---\n\n')}\n</ly-domain-knowledge>`;
   outputHook('UserPromptSubmit', context);
 } catch {
   process.exit(0);

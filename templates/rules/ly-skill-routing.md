@@ -1,4 +1,4 @@
-# CCG Domain Knowledge — Auto-routing Rules
+# ly-workflow Domain Knowledge — Auto-routing Rules
 
 When the user's request matches trigger keywords below, automatically READ the corresponding skill file to gain domain expertise before responding. These knowledge files are installed at `~/.claude/skills/ly/domains/`.
 

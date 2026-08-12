@@ -10,7 +10,7 @@ import { diagnoseMcp, fixMcp } from './commands/diagnose-mcp'
 import { init } from './commands/init'
 import { showMainMenu } from './commands/menu'
 import { i18n, initI18n } from './i18n'
-import { readCcgConfig } from './utils/config'
+import { readLyConfig } from './utils/config'
 import { installCodexMode, uninstallCodexMode, uninstallWorkflows } from './utils/installer'
 
 function customizeHelp(sections: any[]): any[] {
@@ -74,7 +74,7 @@ function customizeHelp(sections: any[]): any[] {
 
 export async function setupCommands(cli: CAC): Promise<void> {
   try {
-    const config = await readCcgConfig()
+    const config = await readLyConfig()
     const defaultLang = config?.general?.language || 'zh-CN'
     await initI18n(defaultLang)
   }

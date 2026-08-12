@@ -9,8 +9,8 @@ export interface ModelRouting {
   reviewer: ModelType
 }
 
-// CCG 配置
-export interface CcgConfig {
+// ly-workflow 配置
+export interface LyConfig {
   general: {
     version: string
     language: SupportedLang

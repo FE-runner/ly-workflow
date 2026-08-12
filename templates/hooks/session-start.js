@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// CCG Session Start Hook — SessionStart
+// ly-workflow Session Start Hook — SessionStart
 // Injects full project context when session starts, clears, or compacts.
 
 'use strict';
@@ -30,12 +30,12 @@ Root: ${root}
 </project>`);
 
   // Model routing config
-  const configPath = path.join(root, '.ccg', 'config.toml');
+  const configPath = path.join(root, '.ly', 'config.toml');
   if (fs.existsSync(configPath)) {
     const configRaw = readFileSafe(configPath);
     if (configRaw) {
       const frontendMatch = configRaw.match(/primary\s*=\s*"(\w+)"/);
-      const models = frontendMatch ? `Configured (see .ccg/config.toml)` : 'Default (frontend=gemini, backend=codex)';
+      const models = frontendMatch ? `Configured (see .ly/config.toml)` : 'Default (frontend=gemini, backend=codex)';
       sections.push(`<models>${models}</models>`);
     }
   } else {
@@ -65,11 +65,11 @@ Root: ${root}
     taskLines.push('</active-task>');
     sections.push(taskLines.join('\n'));
   } else {
-    sections.push('<active-task>No active task. Use /ccg:go to start.</active-task>');
+    sections.push('<active-task>No active task. Use /ly:go to start.</active-task>');
   }
 
   // Spec availability
-  const specDir = path.join(root, '.ccg', 'spec');
+  const specDir = path.join(root, '.ly', 'spec');
   if (fs.existsSync(specDir)) {
     try {
       const specPaths = [];
@@ -82,18 +82,18 @@ Root: ${root}
       };
       walk(specDir, '');
       if (specPaths.length > 0) {
-        sections.push(`<specs>\nAvailable specs in .ccg/spec/:\n${specPaths.map(p => `  - ${p}`).join('\n')}\n</specs>`);
+        sections.push(`<specs>\nAvailable specs in .ly/spec/:\n${specPaths.map(p => `  - ${p}`).join('\n')}\n</specs>`);
       }
     } catch { /* silent */ }
   }
 
   // Available commands hint
   sections.push(`<commands>
-Key commands: /ccg:go (smart entry), /ccg:commit, /ccg:review
-All /ccg:* commands available. Use /ccg:go for intelligent routing.
+Key commands: /ly:go (smart entry), /ly:commit, /ly:review
+All /ly:* commands available. Use /ly:go for intelligent routing.
 </commands>`);
 
-  const context = `<ccg-session>\n${sections.join('\n\n')}\n</ccg-session>`;
+  const context = `<ly-session>\n${sections.join('\n\n')}\n</ly-session>`;
   outputHook('SessionStart', context);
 } catch {
   process.exit(0);

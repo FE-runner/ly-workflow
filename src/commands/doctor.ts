@@ -2,7 +2,7 @@ import ansis from 'ansis'
 import fs from 'fs-extra'
 import { homedir } from 'node:os'
 import { join } from 'pathe'
-import { readCcgConfig } from '../utils/config'
+import { readLyConfig } from '../utils/config'
 import { version as packageVersion } from '../../package.json'
 
 const OK = ansis.green('✓')
@@ -40,7 +40,7 @@ export async function doctor(): Promise<void> {
   })
 
   // 2. ly-workflow config
-  const config = await readCcgConfig()
+  const config = await readLyConfig()
   checks.push({
     label: 'ly-workflow config',
     status: config ? OK : WARN,
@@ -170,7 +170,7 @@ export async function status(): Promise<void> {
   const installDir = join(homedir(), '.claude')
 
   // Version
-  const config = await readCcgConfig()
+  const config = await readLyConfig()
   const installedVer = config?.general?.version || 'unknown'
   const latestVer = execSafe('npm view ly-workflow version') || 'unknown'
 

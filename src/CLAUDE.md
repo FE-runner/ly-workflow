@@ -38,7 +38,7 @@ CLI 工具的全部 TypeScript 实现：安装/更新 `ly-workflow` 到 `~/.clau
 |------|------|
 | `ModelType` | `'codex' \| 'claude'` |
 | `ModelRouting` | `{ reviewer: ModelType }` — 只控制审查阶段用哪个模型 |
-| `CcgConfig` | 完整配置结构（内部标识符沿用 `Ccg` 前缀，未做二次改名） |
+| `LyConfig` | 完整配置结构 |
 
 ## utils/installer.ts 要点
 

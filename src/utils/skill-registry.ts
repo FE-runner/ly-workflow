@@ -326,8 +326,8 @@ export interface InstallSkillCommandsResult {
  * Install auto-generated commands for all user-invocable skills.
  *
  * @param skillsTemplateDir - Path to templates/skills/ (source)
- * @param skillsInstallDir - Path to ~/.claude/skills/ccg/ (installed destination)
- * @param commandsDir - Path to ~/.claude/commands/ccg/ (command output)
+ * @param skillsInstallDir - Path to ~/.claude/skills/ly/ (installed destination)
+ * @param commandsDir - Path to ~/.claude/commands/ly/ (command output)
  * @param existingCommandNames - Set of command names already defined in installer-data.ts (to avoid conflicts)
  * @returns Generated command names + cleanup outcome for skipped categories
  */
