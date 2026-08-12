@@ -1,5 +1,5 @@
 ---
-description: '管理 Git Worktree：在 ../.ly/项目名/ 目录创建，支持 IDE 集成和内容迁移'
+description: '管理 Git Worktree：在 ~/.ly/worktrees/项目名/ 目录创建，支持 IDE 集成和内容迁移'
 ---
 
 # Worktree - Git Worktree 管理
@@ -41,18 +41,18 @@ description: '管理 Git Worktree：在 ../.ly/项目名/ 目录创建，支持 
 
 ## 目录结构
 
-默认（项目外，IDE 集成友好）：
+默认（用户目录下，跨项目集中管理，IDE 集成友好）：
 
 ```
-parent-directory/
-├── your-project/           # 主项目
-│   ├── .git/
-│   └── src/
-└── .ly/                   # worktree 管理目录
-    └── your-project/
-        ├── feature-ui/     # 功能分支
-        ├── hotfix/         # 修复分支
-        └── debug/          # 调试 worktree
+~/.ly/worktrees/            # worktree 管理目录（用户目录下）
+└── your-project/
+    ├── feature-ui/         # 功能分支
+    ├── hotfix/             # 修复分支
+    └── debug/              # 调试 worktree
+
+/path/to/your-project/     # 主项目（任意位置）
+├── .git/
+└── src/
 ```
 
 项目内（传 `--local` 时启用）：
@@ -79,7 +79,7 @@ your-project/
 2. **确定目录**（优先级从高到低）：
    - 用户本次显式指定路径 → 直接用
    - 传 `--local` → 用项目内 `.worktrees/`（不再靠"目录已存在"自动判断，避免误触发）
-   - 默认 `../.ly/项目名/<path>`（项目外，见上方目录结构）
+   - 默认 `~/.ly/worktrees/项目名/<path>`（用户目录下，见上方目录结构）
 3. **`--local` 时必须校验已忽略**：`git check-ignore -q .worktrees`。未忽略则先写入 `.gitignore` 并提交，再继续创建——防止 worktree 内容被误提交进仓库。
 4. 创建 worktree（`git worktree add <path> -b <branch>`）
 5. 自动复制环境文件（`.env` 等）
@@ -108,7 +108,7 @@ your-project/
    - `openspec/changes/<change-name>/proposal.md` **与 `tasks.md` 均必须存在**——只有 `proposal.md` 没有 `tasks.md` 时报错并提示"该 change 尚未生成 tasks.md，请先完成规划（如 `/opsx:propose`）再执行 switch"。
    - `git status --porcelain -- openspec/changes/<change-name>/` 必须为空（无未提交/未跟踪内容），否则报错提示先 commit（worktree 不会带入未提交文件，不做自动迁移；需要迁移用 `migrate`）。
    - `<change-name>` 必须匹配 `^[a-z0-9]+(-[a-z0-9]+)*$`，分支名额外过 `git check-ref-format --branch`，不匹配直接报错，不做任何猜测式纠正。
-3. **判断目标路径是否已是已注册的 worktree**（`git worktree list --porcelain`；目标路径以 `git rev-parse --git-common-dir` 反推的主仓库位置为基准计算——先把该输出转成绝对路径再取父目录，不依赖当前调用所处 worktree 的相对路径，保证从主工作区或从任意其他 worktree 调用时算出的路径一致；所有路径比较前均 canonicalize）：
+3. **判断目标路径是否已是已注册的 worktree**（`git worktree list --porcelain`；目标路径以 `git rev-parse --git-common-dir` 反推的主仓库位置为基准计算——取该位置的目录名作为 `<项目名>`，拼接为 `~/.ly/worktrees/<项目名>/<change-name>`，不依赖当前调用所处 worktree 的相对路径，保证从主工作区或从任意其他 worktree 调用时算出的路径一致；所有路径比较前均 canonicalize）：
    - **是** → 额外校验该路径当前注册的分支名是否严格等于 `<change-name>`：
      - **严格等于** → 直接定位，跳过下面的分支拓扑校验与创建/baseline，展示路径/分支，进入步骤 6 输出续接命令。
      - **不等于** → 拒绝执行，报错提示"目标路径已注册但对应分支非 `<change-name>`（当前为 `<实际分支名>`），请手动处理后重试"，不直接定位、不进入步骤 6 输出续接命令。
@@ -182,7 +182,7 @@ your-project/
 ## 输出示例
 
 ```
-✅ Worktree created at ../.ly/项目名/feature-ui
+✅ Worktree created at ~/.ly/worktrees/项目名/feature-ui
 ✅ 已复制 .env
 ✅ 已复制 .env.local
 📋 已从 .gitignore 复制 2 个环境文件
@@ -207,7 +207,7 @@ your-project/
 - Worktree 共享 `.git` 目录，节省磁盘空间
 - 迁移仅限未提交改动，已提交内容用 `git cherry-pick`
 - 支持 Windows、macOS、Linux
-- 默认项目外创建，不需要 `--local` 时不碰 `.gitignore`
+- 默认用户目录 `~/.ly/worktrees/` 下创建，不需要 `--local` 时不碰 `.gitignore`
 - `--local` 且 `.worktrees/` 未被忽略时会先写 `.gitignore` 并提交，再继续创建
 - 创建后会跑一次项目 setup + baseline 测试，确认新 worktree 干净可用
 - `switch` 只打印续接命令，不自动执行、不自动切会话（`--auto` 不改变这一点，只改变打印文案）；要求目标 change 已有 `proposal.md` 与 `tasks.md` 且已提交；新建场景要求该 change 的提交在默认分支历史上，已注册 worktree 场景不受此限制；孤儿 worktree（关联 change 已删除/重命名）需人工 `remove`/`prune`

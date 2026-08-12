@@ -29,7 +29,7 @@
 | `review-plan.md` | 真逻辑 | Codex 审方案（独立角色提示词 `plan-reviewer.md`，不与 `review-code.md` 共用 `reviewer.md`；读取 proposal/design/tasks/specs），审查-修复循环（全局轮数上限 5 轮，清零优先；新增第 9 类"审查对象类型持续系统性误判"），默认每轮自动 commit（`--no-commit` 关闭） |
 | `review-code.md` | 真逻辑 | Codex 审代码，Critical/Warning/Info 分级，审查-修复循环（全局轮数上限 5 轮，清零优先；新增第 9 类"审查对象类型持续系统性误判"，与 `review-plan.md` 共用），默认每轮自动 commit（`--no-commit` 关闭） |
 | `commit.md` `rollback.md` `clean-branches.md` | Git 工具 | 不变 |
-| `worktree.md` | Git 工具 | 默认项目外 `../.ly/项目名/`；新增隔离检测、`--local` 项目内选项（强制 gitignore 校验）、创建后 baseline 验证；`switch` 定位已注册路径时新增分支校验（不匹配则拒绝，不直接定位） |
+| `worktree.md` | Git 工具 | 默认用户目录 `~/.ly/worktrees/项目名/`；新增隔离检测、`--local` 项目内选项（强制 gitignore 校验）、创建后 baseline 验证；`switch` 定位已注册路径时新增分支校验（不匹配则拒绝，不直接定位） |
 
 ## 已删除（v1.0.0 改造）
 
