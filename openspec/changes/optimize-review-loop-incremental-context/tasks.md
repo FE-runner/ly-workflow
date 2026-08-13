@@ -1,0 +1,31 @@
+## 1. codex/reviewer.md 输出格式修正
+
+- [ ] 1.1 把 `templates/prompts/codex/reviewer.md` 的 "Scoring Format"（VALIDATION REPORT / XX/100 打分）替换为与 `plan-reviewer.md` 一致的 Critical/Warning/Info 分级输出结构，包含"无发现时明确写'未发现问题'"的说明。
+
+## 2. review-code.md：首轮 TASK 改为传路径不传全文
+
+- [ ] 2.1 步骤 1（判定审查范围）逻辑保持不变，只调整步骤 2 的 Bash/TASK 构造：不再由 Claude 读取 `git diff`/未跟踪文件内容拼进 TASK，改为传递"基线引用说明（如 `git diff HEAD`/`git diff HEAD~1`/`git show HEAD`/零 commit 快照说明）+ 未跟踪文件路径清单"，并指示 Codex 自行在 `WORKDIR` 下执行对应命令/读取文件获取内容。
+- [ ] 2.2 更新步骤 2 的失败判定说明：确认"审查调用失败"判定逻辑不受 TASK 内容变化影响（仍按返回内容能否解析为 Critical/Warning/Info 判定）。
+
+## 3. review-code.md：第 2 轮起改为增量传递
+
+- [ ] 3.1 新增/修改步骤 3（审查-修复循环）说明：第 2 轮起，TASK 内容 = "上一轮全部 Critical 原文（逐字）" + "本轮实际改动的文件相对路径清单"，不再重新构造"基线 → 当前完整状态"的整体差异文本。
+- [ ] 3.2 明确"未被本轮触及的文件不重新整段传入"这一约束在模板文字中落地，避免退化回全量重传。
+- [ ] 3.3 保留现有的"熔断/分歧未决"判同键逻辑（文件路径+问题类别+定位锚点）不变，确认增量传递不影响这一判定所需的信息（Critical 原文仍完整逐字传递）。
+
+## 4. review-plan.md：首轮与第 2 轮起的 TASK 调整
+
+- [ ] 4.1 步骤 2（读取工件）保持"枚举 proposal/design/tasks/specs 路径"逻辑不变；步骤 3（调用 Codex）TASK 改为只传该 change 目录路径 + 枚举到的各文件相对路径清单，不再由 Claude 读取全文拼接。
+- [ ] 4.2 第 2 轮起（步骤 4.5 触发的复审），TASK 改为"上一轮全部 Critical 原文（逐字）+ 本轮实际改动的文件路径清单（含修改的 delta spec 文件）"，不再重新传整份 proposal/design/tasks/specs 内容。
+- [ ] 4.3 确认 delta spec 文件路径清单在首轮和后续轮次中都完整列出（不能只写"读取 specs 目录"这种模糊指代），避免 Codex 漏读部分 delta spec。
+
+## 5. 报告模板：逐轮展示 Codex 原始发现
+
+- [ ] 5.1 review-code.md 步骤 3（循环体）内新增"本轮报告"结构，包含"Codex 本轮原始发现（逐字）"区块与"Claude 认可/不认可判定"区块并排展示；步骤 4（最终报告）沿用这一结构展示最后一轮。
+- [ ] 5.2 review-plan.md 对应步骤 4（循环体）/步骤 5（最终报告）做同样调整。
+- [ ] 5.3 确认现有"分歧未决"终止场景的"并列展示两轮原文+反驳理由"要求与本次"每轮都展示"的新要求不冲突（新要求是老要求的超集，老要求的展示动作在每一轮都发生，终止时只是多轮堆叠展示）。
+
+## 6. 校验
+
+- [ ] 6.1 `openspec validate --changes optimize-review-loop-incremental-context` 通过。
+- [ ] 6.2 人工走读 review-code.md/review-plan.md 全文，确认改动后步骤描述内部一致（无残留的"重新读取全文"/"整体差异"等与增量传递矛盾的措辞）。
