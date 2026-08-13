@@ -1,9 +1,14 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: 每轮修复默认自动提交, \`--no-commit\` 关闭`
+- TO: `### Requirement: 循环结束后统一提交, \`--no-commit\` 关闭最终提交`
+
 ## MODIFIED Requirements
 
 ### Requirement: 代码审查读取 git diff 并分级输出发现
-`/ly:review-code` 必须（SHALL）按以下方式确定审查范围：若存在未提交变更, 使用 `git diff HEAD`（覆盖已跟踪的修改和已暂存的新增）；否则回退到最近一次 commit 的 diff。由于 `git diff HEAD` 不会显示未跟踪文件, 命令必须额外列出未跟踪文件（用 `git status --porcelain` 过滤出 `??` 条目）并把其路径并入审查上下文, 确保新建但未 `git add` 的文件不会被静默漏审。若仓库尚无任何 commit（`git rev-parse HEAD` 执行失败）, 命令必须构造一份稳定快照作为首轮基线（覆盖 staged/unstaged/untracked 三类状态的合并视图, 而不是单纯的 `git diff --cached`）, 不得尝试执行 `git diff HEAD` 或 `git diff HEAD~1`。命令必须以 `codex/reviewer.md` 角色提示词调用 `codeagent-wrapper --backend codex`, 并将发现严格分为三个严重度层级：Critical、Warning、Info。**首轮审查确定的审查范围（具体的基线引用：对应的 commit-ish, 或零 commit 场景下的快照）必须（SHALL）被记录, 供首轮 TASK 使用, 不得重新执行"判定审查范围"的分支选择逻辑**。第 2 轮起, 审查范围语义改为"对上一轮 Critical 的回归验证 + 本轮改动的增量审查"（不再是"基线 → 当前工作区完整状态"的地毯式复审）, 具体规则见"审查-修复循环与终止条件（review-code / review-plan 共用）"里的"第 2 轮起的 TASK 内容构造方式"。零 commit 场景下, 修复可能把某个文件从"已暂存"变为"未暂存"（例如 Claude 直接编辑了已 `git add` 过的文件）, 复审必须（SHALL）仍能在快照与当前工作区之间看到这次修复, 不得因为文件的 staged/unstaged 状态变化而漏审。若存在 Critical 发现, 命令必须（SHALL）进入审查-修复循环（见"审查-修复循环与终止条件（review-code / review-plan 共用）"）, 而不是止步于报告。
+`/ly:review-code` 必须（SHALL）按以下方式确定审查范围：若存在未提交变更, 使用 `git diff HEAD`（覆盖已跟踪的修改和已暂存的新增）；否则回退到最近一次 commit 的 diff。由于 `git diff HEAD` 不会显示未跟踪文件, 命令必须额外列出未跟踪文件（用 `git status --porcelain` 过滤出 `??` 条目）并把其路径并入审查上下文, 确保新建但未 `git add` 的文件不会被静默漏审。若仓库尚无任何 commit（`git rev-parse HEAD` 执行失败）, 命令必须以固定的三条 git 命令组合表达审查范围, 而不是构造某种独立持久化的"快照"：`git diff --cached`（已暂存的改动, 对无 HEAD 仓库等价于与空树相比）、`git diff`（未暂存的改动）、`git status --porcelain` 过滤 `??` 得到的未跟踪文件路径清单；不得尝试执行 `git diff HEAD` 或 `git diff HEAD~1`（这两者在无 HEAD 时无意义或报错）。命令必须以 `codex/reviewer.md` 角色提示词调用 `codeagent-wrapper --backend codex`, 并将发现严格分为三个严重度层级：Critical、Warning、Info。**首轮审查确定的审查范围（具体的基线引用：对应的 commit-ish, 或零 commit 场景下的上述三条命令组合）必须（SHALL）被记录, 供首轮 TASK 使用, 不得重新执行"判定审查范围"的分支选择逻辑**。第 2 轮起, 审查范围语义改为"对上一轮 Critical 的回归验证 + 本轮改动的增量审查"（不再是"基线 → 当前工作区完整状态"的地毯式复审）, 具体规则见"审查-修复循环与终止条件（review-code / review-plan 共用）"里的"第 2 轮起的 TASK 内容构造方式"。零 commit 场景下, 由于该三条命令每次执行都直接反映"当前"状态（不依赖某个固定时点的快照）, 修复导致某文件从"已暂存"变为"未暂存"（例如 Claude 直接编辑了已 `git add` 过的文件）不构成任何特殊问题——第 2 轮起的路径清单机制本身就是按文件当前路径读取内容, 与该文件处于 staged 还是 unstaged 无关。若存在 Critical 发现, 命令必须（SHALL）进入审查-修复循环（见"审查-修复循环与终止条件（review-code / review-plan 共用）"）, 而不是止步于报告。
 
-**首轮 TASK 内容构造方式**：Codex backend 以 agentic 模式运行（具备在 `WORKDIR` 下自主执行 shell 命令、读取文件的能力）, 命令 SHALL NOT 由 Claude 预先把首轮基线对应的完整 diff 文本或未跟踪文件的完整内容拼接进 TASK 字符串；TASK 必须（SHALL）改为传递首轮确定的基线引用（commit-ish, 或零 commit 场景下对基线快照的说明）和未跟踪文件路径清单, 并指示 Codex 自行执行 `git diff`/读取指定路径获取审查所需的实际内容。判定审查范围本身（分支选择逻辑：`git diff HEAD` / `git diff HEAD~1` / `git show HEAD` / 零 commit 快照）仍由 Claude 完成, 不下放给 Codex。
+**首轮 TASK 内容构造方式**：Codex backend 以 agentic 模式运行（具备在 `WORKDIR` 下自主执行 shell 命令、读取文件的能力）, 命令 SHALL NOT 由 Claude 预先把首轮基线对应的完整 diff 文本或未跟踪文件的完整内容拼接进 TASK 字符串；TASK 必须（SHALL）改为传递首轮确定的基线引用（commit-ish, 或零 commit 场景下"运行 `git diff --cached` + `git diff` + 未跟踪文件路径清单"这三条命令组合的说明）, 并指示 Codex 自行执行这些命令/读取指定路径获取审查所需的实际内容。判定审查范围本身（分支选择逻辑：`git diff HEAD` / `git diff HEAD~1` / `git show HEAD` / 零 commit 三命令组合）仍由 Claude 完成, 不下放给 Codex。
 
 #### Scenario: 存在未提交变更且无 Critical
 - **WHEN** 用户在工作区存在未提交变更时运行 `/ly:review-code`, 且 Codex 审查未发现任何 Critical
@@ -23,11 +28,11 @@
 
 #### Scenario: 仓库尚无任何 commit
 - **WHEN** 用户在一个完全没有 commit 的仓库中运行 `/ly:review-code`（`git rev-parse HEAD` 会失败）
-- **THEN** 命令构造一份覆盖 staged/unstaged/untracked 的稳定快照作为首轮基线, 而不是因缺失 `HEAD` 引用而报错, 也不单纯依赖 `git diff --cached`；TASK 中向 Codex 说明该快照的构成方式, 由 Codex 自行读取当前工作区内容, 不由 Claude 把快照内容整段贴入 TASK
+- **THEN** 命令以"`git diff --cached` + `git diff` + 未跟踪文件路径清单"这三条固定命令组合表达审查范围, 而不是因缺失 `HEAD` 引用而报错；TASK 中向 Codex 说明这三条命令, 由 Codex 自行执行并读取当前工作区内容, 不由 Claude 把内容整段贴入 TASK
 
-#### Scenario: 零 commit 场景下已暂存文件被直接修改, 复审不漏检
-- **WHEN** 首轮基线快照记录了某文件的已暂存内容, Claude 修复该文件时直接编辑了工作区副本（未重新 `git add`）, 导致该文件此后处于未暂存状态
-- **THEN** 第二轮 TASK 中该文件路径清单里仍以其当前工作区路径给出（不依赖 staged/unstaged 状态标签）, Codex 读取该路径的当前内容即可看到这次修复, 不会因为该文件从 staged 变成 unstaged 而被漏审
+#### Scenario: 零 commit 场景下已暂存文件被直接修改, 复审仍能定位到该文件
+- **WHEN** 首轮审查用三条命令组合确定了审查范围, Claude 修复某文件时直接编辑了工作区副本（未重新 `git add`）, 导致该文件此后处于未暂存状态
+- **THEN** 第二轮路径清单里仍以该文件当前工作区路径给出（不依赖 staged/unstaged 状态标签）, Codex 读取该路径的当前内容即可看到这次修复, 不会因为该文件从 staged 变成 unstaged 而被漏审——这三条命令组合本身没有"固定时点"的概念, 不存在"漏检"这个问题
 
 #### Scenario: 无发现
 - **WHEN** codex 审查员没有返回任何问题
@@ -42,9 +47,9 @@
 - **THEN** 传给 Codex 的 TASK 只包含基线引用说明（例如"审查 `git diff HEAD`"）及未跟踪文件路径清单, 不包含 Claude 预先读取、拼接的完整 diff 文本；Codex 在 `WORKDIR` 下自行执行 `git diff HEAD` 获取实际内容
 
 ### Requirement: 方案审查分级输出发现
-`/ly:review-plan` 必须（SHALL）读取目标 change 的 `proposal.md`/`design.md`/`tasks.md`（存在的部分即可, 缺失容错跳过）以及该 change 目录下 `specs/**/*.md` 的全部 delta spec 文件（若存在；不存在则容错跳过, 不报错）的路径, 以 `codex/plan-reviewer.md` 角色提示词（而非 `/ly:review-code` 使用的 `codex/reviewer.md`）调用 `codeagent-wrapper --backend codex`, 并将发现严格分为三个严重度层级：Critical、Warning、Info（与 `/ly:review-code` 一致, 不再使用不分级的"问题清单"格式）。**首轮**审查必须（SHALL）确保 Codex 读取到这些文件的**当前内容**（不是 diff），不需要记录或复用基线——因为审查对象是文件当前状态而非变更范围, 不存在"审查范围漂移"问题。**第 2 轮起**改为增量语义, 具体规则见"审查-修复循环与终止条件（review-code / review-plan 共用）"里的"第 2 轮起的 TASK 内容构造方式"。审查必须（SHALL）聚焦方案文档本身的逻辑缺陷：遗漏的边界情况、范围不清晰、`proposal.md`/`design.md`/`tasks.md`/对应 spec 之间互相矛盾或脱节、风险点交代不清、spec 的 Requirement/Scenario 未覆盖 proposal 的 What Changes。`codex/plan-reviewer.md` 必须（SHALL）明确约束：SHALL NOT 将"代码库尚未实现某方案条目"或"`tasks.md` 中某任务未勾选"作为 Critical 依据——这是方案审查阶段（实施尚未开始或尚未完成）的正常状态, 不构成方案缺陷。若存在 Critical 发现, 命令必须（SHALL）进入审查-修复循环（见"审查-修复循环与终止条件（review-code / review-plan 共用）"）, 而不是止步于报告。
+`/ly:review-plan` 必须（SHALL）读取目标 change 的 `proposal.md`/`design.md`/`tasks.md`（存在的部分即可, 缺失容错跳过）以及该 change 目录下 `specs/**/*.md` 的全部 delta spec 文件（若存在；不存在则容错跳过, 不报错）的路径, 以 `codex/plan-reviewer.md` 角色提示词（而非 `/ly:review-code` 使用的 `codex/reviewer.md`）调用 `codeagent-wrapper --backend codex`, 并将发现严格分为三个严重度层级：Critical、Warning、Info（与 `/ly:review-code` 一致, 不再使用不分级的"问题清单"格式）。**首轮**审查必须（SHALL）确保 Codex 读取到这些文件的**当前内容**（不是 diff），不需要记录或复用基线——因为审查对象是文件当前状态而非变更范围, 不存在"审查范围漂移"问题。**第 2 轮起**改为增量语义, 具体规则见"审查-修复循环与终止条件（review-code / review-plan 共用）"里的"第 2 轮起的 TASK 内容构造方式"。审查必须（SHALL）聚焦方案文档本身的逻辑缺陷：遗漏的边界情况、范围不清晰、`proposal.md`/`design.md`/`tasks.md`/对应 spec 之间互相矛盾或脱节、风险点交代不清、spec 的 Requirement/Scenario 未覆盖 proposal 的 What Changes。**"spec 未覆盖 What Changes"这一检查项必须（SHALL）区分两种"该 change 没有 delta spec 文件"的情形**（`openspec validate`/`openspec archive` 只校验"该 change 的 delta 总数是否为 0"，不逐个核对 proposal 声明的每个 capability 是否都有对应 delta spec，因此这条检查是唯一能在方案阶段捕捉"部分/全部 capability 缺失覆盖"的机制，不能被下游工具兜底）：（a）该 change 的 `proposal.md` 的 Capabilities 段落本身未声明任何 New/Modified Capability（纯重构/工具/文档类变更, 通常配合 `.openspec.yaml` 的 `skip_specs: true`）——此时没有 delta spec 文件属于正常情况, SHALL NOT 报 Critical；（b）`proposal.md` 的 Capabilities 段落声明了至少一个 New/Modified Capability, 但该 change 目录下完全没有任何 delta spec 文件（不管 `skip_specs` 是否被设置为 `true`）——此时命令必须（SHALL）报告 Critical, 指出"proposal 声明了 capability 变更但没有任何 delta spec 覆盖"；若 `skip_specs: true` 与声明的 capability 变更同时存在, 额外指出这是 `skip_specs` 使用不当（真正无行为变更的 change 不应在 Capabilities 段落列出任何 capability）。`codex/plan-reviewer.md` 必须（SHALL）明确约束：SHALL NOT 将"代码库尚未实现某方案条目"或"`tasks.md` 中某任务未勾选"作为 Critical 依据——这是方案审查阶段（实施尚未开始或尚未完成）的正常状态, 不构成方案缺陷。若存在 Critical 发现, 命令必须（SHALL）进入审查-修复循环（见"审查-修复循环与终止条件（review-code / review-plan 共用）"）, 而不是止步于报告。
 
-**首轮 TASK 内容构造方式**：命令 SHALL NOT 由 Claude 预先读取 `proposal.md`/`design.md`/`tasks.md`/`specs/**/*.md` 的全文并拼接进 TASK 字符串；TASK 必须（SHALL）改为传递该 change 目录路径及需要审查的文件相对路径清单（`proposal.md`/`design.md`/`tasks.md`, 以及枚举到的全部 delta spec 文件路径）, 并指示 Codex 在 `WORKDIR` 下自行读取这些文件的当前内容进行审查——这一条要求命令必须（SHALL）明确列出全部 delta spec 文件的路径（不能只提示"读取 specs 目录"而不枚举具体路径, 避免 Codex 遗漏部分 delta spec 文件), SHALL NOT 仅在角色提示词里描述 checklist 项却不提供文件路径清单, 否则 Codex 无从定位需要读取哪些 spec 文件。若该 change 的某份 delta spec 文件里出现 `## MODIFIED Requirements` 之外、对基线 spec 中未被本次修改的既有 Requirement 的显式文字引用（例如"见……'某 Requirement 名'"这类指代), 命令必须（SHALL）额外将该基线能力对应的 `openspec/specs/<capability>/spec.md` 路径纳入首轮路径清单, 并在 TASK 中说明该文件仅作审查上下文（用于核实引用是否准确、是否与 delta 冲突), 不属于本次修复对象——避免 Codex 因看不到被引用的既有 Requirement 定义而误判为遗漏或凭空猜测其内容。
+**首轮 TASK 内容构造方式**：命令 SHALL NOT 由 Claude 预先读取 `proposal.md`/`design.md`/`tasks.md`/`specs/**/*.md` 的全文并拼接进 TASK 字符串；TASK 必须（SHALL）改为传递该 change 目录路径及需要审查的文件相对路径清单（`proposal.md`/`design.md`/`tasks.md`, 以及枚举到的全部 delta spec 文件路径）, 并指示 Codex 在 `WORKDIR` 下自行读取这些文件的当前内容进行审查——这一条要求命令必须（SHALL）明确列出全部 delta spec 文件的路径（不能只提示"读取 specs 目录"而不枚举具体路径, 避免 Codex 遗漏部分 delta spec 文件), SHALL NOT 仅在角色提示词里描述 checklist 项却不提供文件路径清单, 否则 Codex 无从定位需要读取哪些 spec 文件。若该 change 的某份 delta spec 文件（无论出现在 `## MODIFIED Requirements` 内还是外）中显式文字引用了基线 spec 里未被本次修改的既有 Requirement（例如"见……'某 Requirement 名'"这类指代, 包括本 delta 自身在 MODIFIED Requirement 正文中引用同一 capability 基线里其他未改动 Requirement 的情况), 命令必须（SHALL）额外将该基线能力对应的 `openspec/specs/<capability>/spec.md` 路径纳入首轮路径清单, 并在 TASK 中说明该文件仅作审查上下文（用于核实引用是否准确、是否与 delta 冲突), 不属于本次修复对象——避免 Codex 因看不到被引用的既有 Requirement 定义而误判为遗漏或凭空猜测其内容。
 
 #### Scenario: 无 Critical
 - **WHEN** 用户运行 `/ly:review-plan`, Codex 审查未发现任何 Critical（可能有 Warning/Info）
@@ -63,8 +68,16 @@
 - **THEN** 未勾选的任务、代码库中尚未实现该方案条目, 均不作为 Critical 依据被报告；审查只针对 `proposal.md`/`design.md`/`tasks.md` 及对应 spec 本身的逻辑缺陷（遗漏边界、范围不清晰、文档间矛盾、风险点交代不清、spec 未覆盖 What Changes）
 
 #### Scenario: spec 未覆盖 proposal 的 What Changes, Codex 自行读取 delta spec 内容后判定
-- **WHEN** 某 change 的 `proposal.md` 的 What Changes 提到某项新行为, 但该 change 目录下 `specs/<capability>/spec.md` 里对应 Requirement 未提及这项行为（或该 capability 根本没有 delta spec 文件覆盖它）
-- **THEN** 命令必须已在 TASK 中列出该 change 目录下全部 `specs/**/*.md` 的路径, Codex 自行读取这些文件内容后才能据此判定"spec 未覆盖 What Changes"这一 Critical; 若该 change 没有任何 delta spec 文件, 命令容错跳过, 不报错、不视为该 Requirement 无法满足
+- **WHEN** 某 change 的 `proposal.md` 的 What Changes 提到某项新行为, 该 capability 存在对应的 `specs/<capability>/spec.md` 文件, 但其中对应 Requirement 未提及这项行为
+- **THEN** 命令必须已在 TASK 中列出该 change 目录下全部 `specs/**/*.md` 的路径, Codex 自行读取这些文件内容后才能据此判定"spec 未覆盖 What Changes"这一 Critical
+
+#### Scenario: proposal 未声明任何 capability, 无 delta spec 属于正常情况
+- **WHEN** 某 change 的 `proposal.md` 的 Capabilities 段落中 New/Modified Capabilities 均为空（纯重构/工具/文档类变更), 该 change 目录下没有任何 delta spec 文件
+- **THEN** 命令不报 Critical, 视为正常情况——`skip_specs: true` 与"未声明任何 capability"是一致的
+
+#### Scenario: proposal 声明了 capability 变更但完全没有 delta spec, 报告 Critical
+- **WHEN** 某 change 的 `proposal.md` 的 Capabilities 段落声明了至少一个 New/Modified Capability, 但该 change 目录下 `specs/**/*.md` 一个文件都不存在
+- **THEN** 命令必须报告 Critical, 说明"proposal 声明了 capability 变更但没有任何 delta spec 覆盖"; 若该 change 的 `.openspec.yaml` 同时设置了 `skip_specs: true`, 额外说明这是 `skip_specs` 使用不当（`openspec validate`/`openspec archive` 不会拦截这种情况, 只有这一步能捕捉到)
 
 #### Scenario: 首轮 TASK 只传路径清单, 不拼贴全文
 - **WHEN** 某 change 的 `proposal.md`、`design.md`、`tasks.md` 及两份 delta spec 文件总长度超过千行
@@ -78,16 +91,17 @@
 3. 无法安全自动修复：某个 Critical 的修复需要产品/业务决策、依赖当前会话不具备的外部凭据、会改变已发布的公开 API 或接口契约, 或 Claude 判断当前上下文信息不足以给出确定性修复——命中时不得进行猜测性修改
 4. 修复后验证失败：`/ly:review-code` 某一轮修复后运行的测试/类型检查/构建未通过, 或 `/ly:review-plan` 某一轮修复后 `openspec validate` 未通过
 5. 分歧未决：Claude 对某个 Critical 判断为不认可（详见下一条 Requirement）, 且该 Critical 在下一轮审查中仍被 Codex 判定为同一问题存在
-6. 提交失败（除非传入 `--no-commit`）：见"每轮修复默认自动提交, `--no-commit` 关闭"，本轮 commit 本身执行失败
-7. 审查对象类型持续系统性误判：连续 3 轮（含本轮）审查中, 每一轮的全部 Critical 都被 Claude 判定为同一大类系统性误判——即 Codex 反复以"该轮 Critical 所依据的判断类别不属于当前命令的审查范畴"为由被 Claude 判定不认可（例如 `/ly:review-plan` 场景下连续 3 轮的 Critical 均以"代码库尚未实现该方案条目"作为理由）, 不要求这 3 轮之间 Critical 的文件/类别/锚点相互匹配, 只要求"判定为不认可的理由类别"在这 3 轮中一致
+6. 审查对象类型持续系统性误判：连续 3 轮（含本轮）审查中, 每一轮的全部 Critical 都被 Claude 判定为同一大类系统性误判——即 Codex 反复以"该轮 Critical 所依据的判断类别不属于当前命令的审查范畴"为由被 Claude 判定不认可（例如 `/ly:review-plan` 场景下连续 3 轮的 Critical 均以"代码库尚未实现该方案条目"作为理由）, 不要求这 3 轮之间 Critical 的文件/类别/锚点相互匹配, 只要求"判定为不认可的理由类别"在这 3 轮中一致
 
-触发终止条件 2 到 7 中任一时, 命令必须（SHALL）立即停止循环, 在报告中明确指出触发的具体条件、涉及的问题（文件、类别、锚点、判定依据）, 并说明后续需要人工介入, 不得继续自动修复。循环期间的 Warning 与 Info 发现不参与循环终止判定, 只在循环结束后的最终报告中列出**最后一轮**审查的结果, 不跨轮次合并汇总。
+触发终止条件 2 到 6 中任一时, 命令必须（SHALL）立即停止循环, 在报告中明确指出触发的具体条件、涉及的问题（文件、类别、锚点、判定依据）, 并说明后续需要人工介入, 不得继续自动修复；这些条件命中时命令 SHALL NOT 提交任何改动（见下方"循环期间不提交, 仅在正常清零后统一提交一次"）, 已产生的改动留在工作区交由人工处理。循环期间的 Warning 与 Info 发现不参与循环终止判定, 只在循环结束后的最终报告中列出**最后一轮**审查的结果, 不跨轮次合并汇总。
+
+**循环期间不提交, 仅在正常清零后统一提交一次**：`/ly:review-code` 与 `/ly:review-plan` 的每一轮修复完成、验证通过后, SHALL NOT 立即执行 git commit——改动保持在工作区（已暂存或未暂存均可, 命令不因此主动改变文件的 staged 状态）, 直到循环结束。仅当循环以"正常清零"结束（终止条件 1）时, 命令才在输出报告之前对循环全程（含全部轮次）实际改动的文件执行一次统一提交, 具体规则见"循环结束后统一提交, `--no-commit` 关闭最终提交"。若循环以终止条件 2 到 6 中任一结束, 或达到全局轮数上限, 命令 SHALL NOT 提交, 已产生的改动保持在工作区未提交状态, 交由人工核实后自行决定是否提交——这一约束取代了此前"每轮修复后立即提交"的行为, 每轮报告中记录的"本轮实际改动文件清单"仍然按原规则维护（供下一轮增量传递使用), 只是不再逐轮转化为 git commit。
 
 **第 2 轮起的 TASK 内容构造方式（增量传递）**：从第 2 轮起, 命令 SHALL NOT 重新拼贴完整基线 diff / 完整 artifact 全文作为 TASK 内容；审查语义从"发现问题"变为"对上一轮 Critical 的回归验证 + 本轮改动的增量审查"。TASK 必须（SHALL）改为仅包含：（1）上一轮 Codex 报告的全部 Critical 原文（逐字, 不经 Claude 改写, 用于让 Codex 比对判断是否已解决——包含被 Claude 判定"不认可"的条目, 不因未修复而略去）；（2）路径清单, 必须（SHALL）覆盖"本轮实际修复改动的文件" ∪ "上一轮全部 Critical 各自指向的文件"（`/ly:review-plan` 场景下含修改的 delta spec 文件路径）——即使某条 Critical 因 Claude 不认可而未被修改, 其指向的文件路径也必须（SHALL）纳入清单, 否则 Codex 无法读取该文件当前内容来判断问题是否仍然存在。为使"指向的文件"可被可靠提取, `codex/reviewer.md`/`codex/plan-reviewer.md` 的输出契约必须（SHALL）要求每条 Critical/Warning/Info 在"位置"字段给出至少一个可解析的文件相对路径；若某条发现本质是跨文件或范围性问题（不存在单一目标文件, 例如"proposal 与 tasks 整体范围不一致"）, 该字段必须（SHALL）列出全部相关文件的路径, 不得只给章节名而不给路径。若某条上一轮 Critical 的位置字段缺失可解析路径（角色提示词未被遵守等异常情况）, 命令必须（SHALL）保守处理：将该轮已知的兜底路径集合（首轮枚举到的、当前仍存在的 `proposal.md`/`design.md`/`tasks.md` 与全部 delta spec 文件路径；`/ly:review-code` 场景下退化为按"审查调用失败"终止条件处理, 因为返回内容不符合可解析格式）纳入路径清单, 不得因缺少路径而静默丢弃该 Critical。若上一轮某条 Critical 指向的文件在本轮已被删除或重命名（例如修复方式是删除该文件, 或将其内容合并进另一文件), 命令必须（SHALL）在路径清单中改用删除/重命名后的路径（若有）, 并在 TASK 中明确说明该文件的状态变化（新增/修改/删除/重命名), 指示 Codex 依据该状态判断：删除场景下核实该文件确实不存在且没有遗留的失效引用；重命名场景下读取新路径的当前内容判断问题是否解决——不得让 Codex 尝试读取一个已不存在的旧路径, 也不得因路径不存在就判定为审查调用失败。命令必须（SHALL）指示 Codex 自行读取这些路径对应文件的当前内容, 判断：（a）上一轮各条 Critical 是否已解决；（b）本轮改动是否引入了新的 Critical/Warning/Info。未被"本轮改动"或"上一轮任一 Critical 指向"覆盖的文件 SHALL NOT 被重新整段传入 TASK。
 
 **报告逐轮展示 Codex 原始发现**：`/ly:review-code`/`/ly:review-plan` 的每一轮 Codex 调用（包括首轮 Critical 为 0、不进入循环体直接结束的情况，不只是进入了审查-修复循环的轮次）都必须（SHALL）在报告中包含一个独立区块, 逐字展示该轮 Codex 返回的原始 Critical/Warning/Info 内容（不经 Claude 概括、改写或合并), 与 Claude 对该轮每条 Critical 的认可/不认可判定并排列出（若该轮无 Critical, 该区块只需展示原文, 无需并排判定）, 使用户可以对照核实 Claude 的判定是否忠实反映了 Codex 原意。该区块必须（SHALL）在该轮 Codex 调用返回之后, 于本轮报告中呈现（不是 Codex 进程执行期间的流式展示——Codex 的完整结论本身只在其进程结束时一次性可用, 不存在中途可展示的部分结果), 不能只保留在最终报告或"分歧未决"终止场景中。
 
-最终报告必须（SHALL）包含：循环终止原因、总轮次、已修复的 Critical 摘要（含每轮改动文件清单）、最后一轮审查中仍存在的 Warning/Info。仅当整个执行过程从未出现任何 Critical/Warning/Info 时, 命令才可以使用"未发现问题"这一表述；只要曾经发现并修复过 Critical, 报告必须明确说明"本次已自动修复 N 个 Critical", 不得用"未发现问题"掩盖这一事实。
+最终报告必须（SHALL）包含：循环终止原因、总轮次、已修复的 Critical 摘要（含每轮改动文件清单）、最后一轮审查中仍存在的 Warning/Info。仅当整个执行过程从未出现任何 Critical/Warning/Info 时, 命令才可以使用"未发现问题"这一表述；只要曾经发现并修复过 Critical, 报告必须明确说明"本次已自动修复 N 个 Critical", 不得用"未发现问题"掩盖这一事实。**每条 Critical 的摘要必须（SHALL）用非技术人员能看懂的自然语言概括问题和已做的改动**（例如"审查发现两处地方矛盾，已改成一致的说法"），不能只贴 Codex 返回的原始技术措辞或 Requirement 编号了事——逐字展示 Codex 原文的区块（见前段）是给需要核实细节的人看的补充材料，人话摘要才是报告的主体, 二者并存, 不互相替代。
 
 #### Scenario: 一轮修复后 Critical 清零（review-code）
 - **WHEN** `/ly:review-code` 第一轮审查发现 2 个 Critical, Claude 修复后自动触发第二轮审查, 第二轮 Critical 数为 0, 且两轮修复后的验证均通过
@@ -171,3 +185,26 @@
 #### Scenario: 分歧在下一轮消失
 - **WHEN** Claude 判断某条 Critical 不认可未修复, 下一轮审查（针对其他 Critical 的修复触发的复审）不再提出该问题
 - **THEN** 不触发"分歧未决"（该问题已不再被 Codex 提出）, 循环按其余 Critical 的状态继续正常判定
+
+### Requirement: 循环结束后统一提交, `--no-commit` 关闭最终提交
+`/ly:review-code` 与 `/ly:review-plan` 默认（不传任何标志）在循环执行期间 SHALL NOT 提交——每一轮修复完成后只运行验证（`/ly:review-code` 为测试/类型检查/构建；`/ly:review-plan` 为 `openspec validate`），不执行 git commit，改动保持在工作区（已暂存或未暂存均可，命令不因此主动改变文件的 staged 状态）。仅当循环以"正常清零"结束（某一轮 Critical 数为 0）时，命令必须（SHALL）在输出报告之前，对循环全程（含首轮之后所有轮次）实际改动的文件执行一次统一提交（仅暂存并提交这些文件，不做范围外的 `git add`），提交信息包含 `fix:` 前缀、目标标识（change 名或审查对象说明）与总轮次说明（例如"经 N 轮修复"）。若循环全程没有任何 Critical 被认可修复（从未发生实际文件改动），SHALL NOT 创建空 commit。若循环以其余任一终止条件结束（熔断、无法安全修复、验证失败、分歧未决、审查对象类型持续系统性误判）或达到全局轮数上限，命令 SHALL NOT 提交，已产生的改动保持在工作区未提交状态，交由人工核实后自行决定是否提交——这些场景本身已经需要人工介入，不适合先自动提交半成品。若"正常清零"后的这次统一提交本身执行失败（Git hook 拒绝、身份未配置、锁文件冲突等），必须（SHALL）在报告中如实说明该失败，视为"循环已清零, 但统一提交失败"的独立结果——循环本身不重新进入下一轮（因为已经清零, 没有下一轮的意义），但报告必须明确指出还需要人工手动完成这次提交。传入可选标志 `--no-commit` 时，命令 SHALL NOT 执行这次最终统一提交（不管循环以何种方式结束），修复结果始终留给调用方或用户自行处理。
+
+#### Scenario: 正常清零后统一提交一次
+- **WHEN** 用户（或编排该命令的上层流程）执行 `/ly:review-plan <change-name>`（不带任何标志）, 第一轮发现 1 个 Critical 并修复、`openspec validate` 通过, 第二轮 Critical 数为 0
+- **THEN** 循环期间（第一轮修复后）不执行任何 commit; 第二轮清零后, 命令在输出报告之前统一提交第一轮实际改动的文件, 提交信息形如 `fix: review-plan feedback (经 1 轮修复) - <change-name>`
+
+#### Scenario: 带 --no-commit 时不做最终提交
+- **WHEN** 用户执行 `/ly:review-code --no-commit`, 循环修复了若干 Critical 后清零结束
+- **THEN** 命令不执行任何 commit（循环期间和清零后都不提交）, 修改的文件保持在工作区未提交状态
+
+#### Scenario: 循环以非清零终止条件结束, 不提交已产生的改动
+- **WHEN** `/ly:review-code` 第一轮修复 1 个 Critical 后, 第二轮审查判定该问题仍存在（触发熔断）
+- **THEN** 命令不提交第一轮的改动, 已修改的文件保持在工作区未提交状态, 报告中说明需要人工核实是否保留这次修复
+
+#### Scenario: 本轮无实际改动, 不创建空 commit
+- **WHEN** 循环从未有任何 Critical 被 Claude 判定为认可（因而从未发生实际文件改动), 最终以某种方式清零或终止
+- **THEN** 命令不执行 commit, 不产生空提交
+
+#### Scenario: 清零后的统一提交本身失败
+- **WHEN** 循环第二轮清零, 命令尝试执行统一提交, 但因 pre-commit hook 拒绝或 Git 身份未配置导致 commit 失败
+- **THEN** 命令不重新进入循环（因为已经清零), 在报告中如实说明这次统一提交失败的原始错误信息, 并指出需要人工手动完成提交
