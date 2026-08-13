@@ -83,7 +83,7 @@
 
 触发终止条件 2 到 7 中任一时, 命令必须（SHALL）立即停止循环, 在报告中明确指出触发的具体条件、涉及的问题（文件、类别、锚点、判定依据）, 并说明后续需要人工介入, 不得继续自动修复。循环期间的 Warning 与 Info 发现不参与循环终止判定, 只在循环结束后的最终报告中列出**最后一轮**审查的结果, 不跨轮次合并汇总。
 
-**第 2 轮起的 TASK 内容构造方式（增量传递）**：从第 2 轮起, 命令 SHALL NOT 重新拼贴完整基线 diff / 完整 artifact 全文作为 TASK 内容；审查语义从"发现问题"变为"对上一轮 Critical 的回归验证 + 本轮改动的增量审查"。TASK 必须（SHALL）改为仅包含：（1）上一轮 Codex 报告的全部 Critical 原文（逐字, 不经 Claude 改写, 用于让 Codex 比对判断是否已解决——包含被 Claude 判定"不认可"的条目, 不因未修复而略去）；（2）路径清单, 必须（SHALL）覆盖"本轮实际修复改动的文件" ∪ "上一轮全部 Critical 各自指向的文件"（`/ly:review-plan` 场景下含修改的 delta spec 文件路径）——即使某条 Critical 因 Claude 不认可而未被修改, 其指向的文件路径也必须（SHALL）纳入清单, 否则 Codex 无法读取该文件当前内容来判断问题是否仍然存在。命令必须（SHALL）指示 Codex 自行读取这些路径对应文件的当前内容, 判断：（a）上一轮各条 Critical 是否已解决；（b）本轮改动是否引入了新的 Critical/Warning/Info。未被"本轮改动"或"上一轮任一 Critical 指向"覆盖的文件 SHALL NOT 被重新整段传入 TASK。
+**第 2 轮起的 TASK 内容构造方式（增量传递）**：从第 2 轮起, 命令 SHALL NOT 重新拼贴完整基线 diff / 完整 artifact 全文作为 TASK 内容；审查语义从"发现问题"变为"对上一轮 Critical 的回归验证 + 本轮改动的增量审查"。TASK 必须（SHALL）改为仅包含：（1）上一轮 Codex 报告的全部 Critical 原文（逐字, 不经 Claude 改写, 用于让 Codex 比对判断是否已解决——包含被 Claude 判定"不认可"的条目, 不因未修复而略去）；（2）路径清单, 必须（SHALL）覆盖"本轮实际修复改动的文件" ∪ "上一轮全部 Critical 各自指向的文件"（`/ly:review-plan` 场景下含修改的 delta spec 文件路径）——即使某条 Critical 因 Claude 不认可而未被修改, 其指向的文件路径也必须（SHALL）纳入清单, 否则 Codex 无法读取该文件当前内容来判断问题是否仍然存在。为使"指向的文件"可被可靠提取, `codex/reviewer.md`/`codex/plan-reviewer.md` 的输出契约必须（SHALL）要求每条 Critical/Warning/Info 在"位置"字段给出至少一个可解析的文件相对路径；若某条发现本质是跨文件或范围性问题（不存在单一目标文件, 例如"proposal 与 tasks 整体范围不一致"）, 该字段必须（SHALL）列出全部相关文件的路径, 不得只给章节名而不给路径。若某条上一轮 Critical 的位置字段缺失可解析路径（角色提示词未被遵守等异常情况）, 命令必须（SHALL）保守处理：将该 change 目录下的全部 artifact 路径（`/ly:review-code` 场景下退化为按"审查调用失败"终止条件处理, 因为返回内容不符合可解析格式）纳入路径清单, 不得因缺少路径而静默丢弃该 Critical。命令必须（SHALL）指示 Codex 自行读取这些路径对应文件的当前内容, 判断：（a）上一轮各条 Critical 是否已解决；（b）本轮改动是否引入了新的 Critical/Warning/Info。未被"本轮改动"或"上一轮任一 Critical 指向"覆盖的文件 SHALL NOT 被重新整段传入 TASK。
 
 **报告逐轮展示 Codex 原始发现**：`/ly:review-code`/`/ly:review-plan` 的每一轮（不只终止时的轮次）循环内部报告必须（SHALL）包含一个独立区块, 逐字展示该轮 Codex 返回的原始 Critical/Warning/Info 内容（不经 Claude 概括、改写或合并), 与 Claude 对该轮每条 Critical 的认可/不认可判定并排列出, 使用户可以对照核实 Claude 的判定是否忠实反映了 Codex 原意。该区块必须（SHALL）在该轮 Codex 调用返回、Claude 完成本轮认可/不认可判定之后, 于本轮报告中呈现（不是 Codex 进程执行期间的流式展示——Codex 的完整结论本身只在其进程结束时一次性可用, 不存在中途可展示的部分结果), 且必须在每一轮都发生, 不能只保留在最终报告或"分歧未决"终止场景中。
 
@@ -144,6 +144,14 @@
 #### Scenario: 第二轮 TASK 路径清单覆盖改动文件与全部上一轮 Critical 指向的文件
 - **WHEN** `/ly:review-code` 第一轮审查发现 3 个 Critical, Claude 认可并修复了其中 2 个（涉及 `a.ts`、`b.ts`）, 不认可第 3 个（锚定在 `c.ts`, 未改动任何文件）
 - **THEN** 第二轮传给 Codex 的 TASK 包含：第一轮全部 3 条 Critical 的原文, 以及路径清单 `a.ts`、`b.ts`、`c.ts`（后者是因为第 3 条 Critical 指向它, 即使本轮未修改）；其余未被本轮改动、也未被任何上一轮 Critical 指向的文件内容不重新整段传入, Codex 自行读取这三个文件的当前内容判断前两个 Critical 是否已解决, 并判断第 3 条 Critical 是否仍然存在
+
+#### Scenario: 跨文件/范围性 Critical 的路径列出全部相关文件
+- **WHEN** `/ly:review-plan` 第一轮审查报告的某条 Critical 是"proposal.md 的 Impact 章节与 tasks.md 的任务范围不一致"（不存在单一目标文件）
+- **THEN** 该 Critical 的位置字段列出 `proposal.md` 与 `tasks.md` 两个路径；第二轮路径清单必须（SHALL）同时包含这两个路径, 不得只取其中一个或省略路径
+
+#### Scenario: Critical 位置字段缺失可解析路径, 保守纳入全部 artifact
+- **WHEN** `/ly:review-plan` 某一轮返回的某条 Critical 的位置字段只写了模糊的章节描述, 未给出任何可解析的文件路径（角色提示词未被遵守）
+- **THEN** 命令不得因此静默丢弃该 Critical, 必须（SHALL）将该 change 目录下的全部 artifact/delta spec 路径保守纳入下一轮路径清单, 并在报告中说明"该条 Critical 缺少可解析路径, 已保守扩大路径范围"
 
 #### Scenario: 每轮报告展示 Codex 原始发现与 Claude 判定的并排对照
 - **WHEN** `/ly:review-plan` 第一轮审查返回 2 个 Critical, Claude 认可第 1 个并修改 `design.md`, 不认可第 2 个（判断为误报）
