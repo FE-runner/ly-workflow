@@ -34,7 +34,7 @@ git status --porcelain | grep '^??'
 ```
 WORKDIR=$(pwd)
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper --progress --backend codex - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/codex/reviewer.md\n<TASK>审查以下代码变更（含未跟踪文件内容）</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置、问题、建议\nCODEAGENT_EOF",
+  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend codex - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/codex/reviewer.md\n<TASK>审查以下代码变更（含未跟踪文件内容）</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置、问题、建议\nCODEAGENT_EOF",
   run_in_background: true,
   timeout: 1800000,
   description: "审查代码变更"
