@@ -6,7 +6,7 @@ description: '读取 OpenSpec change 的 proposal/design/tasks，Codex 分级审
 
 审查当前 OpenSpec change 的方案是否合理，聚焦遗漏边界、范围不清晰、风险点——不是逐行代码风格。输出 Critical/Warning/Info 分级结果（与 `/ly:review-code` 一致）。若存在 Critical，进入审查-修复循环：Claude 判断是否认可每条 Critical，认可则修改该 change 的 artifact 并自动重新审查，直到清零或触发终止条件。
 
-默认每轮修复+验证通过后立即在循环内部提交；传入 `--no-commit` 时改为"修复后留在工作区，不自动提交"。
+循环执行期间默认不提交；仅当循环以"正常清零"结束时，才对循环全程的改动统一提交一次（跳过循环开始前已存在未提交改动的文件，见步骤 5）。传入 `--no-commit` 时，连这次最终的统一提交也不做。
 
 ## 步骤
 
@@ -24,16 +24,22 @@ description: '读取 OpenSpec change 的 proposal/design/tasks，Codex 分级审
 ls -d openspec/changes/*/ 2>/dev/null | grep -v '/archive/'
 ```
 
-### 2. 读取工件（每轮都重新读取，不缓存）
+### 1.5 记录循环开始前的文件状态（供步骤 5 统一提交时判断隔离）
 
-读取该 change 目录下的 `proposal.md`、`design.md`、`tasks.md`（存在的部分即可，缺失的容错跳过，不报错），以及该 change 目录下 `specs/**/*.md` 的全部 delta spec 文件（不存在则容错跳过；存在多份时全部读取，按文件路径排序后依次拼接，不只取其中一份）。每一轮审查都重新读取这些文件的**当前内容**（不是 diff）——审查对象是文件当前状态而非变更范围，不需要记录或复用首轮基线，不存在"审查范围漂移"问题。
+对该 change 的修复对象文件（`proposal.md`/`design.md`/`tasks.md`/枚举到的全部 delta spec 文件）逐一执行 `git status --porcelain <path>`，记录每个文件在循环开始前是"干净"还是"已存在未提交改动"。这份记录只在步骤 5 统一提交时使用，不影响本轮及后续轮次的审查内容。
 
-### 3. 调用 Codex 审查
+### 2. 枚举工件路径（仅首轮执行一次；不读取内容）
+
+枚举该 change 目录下的 `proposal.md`、`design.md`、`tasks.md`（存在的部分即可，缺失的容错跳过，不报错）以及 `specs/**/*.md` 的全部 delta spec 文件路径（存在多份时全部枚举，不只取其中一份）。这一步只确定路径，不读取文件内容拼接成字符串——Codex backend 具备在 `WORKDIR` 下自主读取文件的能力。
+
+**基线 spec 引用检测**：检查每份 delta spec 文件是否有显式文字引用了基线 spec 中未被本次修改的既有 Requirement（例如"见……'某 Requirement 名'"这类指代，无论出现在 `## MODIFIED Requirements` 内还是外）。若有，额外把该基线能力对应的 `openspec/specs/<capability>/spec.md` 路径也纳入路径清单，并在 TASK 中说明该文件仅作审查上下文（用于核实引用是否准确），不属于修复对象。
+
+### 3. 调用 Codex 审查（首轮）
 
 ```
 WORKDIR=$(pwd)
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend codex - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/codex/plan-reviewer.md\n<TASK>审查以下OpenSpec方案的合理性：遗漏的边界情况、范围是否清晰、风险点、spec 是否覆盖 proposal 的 What Changes。不做逐行代码风格审查，不把'代码库尚未实现该方案条目'当作 Critical。\n\n{proposal.md + design.md + tasks.md + specs/**/*.md 合并内容}\n</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置/条目、问题描述、建议\nCODEAGENT_EOF",
+  command: "~/.claude/bin/codeagent-wrapper --progress --backend codex - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/codex/plan-reviewer.md\n<TASK>审查以下OpenSpec方案的合理性：遗漏的边界情况、范围是否清晰、风险点、spec 是否覆盖 proposal 的 What Changes。不做逐行代码风格审查，不把'代码库尚未实现该方案条目'当作 Critical。\n\nchange 目录：openspec/changes/<change-name>/\n请自行读取以下路径的当前内容后再审查：<proposal.md/design.md/tasks.md/全部 delta spec 文件的相对路径清单，逐一列出，不要用\"读取 specs 目录\"这种模糊指代>\n<若步骤 2 检测到基线引用：额外说明\"以下路径仅作审查上下文，不属于本次修复对象：<基线 spec 路径>\">\n</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置/条目（含可解析的文件相对路径）、问题描述、建议\nCODEAGENT_EOF",
   run_in_background: true,
   timeout: 1800000,
   description: "审查方案: <change-name>"
@@ -41,6 +47,8 @@ Bash({
 ```
 
 **审查调用失败视为独立终止条件**：若本次调用超时、非零退出、返回空响应，或返回内容无法解析为 Critical/Warning/Info 格式（也不是明确的"无发现"声明），立即停止循环，报告原始失败信息，**不得**把失败等同于"本轮无 Critical"或视为清零通过。
+
+本轮结束后，无论是否有 Critical，都先生成"本轮执行日志"（见"逐轮执行日志"一节），再判定：
 
 若本轮 Critical 数为 0 → 跳到步骤 5 输出报告，结束（不进入循环）。
 若本轮 Critical > 0 → 进入步骤 4 循环体。
@@ -56,19 +64,26 @@ Bash({
 
 **4.2 修复（仅针对认可的 Critical）**
 
-修改该 change 的 `proposal.md`/`design.md`/`tasks.md`/`specs/**/*.md`（该 change 目录下的 delta spec 文件），修复范围为"Critical 直接指向的条目" + "修复它所必需的直接依赖条目"（例如"proposal 与 tasks 范围不一致"这类问题往往需要同步改动多处才能真正修好；"spec 未覆盖 proposal 的 What Changes"这类问题的修复方式就是编辑对应 delta spec 文件）；不得借机改动无关内容。若改动涉及必需依赖条目，本轮报告必须逐项说明关联性。记录本轮实际改动的文件清单（含修改的 delta spec 文件，如适用）。
+修改该 change 的 `proposal.md`/`design.md`/`tasks.md`/`specs/**/*.md`（该 change 目录下的 delta spec 文件），修复范围为"Critical 直接指向的条目" + "修复它所必需的直接依赖条目"（例如"proposal 与 tasks 范围不一致"这类问题往往需要同步改动多处才能真正修好；"spec 未覆盖 proposal 的 What Changes"这类问题的修复方式就是编辑对应 delta spec 文件）；不得借机改动无关内容。若改动涉及必需依赖条目，本轮报告必须逐项说明关联性。
 
 **4.3 本轮验证**
 
 修复完成后运行一次 `openspec validate --changes <change-name>`。验证失败 → 立即停止循环，不再进行下一轮修复，报告本轮改动的文件清单及 `openspec validate` 的失败信息，说明需要人工介入。
 
-**4.4 提交本轮改动（默认行为，`--no-commit` 时跳过）**
+**4.4 记录本轮改动文件清单（不提交）**
 
-验证通过后，若本轮存在实际改动，立即在循环内部执行一次 commit：仅暂存并提交本轮实际改动的文件，提交信息形如 `fix: review-plan feedback (round N) - <change-name>`。若本轮全部 Critical 都被判定为不认可（没有实际改动），不创建空 commit。**若 commit 本身执行失败**，立即停止循环，不进入下一轮审查，报告 Git 返回的原始错误信息及本轮改动的文件清单。
+验证通过后，把本轮实际改动的 artifact/delta spec 文件相对路径清单写入本轮报告——供 4.5 步构造下一轮增量 TASK 直接复用，不得靠"运行时的 git 状态"反推（后续轮次还会继续修改文件，仅凭某个时间点的 git 状态无法可靠还原"本轮具体改了什么"）。本轮不执行任何 git commit——提交只发生在循环以正常清零结束之后（见步骤 5）。
 
-**4.5 自动触发下一轮审查**
+**4.5 自动触发下一轮审查（增量传递）**
 
-回到步骤 3，重新读取工件当前内容并重新调用 Codex 审查，不要求用户手动重新触发命令。
+从第 2 轮起，TASK SHALL NOT 重新传整份 proposal/design/tasks/specs 内容；改为仅包含：
+
+1. 上一轮 Codex 报告的全部 Critical 原文（逐字，不经改写，包含被判定"不认可"的条目）。
+2. 路径清单，必须覆盖"本轮实际改动的 artifact/delta spec 文件"（4.4 记录的清单）∪"上一轮全部 Critical 各自指向的 artifact/delta spec 文件"（即使未被修改）。若上一轮某条 Critical 指向的文件已被删除或重命名，路径清单改用新路径（若有）并说明状态变化。
+
+路径清单之外的文件不重新整段传入。若某条上一轮 Critical 的位置字段缺失可解析路径，命令保守处理：将该 change 目录下全部 artifact/delta spec 路径纳入下一轮路径清单，并在报告中说明该情况（不得静默丢弃该 Critical）。
+
+回到步骤 3 的调用方式（只是 TASK 内容换成上述增量内容），重新调用 Codex 审查，不要求用户手动重新触发命令。生成本轮执行日志后再判定 Critical 是否清零。
 
 ### 循环终止条件（任一命中即停止，转步骤 5）
 
@@ -76,43 +91,55 @@ Bash({
 
 1. **正常清零**：某一轮审查 Critical 数为 0
 2. **熔断**：同一个 Critical（以"文件路径 + 问题类别 + 定位锚点（artifact 内的具体条目/章节）"三者共同判定为同一问题）在相邻两轮审查中都被判定为存在，且上一轮 Claude 对它是"认可"状态
-3. **分歧未决**：Claude 上一轮判断"不认可"（未修改），下一轮 Codex 仍判定同一问题存在
-4. **无法安全自动修复**：需要产品/业务决策、依赖当前会话不具备的信息，或 Claude 判断信息不足——不得进行猜测性修改
-5. **修复后验证失败**：见 4.3（`openspec validate` 未通过）
-6. **审查调用失败**：见步骤 3
-7. **提交失败**（默认开启提交时）：见 4.4
-8. **达到全局轮数上限**（5 轮）
-9. **审查对象类型持续系统性误判**：连续 3 轮（含本轮）审查中，每一轮的全部 Critical 都被 Claude 判定为同一大类系统性误判——即 Codex 反复以"该轮 Critical 所依据的判断类别不属于方案审查范畴"为由被判定不认可（例如连续 3 轮的 Critical 均以"代码库尚未实现该方案条目"作为理由），不要求这 3 轮之间 Critical 的文件/类别/锚点相互匹配，只要求"判定为不认可的理由类别"在这 3 轮中一致
+3. **无法安全自动修复**：需要产品/业务决策、依赖当前会话不具备的信息，或 Claude 判断信息不足——不得进行猜测性修改
+4. **修复后验证失败**：见 4.3（`openspec validate` 未通过）
+5. **分歧未决**：Claude 上一轮判断"不认可"（未修改），下一轮 Codex 仍判定同一问题存在
+6. **审查对象类型持续系统性误判**：连续 3 轮（含本轮）审查中，每一轮的全部 Critical 都被 Claude 判定为同一大类系统性误判——即 Codex 反复以"该轮 Critical 所依据的判断类别不属于方案审查范畴"为由被判定不认可（例如连续 3 轮的 Critical 均以"代码库尚未实现该方案条目"作为理由），不要求这 3 轮之间 Critical 的文件/类别/锚点相互匹配，只要求"判定为不认可的理由类别"在这 3 轮中一致
+7. **达到全局轮数上限**（5 轮，独立于上面 1-6 的判定）
 
-触发条件 2-9 时，立即停止循环，报告中必须明确指出触发的具体条件、涉及的问题（文件/类别/章节/判定依据），并说明需要人工介入。"分歧未决"额外要求并列展示 Codex 每一轮的原始发现与 Claude 每一轮的反驳理由；"审查对象类型持续系统性误判"同样要求并列展示，但展示连续 3 轮（而不是 2 轮）的原始发现与 Claude 每一轮的反驳理由。循环期间的 Warning/Info 不参与终止判定，只在最终报告列出**最后一轮**结果。
+触发条件 2-6（或达到全局轮数上限）时，立即停止循环，不执行任何提交（改动留在工作区），报告中必须明确指出触发的具体条件、涉及的问题（文件/类别/章节/判定依据），并说明需要人工介入。"分歧未决"额外要求并列展示 Codex 每一轮的原始发现与 Claude 每一轮的反驳理由；"审查对象类型持续系统性误判"同样要求并列展示，但展示连续 3 轮（而不是 2 轮）的原始发现与 Claude 每一轮的反驳理由。循环期间的 Warning/Info 不参与终止判定，只在最终报告列出**最后一轮**结果。
+
+### 逐轮执行日志
+
+每一轮 Codex 调用完成后（包括首轮 Critical 为 0、直接结束的情况），都要在报告中包含一个独立区块，逐字展示该轮 Codex 返回的原始 Critical/Warning/Info 内容（不经概括、改写或合并），与 Claude 对该轮每条 Critical 的认可/不认可判定并排列出（若该轮无 Critical，只展示原文）。这个区块在该轮 Codex 调用返回之后即可呈现，不是流式展示。这是给需要核实细节的人看的补充材料；最终报告的主体是人话摘要（见步骤 5），二者并存，不互相替代。
 
 ### 5. 输出报告
 
 **正常清零结束：**
+
+先执行统一提交：对循环全程实际改动的文件执行一次统一 commit（仅暂存并提交这些文件，不做范围外的 `git add`），提交信息形如 `fix: review-plan feedback (经 N 轮修复) - <change-name>`。**提交隔离**：若某个待提交文件在步骤 1.5 记录时就已经存在未提交的改动（用户在触发 `/ly:review-plan` 之前手动编辑过但未提交，这部分与本次审查无关），跳过该文件不自动提交——git 无法精确剔除"循环开始前已存在、与本次审查无关"的那部分改动；报告中单独列出这些被跳过的文件及原因，交由用户自行核对后提交。若循环期间修改的文件全部属于"循环开始前已脏"这一类（没有可自动提交的内容），不执行 commit，只在报告中说明。若循环全程没有任何 Critical 被认可修复，不创建空 commit。若统一提交本身执行失败，在报告中如实说明该失败，视为"清零但提交失败"的独立结果——不重新进入循环，但要指出还需要人工手动完成这次提交。若传入 `--no-commit`，跳过这次统一提交。
+
 ```
 📋 方案审查：<change-name>
 
 ## Critical（必须修复）
-（本次已自动修复 N 个 Critical，或为空——若曾发现并修复过，必须写明"本次已自动修复 N 个 Critical"，不得用"未发现问题"掩盖）
+（本次已自动修复 N 个 Critical，或为空——若曾发现并修复过，必须写明"本次已自动修复 N 个 Critical"，不得用"未发现问题"掩盖。每条用非技术人员能看懂的人话概括问题和已做的改动）
 
 ## Warning（建议修复，最后一轮结果）
-1. [proposal.md / design.md / tasks.md / specs/**/*.md] — <问题描述>
+1. [proposal.md / design.md / tasks.md / specs/**/*.md] — <问题描述，人话>
    建议: <具体建议>
 
 ## Info（供参考，最后一轮结果）
-1. [proposal.md / design.md / tasks.md / specs/**/*.md] — <观察/建议>
+1. [proposal.md / design.md / tasks.md / specs/**/*.md] — <观察/建议，人话>
+
+## 逐轮执行日志
+（见"逐轮执行日志"一节，按轮次顺序列出每轮的 Codex 原文 + Claude 判定，作为补充材料）
 
 ---
 总轮次: [轮数]
 总计（最后一轮）: [N] Critical, [M] Warning, [K] Info
+提交: [已提交 <commit信息>（若有文件因循环开始前已脏被跳过，列出） / 未提交（--no-commit） / 无可提交内容 / 提交失败：<原始错误>]
 ```
 
-**熔断/分歧未决/无法安全修复/验证失败/审查调用失败/提交失败/达到轮数上限/审查对象类型持续系统性误判结束：**
+**熔断/分歧未决/无法安全修复/验证失败/审查调用失败/达到轮数上限/审查对象类型持续系统性误判结束：**
+
+不执行任何提交，改动留在工作区。
+
 ```
 📋 方案审查：<change-name> — 循环终止：<触发条件>
 
 ## 终止详情
-<文件/类别/章节/判定依据，或失败的原始信息>
+<用人话说清楚发现了什么问题、卡在哪、涉及哪些文件/章节>
 
 （"分歧未决"额外展示，展示 2 轮）
 ### Codex 各轮原始发现
@@ -130,12 +157,15 @@ Bash({
 第 N+1 轮：<理由>
 第 N+2 轮：<理由>
 
+## 逐轮执行日志
+（同上）
+
 ## 需要人工介入
-<说明>
+<人话说明，改动都留在工作区未提交，可用 git diff 查看>
 
 ---
 总轮次: [轮数]
-本次已自动修复: [N] 个 Critical（若有）
+本次未提交任何改动
 ```
 
 如从未出现任何 Critical/Warning/Info，明确说明"方案审查未发现问题"，不要保持沉默。

@@ -42,14 +42,14 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
 
 ### 6a. 全自动路径
 
-1. 调用 `/ly:review-plan <change-name>`（默认逐轮自动 commit，`/ly:propose` 不从外部拦截或观察循环的中间轮次状态来触发提交；该 commit 本身失败也由循环自己作为独立终止条件处理，见 `/ly:review-plan` 的规则）。
+1. 调用 `/ly:review-plan <change-name>`（循环期间不提交，仅在 Critical 清零后统一提交一次；`/ly:propose` 不从外部拦截或观察循环的中间轮次状态来触发提交；该统一提交本身失败也由循环自己作为独立结果处理，见 `/ly:review-plan` 的规则）。
 2. 循环终止（无论何种原因）后询问是否切换隔离 worktree：
    - 终止原因为**Critical 清零**：
      ```
      AskUserQuestion: "是否为此次改动新建隔离 worktree？"
      ```
      选"是" → 调用 `/ly:worktree switch <change-name> --auto`；选"否" → 留在当前工作区，流程结束。
-   - 终止原因为**其余任一种**（熔断、分歧未决、无法安全修复、验证失败、审查调用失败、提交失败、达到全局轮数上限）：复用该循环已产出的终止报告（不重新生成或重复一份），再询问：
+   - 终止原因为**其余任一种**（熔断、分歧未决、无法安全修复、验证失败、审查调用失败、达到全局轮数上限）：复用该循环已产出的终止报告（不重新生成或重复一份），再询问：
      ```
      AskUserQuestion: "审查未通过（<终止原因>），是否新建隔离 worktree 去处理？"
      ```
@@ -70,7 +70,7 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
    ```
    - **否** → 编排结束（等价于"只生成方案 + 提交"的最小行为）。
    - **是** → 继续步骤 3。
-3. 调用 `/ly:review-plan <change-name>`（默认逐轮自动 commit，规则同 6a.1）。
+3. 调用 `/ly:review-plan <change-name>`（循环期间不提交，仅在清零后统一提交一次，规则同 6a.1）。
 4. 循环终止（无论何种原因）后再问一次是否要新建隔离 worktree，调用时**均不带** `--auto`（手动路径下不要求新会话自动续跑审查）：
    - 终止原因为**Critical 清零**：直接问"审查已通过，是否为此次改动新建隔离 worktree？"。
    - 终止原因为**其余任一种**：复用该循环已产出的终止报告，再问"审查未通过（<终止原因>），是否新建隔离 worktree 去处理？"。
