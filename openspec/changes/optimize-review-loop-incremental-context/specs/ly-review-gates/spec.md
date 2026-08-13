@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: 代码审查读取 git diff 并分级输出发现
-`/ly:review-code` 必须（SHALL）按以下方式确定审查范围：若存在未提交变更, 使用 `git diff HEAD`（覆盖已跟踪的修改和已暂存的新增）；否则回退到最近一次 commit 的 diff。由于 `git diff HEAD` 不会显示未跟踪文件, 命令必须额外列出未跟踪文件（用 `git status --porcelain` 过滤出 `??` 条目）并把其路径并入审查上下文, 确保新建但未 `git add` 的文件不会被静默漏审。若仓库尚无任何 commit（`git rev-parse HEAD` 执行失败）, 命令必须构造一份稳定快照作为首轮基线（覆盖 staged/unstaged/untracked 三类状态的合并视图, 而不是单纯的 `git diff --cached`）, 不得尝试执行 `git diff HEAD` 或 `git diff HEAD~1`。命令必须以 `codex/reviewer.md` 角色提示词调用 `codeagent-wrapper --backend codex`, 并将发现严格分为三个严重度层级：Critical、Warning、Info。**首轮审查确定的审查范围（具体的基线引用：对应的 commit-ish, 或零 commit 场景下的快照）必须（SHALL）被记录并在后续所有轮次中复用, 不得重新执行"判定审查范围"的分支选择逻辑**——后续每轮审查复审"该基线 → 当前工作区完整状态"（含未跟踪文件）, 确保工作区因修复动作变"脏"后不会导致审查范围收缩、漏审原始改动中未被触及的部分。零 commit 场景下, 修复可能把某个文件从"已暂存"变为"未暂存"（例如 Claude 直接编辑了已 `git add` 过的文件）, 复审必须（SHALL）仍能在快照与当前工作区之间看到这次修复, 不得因为文件的 staged/unstaged 状态变化而漏审。若存在 Critical 发现, 命令必须（SHALL）进入审查-修复循环（见"审查-修复循环与终止条件（review-code / review-plan 共用）"）, 而不是止步于报告。
+`/ly:review-code` 必须（SHALL）按以下方式确定审查范围：若存在未提交变更, 使用 `git diff HEAD`（覆盖已跟踪的修改和已暂存的新增）；否则回退到最近一次 commit 的 diff。由于 `git diff HEAD` 不会显示未跟踪文件, 命令必须额外列出未跟踪文件（用 `git status --porcelain` 过滤出 `??` 条目）并把其路径并入审查上下文, 确保新建但未 `git add` 的文件不会被静默漏审。若仓库尚无任何 commit（`git rev-parse HEAD` 执行失败）, 命令必须构造一份稳定快照作为首轮基线（覆盖 staged/unstaged/untracked 三类状态的合并视图, 而不是单纯的 `git diff --cached`）, 不得尝试执行 `git diff HEAD` 或 `git diff HEAD~1`。命令必须以 `codex/reviewer.md` 角色提示词调用 `codeagent-wrapper --backend codex`, 并将发现严格分为三个严重度层级：Critical、Warning、Info。**首轮审查确定的审查范围（具体的基线引用：对应的 commit-ish, 或零 commit 场景下的快照）必须（SHALL）被记录, 供首轮 TASK 使用, 不得重新执行"判定审查范围"的分支选择逻辑**。第 2 轮起, 审查范围语义改为"对上一轮 Critical 的回归验证 + 本轮改动的增量审查"（不再是"基线 → 当前工作区完整状态"的地毯式复审）, 具体规则见"审查-修复循环与终止条件（review-code / review-plan 共用）"里的"第 2 轮起的 TASK 内容构造方式"。零 commit 场景下, 修复可能把某个文件从"已暂存"变为"未暂存"（例如 Claude 直接编辑了已 `git add` 过的文件）, 复审必须（SHALL）仍能在快照与当前工作区之间看到这次修复, 不得因为文件的 staged/unstaged 状态变化而漏审。若存在 Critical 发现, 命令必须（SHALL）进入审查-修复循环（见"审查-修复循环与终止条件（review-code / review-plan 共用）"）, 而不是止步于报告。
 
 **首轮 TASK 内容构造方式**：Codex backend 以 agentic 模式运行（具备在 `WORKDIR` 下自主执行 shell 命令、读取文件的能力）, 命令 SHALL NOT 由 Claude 预先把首轮基线对应的完整 diff 文本或未跟踪文件的完整内容拼接进 TASK 字符串；TASK 必须（SHALL）改为传递首轮确定的基线引用（commit-ish, 或零 commit 场景下对基线快照的说明）和未跟踪文件路径清单, 并指示 Codex 自行执行 `git diff`/读取指定路径获取审查所需的实际内容。判定审查范围本身（分支选择逻辑：`git diff HEAD` / `git diff HEAD~1` / `git show HEAD` / 零 commit 快照）仍由 Claude 完成, 不下放给 Codex。
 
@@ -27,22 +27,22 @@
 
 #### Scenario: 零 commit 场景下已暂存文件被直接修改, 复审不漏检
 - **WHEN** 首轮基线快照记录了某文件的已暂存内容, Claude 修复该文件时直接编辑了工作区副本（未重新 `git add`）, 导致该文件此后处于未暂存状态
-- **THEN** 第二轮复审仍能通过"快照 → 当前工作区完整状态"的差异看到这次修复, 不会因为该文件从 staged 变成 unstaged 而被漏审
+- **THEN** 第二轮 TASK 中该文件路径清单里仍以其当前工作区路径给出（不依赖 staged/unstaged 状态标签）, Codex 读取该路径的当前内容即可看到这次修复, 不会因为该文件从 staged 变成 unstaged 而被漏审
 
 #### Scenario: 无发现
 - **WHEN** codex 审查员没有返回任何问题
 - **THEN** 命令明确说明未发现问题, 而不是保持沉默
 
-#### Scenario: 首轮工作区干净, 修复后审查范围不漂移
+#### Scenario: 首轮工作区干净, 后续轮次不因基线概念而漂移
 - **WHEN** 首轮审查在工作区干净、有历史提交的情况下确定基线为 `HEAD~1`, 审查发现 Critical 并触发修复, 修复后工作区产生了未提交改动
-- **THEN** 第二轮复审仍以 `HEAD~1` 为基线, 复审"`HEAD~1` → 当前工作区"的完整差异, 不会因为工作区变"脏"而切换为只审 `git diff HEAD`
+- **THEN** 第二轮不再引用 `HEAD~1` 这个基线概念做整体复审；TASK 改为传递第一轮 Critical 原文及本轮改动文件的路径清单（相对 `WORKDIR`), Codex 据此判断问题是否解决, 不因工作区变"脏"而产生"审查范围"这一概念上的歧义
 
 #### Scenario: 首轮 TASK 不预先拼贴完整 diff 文本
 - **WHEN** 首轮审查范围判定为 `git diff HEAD`, 且该 diff 内容有数百行
 - **THEN** 传给 Codex 的 TASK 只包含基线引用说明（例如"审查 `git diff HEAD`"）及未跟踪文件路径清单, 不包含 Claude 预先读取、拼接的完整 diff 文本；Codex 在 `WORKDIR` 下自行执行 `git diff HEAD` 获取实际内容
 
 ### Requirement: 方案审查分级输出发现
-`/ly:review-plan` 必须（SHALL）读取目标 change 的 `proposal.md`/`design.md`/`tasks.md`（存在的部分即可, 缺失容错跳过）以及该 change 目录下 `specs/**/*.md` 的全部 delta spec 文件（若存在；不存在则容错跳过, 不报错）的路径, 以 `codex/plan-reviewer.md` 角色提示词（而非 `/ly:review-code` 使用的 `codex/reviewer.md`）调用 `codeagent-wrapper --backend codex`, 并将发现严格分为三个严重度层级：Critical、Warning、Info（与 `/ly:review-code` 一致, 不再使用不分级的"问题清单"格式）。每一轮审查都必须（SHALL）确保 Codex 读取到这些文件的**当前内容**（不是 diff）, 不需要记录或复用首轮基线——因为审查对象是文件当前状态而非变更范围, 不存在"审查范围漂移"问题。审查必须（SHALL）聚焦方案文档本身的逻辑缺陷：遗漏的边界情况、范围不清晰、`proposal.md`/`design.md`/`tasks.md`/对应 spec 之间互相矛盾或脱节、风险点交代不清、spec 的 Requirement/Scenario 未覆盖 proposal 的 What Changes。`codex/plan-reviewer.md` 必须（SHALL）明确约束：SHALL NOT 将"代码库尚未实现某方案条目"或"`tasks.md` 中某任务未勾选"作为 Critical 依据——这是方案审查阶段（实施尚未开始或尚未完成）的正常状态, 不构成方案缺陷。若存在 Critical 发现, 命令必须（SHALL）进入审查-修复循环（见"审查-修复循环与终止条件（review-code / review-plan 共用）"）, 而不是止步于报告。
+`/ly:review-plan` 必须（SHALL）读取目标 change 的 `proposal.md`/`design.md`/`tasks.md`（存在的部分即可, 缺失容错跳过）以及该 change 目录下 `specs/**/*.md` 的全部 delta spec 文件（若存在；不存在则容错跳过, 不报错）的路径, 以 `codex/plan-reviewer.md` 角色提示词（而非 `/ly:review-code` 使用的 `codex/reviewer.md`）调用 `codeagent-wrapper --backend codex`, 并将发现严格分为三个严重度层级：Critical、Warning、Info（与 `/ly:review-code` 一致, 不再使用不分级的"问题清单"格式）。**首轮**审查必须（SHALL）确保 Codex 读取到这些文件的**当前内容**（不是 diff），不需要记录或复用基线——因为审查对象是文件当前状态而非变更范围, 不存在"审查范围漂移"问题。**第 2 轮起**改为增量语义, 具体规则见"审查-修复循环与终止条件（review-code / review-plan 共用）"里的"第 2 轮起的 TASK 内容构造方式"。审查必须（SHALL）聚焦方案文档本身的逻辑缺陷：遗漏的边界情况、范围不清晰、`proposal.md`/`design.md`/`tasks.md`/对应 spec 之间互相矛盾或脱节、风险点交代不清、spec 的 Requirement/Scenario 未覆盖 proposal 的 What Changes。`codex/plan-reviewer.md` 必须（SHALL）明确约束：SHALL NOT 将"代码库尚未实现某方案条目"或"`tasks.md` 中某任务未勾选"作为 Critical 依据——这是方案审查阶段（实施尚未开始或尚未完成）的正常状态, 不构成方案缺陷。若存在 Critical 发现, 命令必须（SHALL）进入审查-修复循环（见"审查-修复循环与终止条件（review-code / review-plan 共用）"）, 而不是止步于报告。
 
 **首轮 TASK 内容构造方式**：命令 SHALL NOT 由 Claude 预先读取 `proposal.md`/`design.md`/`tasks.md`/`specs/**/*.md` 的全文并拼接进 TASK 字符串；TASK 必须（SHALL）改为传递该 change 目录路径及需要审查的文件相对路径清单（`proposal.md`/`design.md`/`tasks.md`, 以及枚举到的全部 delta spec 文件路径）, 并指示 Codex 在 `WORKDIR` 下自行读取这些文件的当前内容进行审查——这一条要求命令必须（SHALL）明确列出全部 delta spec 文件的路径（不能只提示"读取 specs 目录"而不枚举具体路径, 避免 Codex 遗漏部分 delta spec 文件), SHALL NOT 仅在角色提示词里描述 checklist 项却不提供文件路径清单, 否则 Codex 无从定位需要读取哪些 spec 文件。
 
@@ -83,9 +83,9 @@
 
 触发终止条件 2 到 7 中任一时, 命令必须（SHALL）立即停止循环, 在报告中明确指出触发的具体条件、涉及的问题（文件、类别、锚点、判定依据）, 并说明后续需要人工介入, 不得继续自动修复。循环期间的 Warning 与 Info 发现不参与循环终止判定, 只在循环结束后的最终报告中列出**最后一轮**审查的结果, 不跨轮次合并汇总。
 
-**第 2 轮起的 TASK 内容构造方式（增量传递）**：从第 2 轮起, 命令 SHALL NOT 重新拼贴完整基线 diff / 完整 artifact 全文作为 TASK 内容；TASK 必须（SHALL）改为仅包含：（1）上一轮 Codex 报告的全部 Critical 原文（逐字, 不经 Claude 改写, 用于让 Codex 比对判断是否已解决）；（2）本轮实际修复改动的文件相对路径清单（`/ly:review-plan` 场景下含修改的 delta spec 文件路径）。命令必须（SHALL）指示 Codex 自行读取这些路径对应文件的当前内容, 判断：（a）上一轮各条 Critical 是否已解决；（b）本轮改动是否引入了新的 Critical/Warning/Info。未被本轮触及的文件 SHALL NOT 被重新整段传入 TASK。若 Claude 判断某条上一轮 Critical 为"不认可"（未修复）, 该 Critical 原文仍必须（SHALL）随下一轮 TASK 一并传递（用于"分歧未决"判定所需的比对), 不因未修复而从传递内容中略去。
+**第 2 轮起的 TASK 内容构造方式（增量传递）**：从第 2 轮起, 命令 SHALL NOT 重新拼贴完整基线 diff / 完整 artifact 全文作为 TASK 内容；审查语义从"发现问题"变为"对上一轮 Critical 的回归验证 + 本轮改动的增量审查"。TASK 必须（SHALL）改为仅包含：（1）上一轮 Codex 报告的全部 Critical 原文（逐字, 不经 Claude 改写, 用于让 Codex 比对判断是否已解决——包含被 Claude 判定"不认可"的条目, 不因未修复而略去）；（2）路径清单, 必须（SHALL）覆盖"本轮实际修复改动的文件" ∪ "上一轮全部 Critical 各自指向的文件"（`/ly:review-plan` 场景下含修改的 delta spec 文件路径）——即使某条 Critical 因 Claude 不认可而未被修改, 其指向的文件路径也必须（SHALL）纳入清单, 否则 Codex 无法读取该文件当前内容来判断问题是否仍然存在。命令必须（SHALL）指示 Codex 自行读取这些路径对应文件的当前内容, 判断：（a）上一轮各条 Critical 是否已解决；（b）本轮改动是否引入了新的 Critical/Warning/Info。未被"本轮改动"或"上一轮任一 Critical 指向"覆盖的文件 SHALL NOT 被重新整段传入 TASK。
 
-**报告逐轮展示 Codex 原始发现**：`/ly:review-code`/`/ly:review-plan` 的每一轮（不只终止时的轮次）循环内部报告必须（SHALL）包含一个独立区块, 逐字展示该轮 Codex 返回的原始 Critical/Warning/Info 内容（不经 Claude 概括、改写或合并), 与 Claude 对该轮每条 Critical 的认可/不认可判定并排列出, 使用户可以对照核实 Claude 的判定是否忠实反映了 Codex 原意。该区块必须（SHALL）在每一轮修复循环执行过程中即时呈现（而非只在最终报告或"分歧未决"终止场景中才展示）。
+**报告逐轮展示 Codex 原始发现**：`/ly:review-code`/`/ly:review-plan` 的每一轮（不只终止时的轮次）循环内部报告必须（SHALL）包含一个独立区块, 逐字展示该轮 Codex 返回的原始 Critical/Warning/Info 内容（不经 Claude 概括、改写或合并), 与 Claude 对该轮每条 Critical 的认可/不认可判定并排列出, 使用户可以对照核实 Claude 的判定是否忠实反映了 Codex 原意。该区块必须（SHALL）在该轮 Codex 调用返回、Claude 完成本轮认可/不认可判定之后, 于本轮报告中呈现（不是 Codex 进程执行期间的流式展示——Codex 的完整结论本身只在其进程结束时一次性可用, 不存在中途可展示的部分结果), 且必须在每一轮都发生, 不能只保留在最终报告或"分歧未决"终止场景中。
 
 最终报告必须（SHALL）包含：循环终止原因、总轮次、已修复的 Critical 摘要（含每轮改动文件清单）、最后一轮审查中仍存在的 Warning/Info。仅当整个执行过程从未出现任何 Critical/Warning/Info 时, 命令才可以使用"未发现问题"这一表述；只要曾经发现并修复过 Critical, 报告必须明确说明"本次已自动修复 N 个 Critical", 不得用"未发现问题"掩盖这一事实。
 
@@ -141,9 +141,9 @@
 - **WHEN** 第一轮、第三轮的 Critical 均以"代码库尚未实现"为理由被判不认可, 但第二轮的 Critical 是一个被认可并修复的真实文档缺陷
 - **THEN** 不触发"审查对象类型持续系统性误判"（未连续 3 轮), 循环按其余终止条件正常判定
 
-#### Scenario: 第二轮 TASK 仅传递上一轮 Critical 原文与改动文件路径
-- **WHEN** `/ly:review-code` 第一轮审查发现 3 个 Critical, Claude 认可并修复了其中 2 个（涉及 `a.ts`、`b.ts`）, 不认可第 3 个（未改动任何文件）
-- **THEN** 第二轮传给 Codex 的 TASK 只包含：第一轮全部 3 条 Critical 的原文, 以及本轮实际改动的文件路径清单（`a.ts`、`b.ts`）；未被触及的其余文件内容不重新整段传入, Codex 自行读取 `a.ts`、`b.ts` 的当前内容判断前两个 Critical 是否已解决, 并结合第 3 条 Critical 的原文判断该问题是否仍然存在
+#### Scenario: 第二轮 TASK 路径清单覆盖改动文件与全部上一轮 Critical 指向的文件
+- **WHEN** `/ly:review-code` 第一轮审查发现 3 个 Critical, Claude 认可并修复了其中 2 个（涉及 `a.ts`、`b.ts`）, 不认可第 3 个（锚定在 `c.ts`, 未改动任何文件）
+- **THEN** 第二轮传给 Codex 的 TASK 包含：第一轮全部 3 条 Critical 的原文, 以及路径清单 `a.ts`、`b.ts`、`c.ts`（后者是因为第 3 条 Critical 指向它, 即使本轮未修改）；其余未被本轮改动、也未被任何上一轮 Critical 指向的文件内容不重新整段传入, Codex 自行读取这三个文件的当前内容判断前两个 Critical 是否已解决, 并判断第 3 条 Critical 是否仍然存在
 
 #### Scenario: 每轮报告展示 Codex 原始发现与 Claude 判定的并排对照
 - **WHEN** `/ly:review-plan` 第一轮审查返回 2 个 Critical, Claude 认可第 1 个并修改 `design.md`, 不认可第 2 个（判断为误报）
