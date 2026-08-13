@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.3] - 2026-08-13
+
+### Changed
+- `/ly:review-code`/`/ly:review-plan` 审查-修复循环第 2 轮起改为增量传递：TASK 只传"上一轮 Critical 原文 + 路径清单（本轮改动文件 ∪ 上一轮全部 Critical 指向的文件）"，指示 Codex 自行读取判断，不再整段重传完整基线 diff/全部方案文档；首轮 TASK 同样只传基线引用/路径清单，不预先拼贴全文；零 commit 场景取消"构造快照"这一步，改用 `git diff --cached` + `git diff` + 未跟踪文件清单三条固定命令组合
+- 报告模板改为每一轮（含首轮 Critical 为 0 的情况）都展示"Codex 本轮原始发现（逐字）"区块与 Claude 的认可/不认可判定，不再只在"分歧未决"终止场景才展示；最终报告的 Critical 摘要改为用人话概括问题和已做的改动，逐字原文作为补充材料并存
+- `/ly:review-code`/`/ly:review-plan` 默认提交行为由"每轮修复后立即 commit"改为"循环期间不提交，仅在正常清零结束后对全程改动统一提交一次"；非清零终止（熔断/无法安全修复/验证失败/分歧未决/审查对象类型持续系统性误判/达到轮数上限）不产生任何提交，改动留在工作区；`--no-commit` 语义调整为"连这次最终统一提交也不做"；`/ly:review-plan` 场景下新增提交隔离规则——跳过循环开始前就已存在未提交改动的文件，避免把无关改动一并提交
+- `/ly:review-plan` 的"spec 未覆盖 proposal 的 What Changes"检查项，区分"proposal 未声明任何 capability（无 delta spec 属于正常情况）"与"proposal 声明了 capability 但完全没有 delta spec（报 Critical）"——`openspec validate`/`openspec archive` 只校验 delta 总数是否为 0，不逐个核对每个声明的 capability 是否有对应 delta spec，这条检查是唯一能捕捉该问题的机制
+
+### Fixed
+- `templates/prompts/codex/reviewer.md` 输出格式仍是过时的 VALIDATION REPORT 打分制（`XX/100`），与命令层实际要求的 Critical/Warning/Info 分级格式不一致，统一改为分级结构并补充路径契约（每条发现的"位置"字段必须给出可解析的文件相对路径，跨文件问题需列出全部相关路径）
+
+---
+
 ## [1.4.2] - 2026-08-13
 
 ### Changed

@@ -2,13 +2,20 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-13 (v1.4.2)
+**Last Updated**: 2026-08-13 (v1.4.3)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-13 (v1.4.3) — 审查循环增量传递 + 人话报告 + 提交时机改造
+- 🔄 **`/ly:review-code`/`/ly:review-plan` 第 2 轮起改为增量传递**：TASK 只传"上一轮 Critical 原文 + 路径清单（本轮改动文件 ∪ 上一轮全部 Critical 指向的文件）"，指示 Codex 自行读取判断，不再整段重传完整基线 diff/全部方案文档；首轮也只传基线引用/路径清单，不预先拼贴全文；零 commit 场景取消"构造快照"，改用 `git diff --cached`/`git diff`/未跟踪文件清单三条固定命令组合——Codex backend 实测以 agentic 模式运行，具备自主 shell/文件读取能力，不需要调用方代填全文。
+- 🔄 **报告改为逐轮展示 Codex 原始发现（逐字）+ 人话摘要**：每一轮（含首轮 Critical 为 0 的情况）都展示 Codex 原文与 Claude 判定的并排对照，不再只在"分歧未决"终止场景才展示；最终报告的 Critical 摘要改为用人话概括问题和已做改动，逐字原文作为补充材料并存。
+- 🔄 **提交行为改为"循环期间不提交，仅在正常清零后统一提交一次"**（原为"每轮修复后立即 commit"）：非清零终止（熔断/无法安全修复/验证失败/分歧未决/审查对象类型持续系统性误判/达到轮数上限）不产生任何提交，改动留在工作区；`--no-commit` 语义调整为"连最终统一提交也不做"；`/ly:review-plan` 新增提交隔离——跳过循环开始前已存在未提交改动的文件，避免把无关改动一并提交。
+- ✨ **`/ly:review-plan` 的"spec 未覆盖 What Changes"检查项区分两种"无 delta spec"情形**：proposal 未声明任何 capability（正常，不报）vs 声明了 capability 但零 delta spec（报 Critical）——`openspec validate`/`openspec archive` 只校验 delta 总数是否为 0，不逐个核对每个声明的 capability 是否有对应 delta spec，这是唯一能捕捉该问题的检查点。
+- 🐛 **fix**：`templates/prompts/codex/reviewer.md` 输出格式仍是过时的 VALIDATION REPORT 打分制（`XX/100`），与命令层实际要求的 Critical/Warning/Info 分级格式不一致，统一改为分级结构并补充路径契约。
 
 ### 2026-08-13 (v1.4.2) — worktree 默认目录改到用户目录 + 内部 ccg 品牌残留清理
 - 🔄 **`/ly:worktree` 默认目录改为 `~/.ly/worktrees/<项目名>/`**（原 `../.ly/<项目名>/`，项目同级目录）：跨项目集中管理，`add`/`switch` 路径计算、文档同步更新；`--local` 项目内 `.worktrees/` 选项不受影响。
