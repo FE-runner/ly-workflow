@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.2] - 2026-08-13
+
+### Changed
+- `/ly:worktree` 默认 worktree 目录从项目同级的 `../.ly/<项目名>/` 改为用户目录 `~/.ly/worktrees/<项目名>/`，跨项目集中管理；`add`/`switch` 路径计算与文档同步更新，`--local` 项目内 `.worktrees/` 选项不变
+- 清理内部代码标识符、运行时文件名/marker 字符串（`.ccg-version`、`ccg-fast-context.md`、`ccg-grok-search.md`、`<!-- CCG:START -->` 等）及模板内容里残留的 `Ccg`/`CCG`/`ccg` 品牌名，统一改为 `Ly`/`LY`/`ly`；`src/utils/migration.ts` 按范围决策不动
+
+### Fixed
+- `templates/hooks/skill-router.js` 域知识自动注入功能因硬编码旧路径（`skills/ccg/`）静默失效，改名后随之修复
+- `src/utils/installer.ts` 里 Codex mode 卸载数组的文件名与实际安装产物不一致的问题，随重命名一并修复
+
+---
+
 ## [1.4.1] - 2026-08-10
 
 ### Added

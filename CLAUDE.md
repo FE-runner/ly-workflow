@@ -2,13 +2,18 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-10 (v1.4.1)
+**Last Updated**: 2026-08-13 (v1.4.2)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-13 (v1.4.2) — worktree 默认目录改到用户目录 + 内部 ccg 品牌残留清理
+- 🔄 **`/ly:worktree` 默认目录改为 `~/.ly/worktrees/<项目名>/`**（原 `../.ly/<项目名>/`，项目同级目录）：跨项目集中管理，`add`/`switch` 路径计算、文档同步更新；`--local` 项目内 `.worktrees/` 选项不受影响。
+- 🔄 **清理内部代码标识符、运行时文件名/marker 字符串、模板内容里残留的 `Ccg`/`CCG`/`ccg` 品牌名**，统一改为 `Ly`/`LY`/`ly`：`CcgConfig`→`LyConfig`、`.ccg-version`→`.ly-version`、`ccg-fast-context.md`→`ly-fast-context.md`、`<!-- CCG:START -->`→`<!-- LY:START -->` 等；`src/utils/migration.ts` 按范围决策不动（自用项目不考虑老用户升级兼容）。
+- 🐛 **fix**：`templates/hooks/skill-router.js` 域知识自动注入功能因硬编码旧路径（`skills/ccg/`）静默失效，改名后随之修复；`installer.ts` 里 Codex mode 卸载数组文件名与实际安装产物不一致的问题一并修复。
 
 ### 2026-08-10 (v1.4.1) — review-plan 独立角色提示词 + 读取spec + 系统性误判终止条件
 - ✨ **`/ly:review-plan` 新增独立角色提示词 `plan-reviewer.md`**：明确禁止把"代码库尚未实现方案条目""tasks.md 任务未勾选"当 Critical（方案审查阶段的正常状态），`/ly:review-code` 不受影响仍用 `reviewer.md`。
