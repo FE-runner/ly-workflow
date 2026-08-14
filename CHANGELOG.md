@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.4.4] - 2026-08-14
 
 ### Changed
 - **提交时机改造**：`/ly:propose` 与 `/ly:apply` 不再无条件立即 commit——产物默认 `git add` 暂存到暂存区，作为后续审查循环的审查对象；自动模式下审查循环清零统一提交（免询问），手动模式下在"明确跳过审查"或"审查循环非清零终止"时询问是否提交（仅提交暂存区中的产物，循环产生的未暂存修复保留在工作区）。`/ly:init`/`/ly:archive` 的无条件自动 commit 保持不变。

@@ -10,7 +10,7 @@
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
 
-### 2026-08-14 (Unreleased) — 提交时机改造：propose/apply 产物暂存区持有 + 审查后提交
+### 2026-08-14 (v1.4.4) — 提交时机改造：propose/apply 产物暂存区持有 + 审查后提交
 - 🔄 **`/ly:propose`/`/ly:apply` 不再无条件立即 commit**：产物默认 `git add` 暂存到暂存区，作为后续审查循环（`/ly:review-plan`/`/ly:review-code`，审查范围 `git diff HEAD` 覆盖已暂存+未暂存）的审查对象。自动模式下审查循环清零统一提交（免询问）；手动模式下在"明确跳过审查"或"审查循环非清零终止"时询问是否提交（仅提交暂存区中的产物，循环产生的未暂存修复保留在工作区）。`/ly:init`/`/ly:archive` 无条件自动 commit 不变。
 - 🔄 **`/ly:review-code` 审查范围判定简化为两级**：有未提交变更 → `git diff HEAD`；零 commit 仓库 → 三条固定命令组合（`git diff --cached` + `git diff` + `??` 未跟踪清单）。工作区彻底干净时直接报告"无变更可审查"并结束，删除 `git diff HEAD~1`/`git show HEAD` 历史 commit 兜底分支（审查对象原则上是未提交的变更，历史 commit 不属于审查范围）。
 - 🔄 **`/ly:review-plan` 删除"循环开始前已脏文件的隔离跳过"逻辑**（步骤 1.5 及其提交时引用）：`/ly:propose` 产物现在是合法审查对象，清零统一提交对 target change 目录全部 artifact 与 delta spec 文件 `git add` 后一并提交。
