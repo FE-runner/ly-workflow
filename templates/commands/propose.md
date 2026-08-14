@@ -1,10 +1,10 @@
 ---
-description: '委托 opsx:propose 生成方案，随后按选择编排：commit → （全自动/手动两条路径）审查循环 → worktree 询问'
+description: '委托 opsx:propose 生成方案，随后按选择编排：暂存区持有 → （全自动/手动两条路径）审查循环 → 提交时机询问 → worktree 询问'
 ---
 
 # Propose
 
-生成方案后的收尾流程：先问一次"本次走全自动，还是手动逐步确认"，两条路径下 commit 都无条件执行；区别只在于审查循环和 worktree 询问的时机、次数。
+生成方案后的收尾流程：先问一次"本次走全自动，还是手动逐步确认"。产物默认 `git add` 暂存、**不立即 commit**；提交时机按选择分支——自动模式下审查循环清零时统一提交（免询问），手动模式下在"跳过审查"或"审查循环非清零终止"时询问是否提交，自动/手动路径都不存在无条件立即 commit。
 
 ## 步骤
 
@@ -14,7 +14,7 @@ description: '委托 opsx:propose 生成方案，随后按选择编排：commit 
 AskUserQuestion: "本次收尾走全自动（自动审查+清零后问一次worktree+隔离后自动续接实施与审查），还是手动逐步确认（每一步都问）？"
 ```
 
-这是整条收尾编排链路里唯一决定"自动/手动"路径的询问，不代表"要不要 commit"（commit 始终执行）或"要不要走 worktree/review-plan"（两条路径下都有机会走，只是询问的时机和次数不同）。后续步骤不再重复问"要不要继续自动"。
+这是整条收尾编排链路里唯一决定"自动/手动"路径的询问，不代表"要不要 commit"（自动模式清零时由 review-plan 统一提交、手动模式在跳过审查或非清零终止时询问，不存在无条件立即 commit）或"要不要走 worktree/review-plan"（两条路径下都有机会走，只是询问的时机和次数不同）。后续步骤不再重复问"要不要继续自动"。
 
 ### 2. 委托 opsx:propose 生成方案
 
@@ -28,12 +28,15 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
 
 若新增条目不唯一，或没有新增条目，**不猜测**，直接询问用户本次生成的 change 名，待确认后再继续。
 
-### 4. 提交 artifact（无条件执行，不受第 1 步选择影响）
+### 4. 暂存 artifact（产物入暂存区，不立即提交；提交时机按第 1 步选择分支）
 
-1. 检查整个 Git index（`git diff --cached --name-only`）：若存在该 change 目录之外的已暂存内容，**停止**，报告"检测到该 change 目录外的已暂存内容，请先处理（unstage 或另行提交）后重试"，不执行 commit。
-2. index 干净后：`git add -- openspec/changes/<change-name>/`（只暂存该 change 目录，不用 `git add -A`），再 `git commit`，提交信息形如 `propose: <change-name>`。
-3. 提交完成后用 `git show --name-only --format=` 校验该次 commit 的实际文件集合严格属于 `openspec/changes/<change-name>/` 目录。
-4. 若该目录下无可提交内容、`git commit` 本身失败，或校验发现文件集合超出该目录范围，**停止后续自动化步骤**（不进入步骤 5），报告具体原因。
+1. 检查整个 Git index（`git diff --cached --name-only`）：若存在该 change 目录之外的已暂存内容，**停止**，报告"检测到该 change 目录外的已暂存内容，请先处理（unstage 或另行提交）后重试"，不执行 `git add` 也不 commit。
+2. index 干净后：`git add -- openspec/changes/<change-name>/`（只暂存该 change 目录，不用 `git add -A`）。产物进入暂存区，作为后续 `/ly:review-plan` 的审查对象（`git diff HEAD` 覆盖已暂存+未暂存）。
+3. **SHALL NOT 立即 commit**——提交时机按第 1 步选择分支：
+   - **全自动**：产物保持在暂存区，直接进入步骤 6a；由 `/ly:review-plan` 在 Critical 清零时统一提交（见 `/ly:review-plan` 步骤 5）。
+   - **手动**：产物保持在暂存区，进入步骤 6b；提交只发生在"跳过审查"或"审查循环非清零终止"两个询问点（见步骤 6b）。
+4. 无论哪个分支，提交发生时（自动模式的清零统一提交 + 手动模式的询问后提交）都用 `git show --name-only --format=` 校验该次 commit 的实际文件集合严格属于 `openspec/changes/<change-name>/` 目录。
+5. 若该目录下无可提交内容、`git commit` 本身失败，或校验发现文件集合超出该目录范围，**停止后续自动化步骤**（不进入步骤 5），报告具体原因。
 
 ### 5. 按第 1 步选择分支
 
@@ -58,23 +61,41 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
 
 ### 6b. 手动路径
 
-1. commit 完成（步骤 4）后，立即询问：
+1. 产物暂存完成（步骤 4）后，立即询问：
    ```
-   AskUserQuestion: "方案已生成并提交，是否现在切换到隔离 worktree？"
+   AskUserQuestion: "方案已生成并暂存（未提交），是否现在切换到隔离 worktree？"
    ```
-   - **是** → 调用 `/ly:worktree switch <change-name>`（不带 `--auto`），按下方"switch 结果统一判定规则"处理；切换成功则**编排到此结束**，不再继续下面的步骤（后续要不要审查由用户在新 worktree 里自行决定）。
+   - **是** → 调用 `/ly:worktree switch <change-name>`（不带 `--auto`），按下方"switch 结果统一判定规则"处理；切换成功则**编排到此结束**，不再继续下面的步骤（后续要不要审查、什么时候提交由用户在新 worktree 里自行决定）。产物以暂存区状态存在于该 change 的分支上。
    - **否** → 继续步骤 2。
 2. 询问：
    ```
    AskUserQuestion: "要不要现在跑一次 review-plan 审查循环？"
    ```
-   - **否** → 编排结束（等价于"只生成方案 + 提交"的最小行为）。
+   - **否** → 进入"跳过审查"分支提交询问（见本步骤末尾），编排结束。
    - **是** → 继续步骤 3。
-3. 调用 `/ly:review-plan <change-name>`（循环期间不提交，仅在清零后统一提交一次，规则同 6a.1）。
-4. 循环终止（无论何种原因）后再问一次是否要新建隔离 worktree，调用时**均不带** `--auto`（手动路径下不要求新会话自动续跑审查）：
-   - 终止原因为**Critical 清零**：直接问"审查已通过，是否为此次改动新建隔离 worktree？"。
-   - 终止原因为**其余任一种**：复用该循环已产出的终止报告，再问"审查未通过（<终止原因>），是否新建隔离 worktree 去处理？"。
+3. 调用 `/ly:review-plan <change-name>`（循环期间不提交，仅在清零后统一提交一次；清零产物与修复一并提交，规则见 `/ly:review-plan` 步骤 5；`--no-commit` 仅在用户显式传入时生效）。
+4. 循环终止（无论何种原因）后再处理提交与 worktree 询问：
+   - 终止原因为**Critical 清零**：产物与修复已由循环统一提交，直接问"审查已通过，是否为此次改动新建隔离 worktree？"（不带 `--auto`）。
+   - 终止原因为**其余非清零任一种**（熔断、分歧未决、无法安全修复、验证失败、审查调用失败、达到轮数上限）：先做**"非清零终止"提交询问**（见本步骤末尾），再复用该循环已产出的终止报告，问"审查未通过（<终止原因>），是否新建隔离 worktree 去处理？"（不带 `--auto`）。
    - 选"是" → 调用 `/ly:worktree switch <change-name>`（不带 `--auto`），按下方规则处理；选"否" → 留在当前工作区，流程结束。
+
+**跳过审查的提交询问**（步骤 2 选"否"时）——产物在暂存区，尚未提交：
+
+```
+AskUserQuestion: "跳过 review-plan 审查，是否提交已生成的方案产物？"
+```
+
+- **是** → `git commit -m "propose: <change-name>"`，用 `git show --name-only --format=` 校验文件集合严格属于该 change 目录，编排结束。
+- **否** → 产物留在暂存区，编排结束。
+
+**非清零终止的提交询问**（步骤 4 非清零分支）——暂存区中含产物与循环期间修复的改动（修复未 `git add` 时留在工作区；若修复涉及 `git add` 过的文件，产物与修复已混在暂存区无法切分）：
+
+```
+AskUserQuestion: "审查未通过（<终止原因>）。是否提交当前暂存区中的方案产物？（循环产生的修复改动若尚未暂存，将保留在工作区不提交）"
+```
+
+- **是** → 提交暂存区当前内容（含未经完全验证的修复，如实提醒"修复未经完全验证"），用 `git show --name-only --format=` 校验文件集合，再继续 worktree 询问。
+- **否** → 不提交，产物与修复都留工作区/暂存区，再继续 worktree 询问。
 
 ### switch 结果统一判定规则（6a/6b 共用）
 
@@ -83,8 +104,8 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
 - **输出了续接命令**：视为目标 worktree 已就位，直接结束当前编排。续接提示按以下组合确定，不拆成并列的多条提示：
   - 不带 `--auto`、无 baseline 失败摘要：追加"运行 `/ly:apply` 继续"。
   - 不带 `--auto`、有 baseline 失败摘要：改为"处理完 baseline 失败问题后运行 `/ly:apply` 继续"。
-  - 带 `--auto`、无 baseline 失败摘要：改写为一条连贯说明"运行 `/ly:apply` 继续实施（自动 commit），完成后自动依次调用 `/ly:review-code`"。
-  - 带 `--auto`、有 baseline 失败摘要：两个约束都保留，改写为"处理完 baseline 失败问题后，运行 `/ly:apply` 继续实施（自动 commit）；完成后自动依次调用 `/ly:review-code`"。
+  - 带 `--auto`、无 baseline 失败摘要：改写为一条连贯说明"运行 `/ly:apply` 继续实施（完成后自动依次调用 `/ly:review-code`）"。
+  - 带 `--auto`、有 baseline 失败摘要：两个约束都保留，改写为"处理完 baseline 失败问题后，运行 `/ly:apply` 继续实施（完成后自动依次调用 `/ly:review-code`）"。
 - **未输出续接命令**，覆盖以下三种情况，均如实转述/报告对应原因并结束，不输出上述续接提示，不自动回退到"继续留在当前工作区实施"：
   1. 分支拓扑校验等前置校验拒绝——转述 `switch` 返回的原始错误（以"验证失败"/"提交失败"终止后因该 change 目录本身有未提交改动导致的拒绝也属于此类，转述"请先处理未提交内容后重试"即可，不需要额外的预检测逻辑）；
   2. baseline 失败且用户在 `switch` 内部询问中选择不继续——报告 baseline 失败摘要；
