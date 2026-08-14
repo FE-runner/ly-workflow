@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Backend defines the contract for invoking different AI CLI backends.
@@ -33,6 +34,47 @@ func (ClaudeBackend) Command() string {
 }
 func (ClaudeBackend) BuildArgs(cfg *Config, targetArg string) []string {
 	return buildClaudeArgs(cfg, targetArg)
+}
+
+type HermesBackend struct{}
+
+func (HermesBackend) Name() string { return "hermes" }
+func (HermesBackend) Command() string {
+	return "hermes"
+}
+func (HermesBackend) BuildArgs(cfg *Config, targetArg string) []string {
+	if cfg == nil {
+		return nil
+	}
+	// One-shot mode: -z <task> prints ONLY the final response text to stdout.
+	// Resume mode: -r <session_id> <task> continues a previous session by ID.
+	var args []string
+	if cfg.Mode == "resume" && strings.TrimSpace(cfg.SessionID) != "" {
+		args = append(args, "-r", strings.TrimSpace(cfg.SessionID))
+	}
+	args = append(args, "-z", targetArg)
+	return args
+}
+
+type OpenClawBackend struct{}
+
+func (OpenClawBackend) Name() string { return "openclaw" }
+func (OpenClawBackend) Command() string {
+	return "openclaw"
+}
+func (OpenClawBackend) BuildArgs(cfg *Config, targetArg string) []string {
+	if cfg == nil {
+		return nil
+	}
+	// Embedded local agent: --local -m <task> --json. No gateway required,
+	// but the model provider API keys must be present in the shell env.
+	// Resume mode: --session-id <id> continues a previous session.
+	args := []string{"agent", "--local", "--agent", "main"}
+	if cfg.Mode == "resume" && strings.TrimSpace(cfg.SessionID) != "" {
+		args = append(args, "--session-id", strings.TrimSpace(cfg.SessionID))
+	}
+	args = append(args, "-m", targetArg, "--json")
+	return args
 }
 
 const maxClaudeSettingsBytes = 1 << 20 // 1MB

@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-08-14
+
+### Added
+- 审查后端可选扩展为四值：`codex`（默认）/`claude`/`hermes`/`openclaw`——init 向导的"选择审查模型"步骤新增 Hermes 与 OpenClaw 两个选项，`routing.reviewer` 持久化四值
+- `codeagent-wrapper` 新增 `HermesBackend`（`hermes -z` one-shot 纯文本输出、`-r` 续聊）与 `OpenClawBackend`（`openclaw agent --local -m --json` embedded 输出、`--session-id` 续聊），`--backend hermes`/`--backend openclaw` 可用
+
+### Changed
+- 修复 `{{REVIEWER_MODEL}}` 断线：`/ly:review-code`/`/ly:review-plan` 模板里的 `--backend codex` 改为 `--backend {{REVIEWER_MODEL}}`——init 选定的审查后端真正生效（此前选了 Claude 也无效，占位符只存在于文档）
+- `codeagent-wrapper` parser 新增"非 JSON 行收集为 message"的文本兜底分支：外部 CLI（如 hermes `-z`）输出的纯文本不再被静默丢弃；并识别 openclaw `--json` 的多行 JSON blob（提取 `payloads[].text` 与 `sessionId`）；未知 JSON 事件 `{"item":null}` 不再误判为 message
+- `/ly:review-code`/`/ly:review-plan` 审查-修复循环第 2 轮起改为 **resume 续聊**：首轮 wrapper 返回的 `SESSION_ID` 记录在案，第 2 轮起以 `--backend <后端> resume <session_id> -` 调用，使审查 agent 保留轮间记忆（同一流程内复用，不跨命令/跨项目）；未取得 session_id 时退化为独立调用并如实说明
+
+### Fixed
+- 修复 parser 对未知 JSON 事件的处理：`{"item":null}` 等空事件不再被当作纯文本拼入 message
+
+---
+
 ## [1.4.3] - 2026-08-13
 
 ### Changed

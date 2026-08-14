@@ -235,7 +235,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
     if (existingConfig?.routing?.reviewer) {
       reviewer = existingConfig.routing.reviewer
     }
-    if (options.reviewer === 'codex' || options.reviewer === 'claude') {
+    if (options.reviewer === 'codex' || options.reviewer === 'claude' || options.reviewer === 'hermes' || options.reviewer === 'openclaw') {
       reviewer = options.reviewer
     }
   }
@@ -382,6 +382,8 @@ export async function init(options: InitOptions = {}): Promise<void> {
         choices: [
           { name: `Codex ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'codex' as ModelType },
           { name: 'Claude', value: 'claude' as ModelType },
+          { name: 'Hermes', value: 'hermes' as ModelType },
+          { name: 'OpenClaw', value: 'openclaw' as ModelType },
           ...navSentinels(canGoBack),
         ],
         default: reviewer,

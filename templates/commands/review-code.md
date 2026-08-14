@@ -35,7 +35,7 @@ Codex backend 以 agentic 模式运行，具备在 `WORKDIR` 下自主执行 she
 ```
 WORKDIR=$(pwd)
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend codex - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/codex/reviewer.md\n<TASK>审查以下代码变更。审查范围：<基线引用说明，例如"运行 git diff HEAD 得到的完整 diff"，或零 commit 场景下的三条命令组合说明>。未跟踪文件路径：<路径清单，若有>。请自行在当前目录（WORKDIR）下执行对应命令/读取指定路径获取实际内容后再审查，不要假设范围。</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置（含可解析的文件相对路径）、问题、建议\nCODEAGENT_EOF",
+  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/codex/reviewer.md\n<TASK>审查以下代码变更。审查范围：<基线引用说明，例如"运行 git diff HEAD 得到的完整 diff"，或零 commit 场景下的三条命令组合说明>。未跟踪文件路径：<路径清单，若有>。请自行在当前目录（WORKDIR）下执行对应命令/读取指定路径获取实际内容后再审查，不要假设范围。</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置（含可解析的文件相对路径）、问题、建议\nCODEAGENT_EOF",
   run_in_background: true,
   timeout: 1800000,
   description: "审查代码变更"
@@ -71,16 +71,18 @@ Codex 的 Critical 不是必须执行的裁决。对每条 Critical：
 
 验证通过后，把本轮实际改动的文件相对路径清单写入本轮报告——这份清单是"路径清单"的一部分，供 3.5 步构造下一轮增量 TASK 直接复用，不得在后续轮次靠"当前 git 状态"反推（循环期间不逐轮 commit，但后续轮次还会继续修改文件、文件也可能被删除/重命名，仅凭某个时间点的 git 状态无法可靠还原"本轮具体改了什么"）。本轮不执行任何 git commit——提交只发生在循环以正常清零结束之后（见步骤 4）。
 
-**3.5 自动触发下一轮审查（增量传递）**
+**3.5 自动触发下一轮审查（增量传递 + 轮间续聊）**
 
-从第 2 轮起，TASK SHALL NOT 重新拼贴完整基线 diff；改为仅包含：
+第 2 轮起，TASK SHALL NOT 重新拼贴完整基线 diff；改为仅包含：
 
 1. 上一轮 Codex 报告的全部 Critical 原文（逐字，不经改写，包含被判定"不认可"的条目——这些原文仍要传，用于"分歧未决"判定所需的比对）。
 2. 路径清单，必须覆盖"本轮实际修复改动的文件"（3.4 记录的清单）∪"上一轮全部 Critical 各自指向的文件"（即使某条因不认可而未被修改，其指向的文件路径也要纳入，否则 Codex 无法重新核实该问题是否仍存在）。若上一轮某条 Critical 指向的文件在本轮被删除或重命名，路径清单改用新路径（若有）并在 TASK 中说明该文件的状态变化，不让 Codex 尝试读取不存在的旧路径。
 
 路径清单之外的文件不重新整段传入。若某条上一轮 Critical 的位置字段缺失可解析路径（角色提示词未被遵守等异常情况），按"审查调用失败"终止条件处理（返回内容不符合可解析格式），不得静默丢弃该 Critical。
 
-回到步骤 2 的调用方式（只是 TASK 内容换成上述增量内容），重新调用 Codex 审查，不要求用户手动重新触发命令。生成本轮执行日志后再判定 Critical 是否清零。
+**第 2 轮起的调用方式改为 resume 续聊**：首轮 wrapper 输出末尾的 `SESSION_ID: <id>` 是本流程审查会话的 session_id；从第 2 轮起，把 Bash 调用从 `--backend {{REVIEWER_MODEL}} -` 改为 `--backend {{REVIEWER_MODEL}} resume <session_id> -`（stdin 仍传增量 TASK）。这样审查 agent 在同一会话上下文中复用上一轮记忆（它给的 Critical、已做的修改），无需在 TASK 里整段重传基线——增量传递规则不变，会话记忆提供连续性。若首轮未取得 session_id（后端/解析未返回），后续轮次退化为独立调用，并在本轮报告中如实说明"未启用轮间续聊"。每轮的 SESSION_ID 都以本流程首轮的为准，不因 resume 而更换。
+
+回到步骤 2 的调用方式（只是 TASK 内容换成上述增量内容，且以 resume 续聊），重新调用审查后端，不要求用户手动重新触发命令。生成本轮执行日志后再判定 Critical 是否清零。
 
 ### 循环终止条件（任一命中即停止，转步骤 4）
 

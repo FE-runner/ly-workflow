@@ -199,8 +199,9 @@ var newCommandRunner = func(ctx context.Context, name string, args ...string) co
 }
 
 type parseResult struct {
-	message  string
-	threadID string
+	message   string
+	threadID  string
+	plainBlob string
 }
 
 type taskLoggerContextKey struct{}
@@ -1074,7 +1075,7 @@ func runCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 	}
 
 	go func() {
-		msg, tid := parseJSONStreamInternalWithContent(stdoutReader, logWarnFn, logInfoFn, func() {
+		msg, tid, blobOut := parseJSONStreamInternalWithContent3(stdoutReader, logWarnFn, logInfoFn, func() {
 			select {
 			case messageSeen <- struct{}{}:
 			default:
@@ -1093,7 +1094,7 @@ func runCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 		case completeSeen <- struct{}{}:
 		default:
 		}
-		parseCh <- parseResult{message: msg, threadID: tid}
+		parseCh <- parseResult{message: msg, threadID: tid, plainBlob: blobOut}
 	}()
 
 	logInfoFn(fmt.Sprintf("Starting %s with args: %s %s...", commandName, commandName, strings.Join(codexArgs[:min(5, len(codexArgs))], " ")))
@@ -1226,6 +1227,14 @@ waitLoop:
 		forceKillTimer.Stop()
 	}
 
+	// Before receiving parsed result, capture whether a multi-line plain-text
+	// blob was collected (openclaw --json emits indented JSON that fails
+	// per-line unmarshal and accumulates in plainText). Request parser to
+	// surface it back to us via a dedicated parse channel entry.
+	//
+	// (Handled in parseJSONStreamInternalWithContent below by stuffing the
+	// joined blob into the same plainText channel; see final fallback block.)
+
 	var parsed parseResult
 	switch {
 	case ctxCancelled:
@@ -1286,6 +1295,17 @@ waitLoop:
 
 	message := parsed.message
 	threadID := parsed.threadID
+
+	// External CLIs (e.g. openclaw --json) may emit a non-streaming JSON blob
+	// that does not unmarshal line-by-line into UnifiedEvent (it fails per-line
+	// parse and lands in plainText as indented JSON). Extract the payload text
+	// and session id from that blob so the review loop gets usable message.
+	if parsed.plainBlob != "" && (message == "" || len(plainTextJSON(parsed.plainBlob)) > 0) {
+		if text := extractOpenClawPayload(parsed.plainBlob); text != "" {
+			message = text
+			threadID = extractOpenClawSession(parsed.plainBlob)
+		}
+	}
 	if message == "" {
 		logErrorFn(fmt.Sprintf("%s completed without agent_message output", commandName))
 		result.ExitCode = 1

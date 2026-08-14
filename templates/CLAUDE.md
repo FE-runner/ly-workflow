@@ -48,7 +48,7 @@
 
 | 占位符 | 说明 |
 |--------|------|
-| `{{REVIEWER_MODEL}}` | 审查模型（codex/claude），默认 codex |
+| `{{REVIEWER_MODEL}}` | 审查模型（codex/claude/hermes/openclaw），默认 codex |
 | `{{LITE_MODE_FLAG}}` | 轻量模式标志 |
 | `{{MCP_SEARCH_TOOL}}` / `{{MCP_SEARCH_PARAM}}` | MCP provider 注册表驱动（当前 12 个命令均未使用，代码保留但暂无消费者） |
 

@@ -39,7 +39,7 @@ ls -d openspec/changes/*/ 2>/dev/null | grep -v '/archive/'
 ```
 WORKDIR=$(pwd)
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper --progress --backend codex - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/codex/plan-reviewer.md\n<TASK>审查以下OpenSpec方案的合理性：遗漏的边界情况、范围是否清晰、风险点、spec 是否覆盖 proposal 的 What Changes。不做逐行代码风格审查，不把'代码库尚未实现该方案条目'当作 Critical。\n\nchange 目录：openspec/changes/<change-name>/\n请自行读取以下路径的当前内容后再审查：<proposal.md/design.md/tasks.md/全部 delta spec 文件的相对路径清单，逐一列出，不要用\"读取 specs 目录\"这种模糊指代>\n<若步骤 2 检测到基线引用：额外说明\"以下路径仅作审查上下文，不属于本次修复对象：<基线 spec 路径>\">\n</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置/条目（含可解析的文件相对路径）、问题描述、建议\nCODEAGENT_EOF",
+  command: "~/.claude/bin/codeagent-wrapper --progress --backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/codex/plan-reviewer.md\n<TASK>审查以下OpenSpec方案的合理性：遗漏的边界情况、范围是否清晰、风险点、spec 是否覆盖 proposal 的 What Changes。不做逐行代码风格审查，不把'代码库尚未实现该方案条目'当作 Critical。\n\nchange 目录：openspec/changes/<change-name>/\n请自行读取以下路径的当前内容后再审查：<proposal.md/design.md/tasks.md/全部 delta spec 文件的相对路径清单，逐一列出，不要用\"读取 specs 目录\"这种模糊指代>\n<若步骤 2 检测到基线引用：额外说明\"以下路径仅作审查上下文，不属于本次修复对象：<基线 spec 路径>\">\n</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置/条目（含可解析的文件相对路径）、问题描述、建议\nCODEAGENT_EOF",
   run_in_background: true,
   timeout: 1800000,
   description: "审查方案: <change-name>"
@@ -74,7 +74,7 @@ Bash({
 
 验证通过后，把本轮实际改动的 artifact/delta spec 文件相对路径清单写入本轮报告——供 4.5 步构造下一轮增量 TASK 直接复用，不得靠"运行时的 git 状态"反推（后续轮次还会继续修改文件，仅凭某个时间点的 git 状态无法可靠还原"本轮具体改了什么"）。本轮不执行任何 git commit——提交只发生在循环以正常清零结束之后（见步骤 5）。
 
-**4.5 自动触发下一轮审查（增量传递）**
+**4.5 自动触发下一轮审查（增量传递 + 轮间续聊）**
 
 从第 2 轮起，TASK SHALL NOT 重新传整份 proposal/design/tasks/specs 内容；改为仅包含：
 
@@ -83,7 +83,9 @@ Bash({
 
 路径清单之外的文件不重新整段传入。若某条上一轮 Critical 的位置字段缺失可解析路径，命令保守处理：将该 change 目录下全部 artifact/delta spec 路径纳入下一轮路径清单，并在报告中说明该情况（不得静默丢弃该 Critical）。
 
-回到步骤 3 的调用方式（只是 TASK 内容换成上述增量内容），重新调用 Codex 审查，不要求用户手动重新触发命令。生成本轮执行日志后再判定 Critical 是否清零。
+**第 2 轮起的调用方式改为 resume 续聊**：首轮 wrapper 输出末尾的 `SESSION_ID: <id>` 是本流程审查会话的 session_id；从第 2 轮起，把 Bash 调用从 `--backend {{REVIEWER_MODEL}} -` 改为 `--backend {{REVIEWER_MODEL}} resume <session_id> -`（stdin 仍传增量 TASK）。这样审查 agent 在同一会话上下文中复用上一轮记忆（它给的 Critical、已做的修改），无需在 TASK 里整段重传基线——增量传递规则不变，会话记忆提供连续性。若首轮未取得 session_id，后续轮次退化为独立调用，并在本轮报告中如实说明"未启用轮间续聊"。每轮的 SESSION_ID 都以本流程首轮的为准，不因 resume 而更换。
+
+回到步骤 3 的调用方式（只是 TASK 内容换成上述增量内容，且以 resume 续聊），重新调用审查后端，不要求用户手动重新触发命令。生成本轮执行日志后再判定 Critical 是否清零。
 
 ### 循环终止条件（任一命中即停止，转步骤 5）
 

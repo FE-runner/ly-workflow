@@ -2,7 +2,7 @@
 export type SupportedLang = 'zh-CN' | 'en'
 
 // 模型类型（审查阶段可选模型）
-export type ModelType = 'codex' | 'claude'
+export type ModelType = 'codex' | 'claude' | 'hermes' | 'openclaw'
 
 // 模型路由配置：Claude 自己完成聊天/分析/规划/实施，仅审查阶段可选模型
 export interface ModelRouting {

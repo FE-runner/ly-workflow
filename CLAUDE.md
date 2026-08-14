@@ -10,6 +10,11 @@
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
 
+### 2026-08-14 (v1.5.0) — 可选审查 agent：codex/claude/hermes/openclaw + 轮间续聊
+- ✨ **审查后端可选扩展为四值**：`codex`（默认）/`claude`/`hermes`/`openclaw`——init 向导"选择审查模型"步骤新增 Hermes 与 OpenClaw 两项，`routing.reviewer` 持久化四值；修复 `{{REVIEWER_MODEL}}` 断线——review-code/review-plan 模板的 `--backend codex` 改为 `--backend {{REVIEWER_MODEL}}`，init 选定的审查后端真正生效（此前选了 Claude 也不生效，占位符只存在于文档）。
+- ✨ **`codeagent-wrapper` 新增 `HermesBackend`/`OpenClawBackend`**：`--backend hermes`（`hermes -z` one-shot 纯文本输出，`-r` 续聊）与 `--backend openclaw`（`openclaw agent --local -m --json` embedded 输出，`--session-id` 续聊）；parser 新增"非 JSON 行收集为 message"的文本兜底 + openclaw 多行 JSON blob 提取（`payloads[].text`/`sessionId`）；修复未知 JSON 事件（`{"item":null}`）被误当 message 的问题。
+- 🔄 **审查循环第 2 轮起改为 resume 续聊**：首轮 wrapper 返回的 `SESSION_ID` 记录在案，第 2 轮起以 `--backend <后端> resume <session_id> -` 调用，使审查 agent 保留轮间记忆（同一流程内复用，不跨命令/跨项目）；未取得 session_id 退化独立调用并如实说明；增量传递规则不变。
+
 ### 2026-08-13 (v1.4.3) — 审查循环增量传递 + 人话报告 + 提交时机改造
 - 🔄 **`/ly:review-code`/`/ly:review-plan` 第 2 轮起改为增量传递**：TASK 只传"上一轮 Critical 原文 + 路径清单（本轮改动文件 ∪ 上一轮全部 Critical 指向的文件）"，指示 Codex 自行读取判断，不再整段重传完整基线 diff/全部方案文档；首轮也只传基线引用/路径清单，不预先拼贴全文；零 commit 场景取消"构造快照"，改用 `git diff --cached`/`git diff`/未跟踪文件清单三条固定命令组合——Codex backend 实测以 agentic 模式运行，具备自主 shell/文件读取能力，不需要调用方代填全文。
 - 🔄 **报告改为逐轮展示 Codex 原始发现（逐字）+ 人话摘要**：每一轮（含首轮 Critical 为 0 的情况）都展示 Codex 原文与 Claude 判定的并排对照，不再只在"分歧未决"终止场景才展示；最终报告的 Critical 摘要改为用人话概括问题和已做改动，逐字原文作为补充材料并存。

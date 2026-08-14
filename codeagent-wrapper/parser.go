@@ -85,6 +85,107 @@ type ItemContent struct {
 	Text interface{} `json:"text"`
 }
 
+// parseJSONStreamInternalWithContent3 is parseJSONStreamInternalWithContent
+// plus returning the raw joined plain-text blob (before JSON fallback), so the
+// executor can re-extract structured fields from multi-line JSON CLIs like
+// openclaw --json that don't stream per-line events.
+func parseJSONStreamInternalWithContent3(r io.Reader, warnFn func(string), infoFn func(string), onMessage func(), onComplete func(), onContent func(content, contentType string), onProgress func(line string), onSessionStarted func(id string)) (message, threadID, blob string) {
+	// Wrap the reader so bytes flow through both the base parser (streaming
+	// callbacks) and a tee that accumulates all plain-text lines for blob
+	// extraction. The base parser already consumes the stream; tee both before
+	// it so blob capture is independent of parser internals.
+	var blobBuf strings.Builder
+	tee := io.TeeReader(r, &blobCapture{write: &blobBuf})
+	msg, tid := parseJSONStreamInternalWithContent(tee, warnFn, infoFn, onMessage, onComplete, onContent, onProgress, onSessionStarted)
+	return msg, tid, blobBuf.String()
+}
+
+// blobCapture is a writer that only keeps lines that fail line-parse as JSON,
+// approximating "plain text" for openclaw-style multi-line JSON blobs.
+type blobCapture struct{ write *strings.Builder }
+
+func (b *blobCapture) Write(p []byte) (int, error) {
+	_, _ = b.write.Write(p)
+	return len(p), nil
+}
+
+// scanPlainTextBlob drains a reader collecting non-JSON lines (used by
+// parseJSONStreamInternalWithContent3 to surface openclaw indented JSON blob).
+func scanPlainTextBlob(r io.Reader) string {
+	reader := bufio.NewReaderSize(r, jsonLineReaderSize)
+	var lines []string
+	for {
+		line, _, err := readLineWithLimit(reader, jsonLineMaxBytes, jsonLinePreviewBytes)
+		if err != nil {
+			break
+		}
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		var ev UnifiedEvent
+		if err := json.Unmarshal(line, &ev); err != nil || len(ev.Item) == 0 && ev.Type == "" {
+			// non-JSON (or indistinguishable) → plain line
+			lines = append(lines, string(line))
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func extractOpenClawPayload(blob string) string {
+	// Find the outermost JSON object spanning the blob and pull payloads[*].text
+	var obj struct {
+		Payloads []struct {
+			Text string `json:"text"`
+		} `json:"payloads"`
+	}
+	if err := json.Unmarshal([]byte(blob), &obj); err != nil {
+		return ""
+	}
+	var texts []string
+	for _, p := range obj.Payloads {
+		if p.Text != "" {
+			texts = append(texts, p.Text)
+		}
+	}
+	return strings.Join(texts, "\n")
+}
+
+func extractOpenClawSession(blob string) string {
+	var obj struct {
+		Meta struct {
+			AgentMeta struct {
+				SessionID string `json:"sessionId"`
+			} `json:"agentMeta"`
+		} `json:"meta"`
+	}
+	if err := json.Unmarshal([]byte(blob), &obj); err != nil {
+		return ""
+	}
+	return obj.Meta.AgentMeta.SessionID
+}
+
+// plainTextJSON reports whether the blob contains both a payloads text and a
+// session id (openclaw-style) so executor extraction is exercised only when
+// relevant.
+func plainTextJSON(blob string) []string {
+	var obj struct {
+		Payloads []struct {
+			Text string `json:"text"`
+		} `json:"payloads"`
+	}
+	if err := json.Unmarshal([]byte(blob), &obj); err != nil {
+		return nil
+	}
+	var texts []string
+	for _, p := range obj.Payloads {
+		if p.Text != "" {
+			texts = append(texts, p.Text)
+		}
+	}
+	return texts
+}
+
 func parseJSONStreamInternal(r io.Reader, warnFn func(string), infoFn func(string), onMessage func(), onComplete func()) (message, threadID string) {
 	return parseJSONStreamInternalWithContent(r, warnFn, infoFn, onMessage, onComplete, nil, nil, nil)
 }
@@ -123,6 +224,7 @@ func parseJSONStreamInternalWithContent(r io.Reader, warnFn func(string), infoFn
 	var (
 		codexMessage  string
 		claudeMessage string
+		plainText     []string
 	)
 
 	for {
@@ -148,17 +250,15 @@ func parseJSONStreamInternalWithContent(r io.Reader, warnFn func(string), infoFn
 
 		// Single unmarshal for all backend types
 		var event UnifiedEvent
-		if err := json.Unmarshal(line, &event); err != nil {
-			warnFn(fmt.Sprintf("Failed to parse event: %s", truncateBytes(line, 100)))
-			continue
-		}
-
-		// Extract session_id early (works for all backends)
-		if event.GetSessionID() != "" && threadID == "" {
-			threadID = event.GetSessionID()
-			if onSessionStarted != nil {
-				onSessionStarted(threadID)
+		if jsonErr := json.Unmarshal(line, &event); jsonErr != nil {
+			// Plain-text capture: non-JSON lines (external CLIs like hermes -z)
+			// never unmarshal into UnifiedEvent. Collect them here; they are
+			// only used if no JSON event eventually produces a message.
+			lineStr := string(line)
+			if strings.TrimSpace(lineStr) != "" {
+				plainText = append(plainText, lineStr)
 			}
+			continue
 		}
 
 		// Detect backend type by field presence
@@ -171,9 +271,34 @@ func parseJSONStreamInternalWithContent(r io.Reader, warnFn func(string), infoFn
 				isCodex = true
 			}
 		}
+		// {"type":"item.completed","item":null} has no item type but is a real
+		// codex event line; treat any explicit non-empty type as codex so it is
+		// recognised (and its null item skipped) instead of reaching plain text.
+		if !isCodex && event.Type != "" && event.Type != "result" {
+			isCodex = true
+		}
 		isClaude := event.Subtype != "" || event.Result != ""
 		if !isClaude && event.Type == "result" && event.GetSessionID() != "" {
 			isClaude = true
+		}
+
+		// A valid JSON line that matched no backend and is otherwise empty
+		// (e.g. {"item":null} or {}) is not meaningful output — skip it rather
+		// than capturing it as plain text. Claude events with non-empty
+		// subtype/result/session are real and already handled above.
+		if !isCodex && !isClaude && event.Type == "" && event.ThreadID == "" &&
+			event.Subtype == "" && event.SessionID == "" && event.Result == "" &&
+			len(event.Item) == 0 {
+			continue
+		}
+
+		// Extract session_id early (works for all backends); kept after backend
+		// detection so plain-text-only JSON ({} with no known fields) is skipped.
+		if event.GetSessionID() != "" && threadID == "" {
+			threadID = event.GetSessionID()
+			if onSessionStarted != nil {
+				onSessionStarted(threadID)
+			}
 		}
 
 		// Handle Codex events
@@ -307,15 +432,41 @@ func parseJSONStreamInternalWithContent(r io.Reader, warnFn func(string), infoFn
 			continue
 		}
 
-		// Unknown event format from other backends (turn.started/assistant/user); ignore.
-		continue
+		// Unknown event format from other backends (turn.started/assistant/user);
+		// fall through to plain-text capture so external CLIs (e.g. hermes -z)
+		// that emit raw stdout aren't silently dropped.
+		if len(line) > 0 {
+			plainText = append(plainText, string(line))
+		}
+	}
+
+	// Plain-text capture from backends without JSON events (e.g. hermes -z):
+	// collect non-empty, non-JSON stdout lines. JSON lines that unmarshalled
+	// into an already-handled backend above are NOT included here.
+	// Only used if no JSON event produced a message.
+	if claudeMessage == "" && codexMessage == "" && len(plainText) > 0 {
+		joined := strings.Join(plainText, "\n")
+		message = joined
+		if onContent != nil {
+			onContent(joined, "message")
+		}
+		// Plain text has no structured "result" event: notify complete so the
+		// executor's post-message timer fires promptly instead of hanging on
+		// the streaming backend (which would leave cmd.Wait blocked).
+		if onComplete != nil {
+			notifyComplete()
+		}
+		// plain text is the final message; no further backend events will arrive.
+		notifyMessage()
 	}
 
 	switch {
 	case claudeMessage != "":
 		message = claudeMessage
-	default:
+	case codexMessage != "":
 		message = codexMessage
+	case len(plainText) > 0:
+		message = strings.Join(plainText, "\n")
 	}
 
 	infoFn(fmt.Sprintf("parseJSONStream completed: events=%d, message_len=%d, thread_id_found=%t", totalEvents, len(message), threadID != ""))

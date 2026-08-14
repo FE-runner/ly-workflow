@@ -1741,11 +1741,29 @@ func TestBackendParseJSONStreamWithWarn_InvalidLine(t *testing.T) {
 	var warnings []string
 	warnFn := func(msg string) { warnings = append(warnings, msg) }
 	message, threadID := parseJSONStreamWithWarn(strings.NewReader("not-json"), warnFn)
-	if message != "" || threadID != "" {
-		t.Fatalf("expected empty output, got message=%q thread=%q", message, threadID)
+	if message != "not-json" || threadID != "" {
+		t.Fatalf("expected invalid line captured as message=not-json, got message=%q thread=%q", message, threadID)
 	}
-	if len(warnings) == 0 {
-		t.Fatalf("expected warning to be emitted")
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warning for invalid line capture, got %v", warnings)
+	}
+}
+
+func TestBackendParseJSONStream_PlainTextCapture(t *testing.T) {
+	// External CLIs (e.g. hermes -z) emit raw text with no JSON events.
+	// Non-JSON lines must be captured as the message rather than dropped.
+	var complete bool
+	message, threadID := parseJSONStreamInternal(strings.NewReader("first line\nsecond line\n"), nil, nil, nil, func() {
+		complete = true
+	})
+	if message != "first line\nsecond line" {
+		t.Fatalf("message = %q, want captured plain text", message)
+	}
+	if threadID != "" {
+		t.Fatalf("threadID = %q, want empty for plain text", threadID)
+	}
+	if !complete {
+		t.Fatalf("plain text capture should notify complete (caller relies on it to end the loop)")
 	}
 }
 
@@ -2932,7 +2950,7 @@ func TestVersionFlag(t *testing.T) {
 		}
 	})
 
-	want := "codeagent-wrapper version 6.0.0\n"
+	want := "codeagent-wrapper version 6.1.0\n"
 
 	if output != want {
 		t.Fatalf("output = %q, want %q", output, want)
@@ -2948,7 +2966,7 @@ func TestVersionShortFlag(t *testing.T) {
 		}
 	})
 
-	want := "codeagent-wrapper version 6.0.0\n"
+	want := "codeagent-wrapper version 6.1.0\n"
 
 	if output != want {
 		t.Fatalf("output = %q, want %q", output, want)
@@ -2964,7 +2982,7 @@ func TestVersionLegacyAlias(t *testing.T) {
 		}
 	})
 
-	want := "codex-wrapper version 6.0.0\n"
+	want := "codex-wrapper version 6.1.0\n"
 
 	if output != want {
 		t.Fatalf("output = %q, want %q", output, want)
