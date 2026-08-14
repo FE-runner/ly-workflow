@@ -1,0 +1,50 @@
+## Purpose
+
+允许用户为审查关卡指定不同的 AI 后端（Codex/Claude/Hermes/OpenClaw）作为审查 agent，并让单个审查-修复循环的多个轮次复用同一 agent 会话，从而保留轮间记忆。
+
+## ADDED Requirements
+
+### Requirement: init 可选择审查后端（含 codex/claude/hermes/openclaw）
+`npx ly-workflow init` 的"选择审查模型"步骤必须（SHALL）提供 `codex`（默认）/`claude`/`hermes`/`openclaw` 四个选项供用户选择；选择结果持久化为 `routing.reviewer`（有效值为这四个之一）。后续 `/ly:review-code`/`/ly:review-plan` 必须（SHALL）使用该值作为审查后端。若用户未显式修改, 默认必须是 `codex`（与现有行为一致）。
+
+#### Scenario: 默认后端为 codex
+- **WHEN** 用户运行 `npx ly-workflow init` 且不修改"选择审查模型"步骤
+- **THEN** `routing.reviewer` 保持默认值 `codex`, `/ly:review-code`/`/ly:review-plan` 以 `--backend codex` 运行
+
+#### Scenario: 用户选择 claude 作为审查后端
+- **WHEN** 用户在 init 的"选择审查模型"步骤选择 `claude`
+- **THEN** `routing.reviewer` 为 `claude`, 后续 `/ly:review-code`/`/ly:review-plan` 以 `--backend claude` 调用审查, 而非 `--backend codex`
+
+#### Scenario: 用户选择 hermes 作为审查后端
+- **WHEN** 用户在 init 的"选择审查模型"步骤选择 `hermes`
+- **THEN** `routing.reviewer` 为 `hermes`, 后续审查调用走 `--backend hermes`, wrapper 以 hermes 的 one-shot 模式执行
+
+#### Scenario: 用户选择 openclaw 作为审查后端
+- **WHEN** 用户在 init 的"选择审查模型"步骤选择 `openclaw`
+- **THEN** `routing.reviewer` 为 `openclaw`, 后续审查调用走 `--backend openclaw`（embedded/local 模式）, 不要求启动 gateway
+
+### Requirement: 可选后端二进制缺失时如实报错
+当审查后端对应的 CLI 二进制不存在于 PATH 时, `/ly:review-code`/`/ly:review-plan` 必须（SHALL）明确报告该后端缺失并结束, 不得静默降级到其他后端, 也不得产出空审查结论。
+
+#### Scenario: 后端二进制缺失时如实报错
+- **WHEN** `routing.reviewer` 为 `hermes` 但执行环境中不存在 `hermes` 命令
+- **THEN** 审查调用失败, 命令如实报告"后端 hermes 二进制缺失", 不静默改回 codex, 不产出空审查结论
+
+#### Scenario: 默认后端 codex 不受影响
+- **WHEN** `routing.reviewer` 保持默认值 `codex` 且环境中存在 `codex` 命令
+- **THEN** 审查正常以 `--backend codex` 执行, 不触发缺失/降级逻辑
+
+### Requirement: 审查循环轮间续聊（同一流程内复用）
+`/ly:review-code`/`/ly:review-plan` 的审查-修复循环必须（SHALL）复用同一 agent 会话：首轮调用 wrapper 后记录返回的 session_id, 第 2 轮及后续轮次必须（SHALL）以 resume 模式把该 session_id 传回, 使审查 agent 保留轮间记忆（上一轮给出的 Critical、已做的修改、当时的判断依据）。跨轮复用仅限**同一流程内**——单个 `/ly:review-code` 或 `/ly:review-plan` 命令运行期间的多轮属同一流程；`review-code` 与 `review-plan` 是两个不同命令（两个独立流程）, 不共享会话; 也不跨项目/跨命令复用。循环结束后, 最终报告中必须（SHALL）展示该流程使用的 session_id。若首轮未能取得 session_id（后端/解析未提供）, 后续轮次退化为独立调用（无续聊）, 报告中如实说明未取得 session_id。
+
+#### Scenario: 循环第 2 轮续聊同一会话
+- **WHEN** `/ly:review-code` 第一轮结束, wrapper 返回了 session_id, 而第一轮存在未清零的 Critical, 循环进入第二轮
+- **THEN** 第二轮以 resume 模式传回该 session_id 调用 wrapper——同一 agent 会话能读到第一轮上下文, 而非作为全新会话开始
+
+#### Scenario: 两种命令各自独立会话
+- **WHEN** 用户对同一 change 先运行 `/ly:review-plan`（得到 session A）, 再运行 `/ly:review-code`（得到 session B）
+- **THEN** session A 与 session B 互不关联；`review-code` 的循环不使用 `review-plan` 留下的会话, 反之亦然
+
+#### Scenario: 未取得 session_id 时退化为独立调用
+- **WHEN** 首轮 wrapper 返回结果中不包含可解析的 session_id（例如后端模式不返回会话标识）
+- **THEN** 后续轮次以独立调用（非 resume）进行, 报告中如实说明"未取得 session_id, 未启用轮间续聊"'
