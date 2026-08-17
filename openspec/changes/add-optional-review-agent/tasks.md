@@ -33,4 +33,4 @@
 
 - [x] 6.1 `pnpm typecheck && pnpm build && pnpm test` 全绿
 - [x] 6.2 `CHANGELOG.md` 新增本次变更条目（顶部），根 `CLAUDE.md` 变更记录同步（Go 改动需按发版规则 bump 版本）
-- [ ] 6.3 端到端验证：以 `routing.reviewer = hermes`（或 openclaw）跑一次 `/ly:review-plan` 冒烟，确认 `--backend hermes` 被注入、wrapper 调用、第 2 轮 resume 续聊生效、报告含 session_id
+- [x] 6.3 端到端验证：以 `routing.reviewer = hermes`（或 openclaw）跑一次 `/ly:review-plan` 冒烟，确认 `--backend hermes` 被注入、wrapper 调用、第 2 轮 resume 续聊生效、报告含 session_id
