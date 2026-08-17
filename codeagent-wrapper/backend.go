@@ -47,12 +47,19 @@ func (HermesBackend) BuildArgs(cfg *Config, targetArg string) []string {
 		return nil
 	}
 	// One-shot mode: -z <task> prints ONLY the final response text to stdout.
+	// hermes' -z does NOT accept "-" as an stdin marker (it hangs); the real
+	// task text is available in cfg.Task (executor fills it from stdin/TASK),
+	// so promote it to an argv argument instead of leaving "-".
 	// Resume mode: -r <session_id> <task> continues a previous session by ID.
 	var args []string
 	if cfg.Mode == "resume" && strings.TrimSpace(cfg.SessionID) != "" {
 		args = append(args, "-r", strings.TrimSpace(cfg.SessionID))
 	}
-	args = append(args, "-z", targetArg)
+	prompt := targetArg
+	if prompt == "-" && strings.TrimSpace(cfg.Task) != "" && cfg.Task != "-" {
+		prompt = cfg.Task
+	}
+	args = append(args, "-z", prompt)
 	return args
 }
 
