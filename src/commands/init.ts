@@ -9,7 +9,6 @@ import { i18n, initI18n } from '../i18n'
 import { createDefaultConfig, ensureLyDir, getLyDir, readLyConfig, writeLyConfig } from '../utils/config'
 import { getCoreCommandIds, installAceTool, installAceToolRs, installContextWeaver, installFastContext, installMcpServer, installWorkflows, showBinaryDownloadWarning, syncMcpToCodex, writeFastContextPrompt } from '../utils/installer'
 import { isWindows } from '../utils/platform'
-import { migrateToV1_4_0, needsMigration } from '../utils/migration'
 
 /**
  * Auto-approve codeagent-wrapper Bash commands in settings.json.
@@ -768,38 +767,10 @@ export async function init(options: InitOptions = {}): Promise<void> {
   const spinner = ora(i18n.t('init:installing')).start()
 
   try {
-    // v1.4.0: Auto-migrate from old directory structure
-    if (await needsMigration()) {
-      // 迁移在后台静默执行：v1.4+ 结构下 config 存在即跳过（needsMigration），
-      // 仅在旧路径残留（如卸载后首装）时补迁，不再显示过时的 "v1.3.x" 提示。
-      const migrationResult = await migrateToV1_4_0()
-
-      if (migrationResult.migratedFiles.length > 0) {
-        spinner.info(ansis.cyan('Migration completed:'))
-        console.log()
-        for (const file of migrationResult.migratedFiles) {
-          console.log(`  ${ansis.green('✓')} ${file}`)
-        }
-        if (migrationResult.skipped.length > 0) {
-          console.log()
-          console.log(ansis.gray('  Skipped:'))
-          for (const file of migrationResult.skipped) {
-            console.log(`  ${ansis.gray('○')} ${file}`)
-          }
-        }
-        console.log()
-        spinner.start(i18n.t('init:installing'))
-      }
-
-      if (migrationResult.errors.length > 0) {
-        spinner.warn(ansis.yellow('Migration completed with errors:'))
-        for (const error of migrationResult.errors) {
-          console.log(`  ${ansis.red('✗')} ${error}`)
-        }
-        console.log()
-        spinner.start(i18n.t('init:installing'))
-      }
-    }
+    // v1.4.0 目录迁移已退役：v1.3.x → v1.4.0 是一次性升级动作，v1.4.1+
+    // 用户目录结构（~/.claude/.ly/）从未变化，不再需要。此前该块在
+    // config.toml 缺失 + ~/.ly 残留时反复触发，打印 Migration/Skipped
+    // 误导性输出，个别安装还会卡在该步骤。
 
     await ensureLyDir()
 
