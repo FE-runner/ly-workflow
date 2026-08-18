@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - 修复 parser 对未知 JSON 事件的处理：`{"item":null}` 等空事件不再被当作纯文本拼入 message
 
+## [1.4.4] - 2026-08-14
+
+### Changed
+- **提交时机改造**：`/ly:propose` 与 `/ly:apply` 不再无条件立即 commit——产物默认 `git add` 暂存到暂存区，作为后续审查循环的审查对象；自动模式下审查循环清零统一提交（免询问），手动模式下在"明确跳过审查"或"审查循环非清零终止"时询问是否提交（仅提交暂存区中的产物，循环产生的未暂存修复保留在工作区）。`/ly:init`/`/ly:archive` 的无条件自动 commit 保持不变。
+- `/ly:review-code` 审查范围判定从四层优先级简化为两级：有未提交变更 → `git diff HEAD`；零 commit 仓库 → 三条固定命令组合（`git diff --cached` + `git diff` + `??` 未跟踪清单）。工作区彻底干净时直接报告"无变更可审查"并结束，**删除** `git diff HEAD~1` / `git show HEAD` 历史 commit 兜底分支（审查对象原则上是未提交的变更，历史 commit 不属于审查范围）。
+- `/ly:review-plan` 删除"循环开始前已脏文件的隔离跳过"逻辑（步骤 1.5 及其提交时引用）：`/ly:propose` 产物现在是合法审查对象，清零统一提交对 target change 目录全部 artifact 与 delta spec 文件 `git add` 后一并提交，不再把循环前的未提交产物当无关脏文件跳过。
+- 两个审查命令清零后的统一提交由"仅暂存并提交循环期间实际改动的文件"改为"先 `git add` 审查目标全部文件（原始改动 + 循环修复一并暂存），再执行一次 commit"——审查目标原始改动与修复是同一待提交单元，不再依赖循环期间临时收集的文件清单。
+- `/ly:worktree switch --auto` 续接文案移除"自动 commit"字样（改为"运行 `/ly:apply` 继续实施（完成后自动依次调用 `/ly:review-code`）"）——apply 已不再自动 commit。
 ---
 
 ## [1.4.3] - 2026-08-13

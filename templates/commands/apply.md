@@ -1,5 +1,5 @@
 ---
-description: '委托 opsx:apply，执行前先做隔离检测+worktree询问，按 tasks 实施，完成后自动commit'
+description: '委托 opsx:apply，执行前先做隔离检测+worktree询问，按 tasks 实施，产物暂存区持有；用户明确跳过 review-code 审查时才询问提交'
 ---
 
 # Apply
@@ -63,7 +63,7 @@ AskUserQuestion: "要不要先切换到隔离 worktree？"
 Skill({ skill: "opsx:apply", args: "$ARGUMENTS" })
 ```
 
-### 5. 提交实施改动
+### 5. 实施改动的暂存与提交
 
 实施完成后，检查是否有实际文件变动：
 
@@ -71,17 +71,27 @@ Skill({ skill: "opsx:apply", args: "$ARGUMENTS" })
 git status --porcelain
 ```
 
-有变动则提交（暂存范围限于本次会话实际改动的文件，不做无关文件的批量暂存）：
+有变动则暂存本次实际改动的文件（暂存范围限于本次会话实际改动的文件，不做无关文件的批量暂存）：
 
 ```bash
 git add -- <本次实际改动的文件>
-git commit -m "apply: <change-name>"
 ```
 
-无变动（tasks 本身无产出，或已被上一轮 `/ly:review-code` 审查循环提交）则跳过，不创建空 commit。若 `git commit` 失败，如实报告 Git 返回的原始错误，不中断后续提示。
+**默认不立即 commit**——产物以暂存区状态存在，作为后续 `/ly:review-code` 的审查对象（见 `/ly:review-code` 的审查范围判定：`git diff HEAD` 覆盖已暂存+未暂存，`??` 清单补未跟踪文件）。产物进入暂存区后，仅当**用户明确表示跳过 review-code 审查**（例如直接回复不跑审查、或上层编排中确认不需要审查）时，才询问是否提交实施产物：
+
+```
+AskUserQuestion: "不跑 review-code 审查了，是否提交本次实施产物？"
+```
+
+- **是** → `git commit -m "apply: <change-name>"`。
+- **否** → 产物留在暂存区，不提交。
+
+若后续衔接 review-code 审查，则提交发生在该审查循环（手动模式下连同"跳过审查/非清零终止"询问一并处理），apply 本身只到"暂存区持有"为止。无变动（tasks 本身无产出，或已被上一轮 `/ly:review-code` 审查循环提交）则跳过，不创建空 commit。若 `git commit` 失败，如实报告 Git 返回的原始错误，不中断后续提示。
 
 委托完成后，追加一句不含具体 change 名的通用提示：
 
 ```
 如需隔离环境可用 /ly:worktree switch <change-name> 或先 /ly:worktree list 查看
 ```
+
+若产物仍留在暂存区未提交，提示中追加说明"实施产物当前在暂存区（未提交），可运行 `/ly:review-code` 审查后确认提交"。已完成提交则无需追加。

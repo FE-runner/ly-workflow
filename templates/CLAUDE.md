@@ -23,11 +23,11 @@
 |------|------|------|
 | `init.md` | 真逻辑 | 生成 CLAUDE.md + `openspec init` + 自动 commit |
 | `explore.md` | 薄壳委托 | 直接调用 `opsx:explore`，收敛到方案时提示转 `/ly:propose` |
-| `propose.md` | 真逻辑 | 委托 `opsx:propose` + 全自动/手动两条路径编排（commit → 各自的审查循环 + worktree 询问） |
-| `apply.md` | 真逻辑 | 执行前隔离检测（固定路径+分支双重匹配）+ 委托 `opsx:apply` 实施 tasks + 自动 commit |
+| `propose.md` | 真逻辑 | 委托 `opsx:propose` + 全自动/手动两条路径编排（产物暂存区持有 → 各自的审查循环 → 提交时机询问（跳过审查/非清零终止）→ worktree 询问），不再无条件立即 commit |
+| `apply.md` | 真逻辑 | 执行前隔离检测（固定路径+分支双重匹配）+ 委托 `opsx:apply` 实施 tasks，产物暂存区持有（用户明确跳过 review-code 审查时才询问提交），不再自动 commit |
 | `archive.md` | 真逻辑 | 委托 `opsx:archive` 归档 + 自动 commit |
-| `review-plan.md` | 真逻辑 | Codex 审方案（独立角色提示词 `plan-reviewer.md`，不与 `review-code.md` 共用 `reviewer.md`；读取 proposal/design/tasks/specs），审查-修复循环（全局轮数上限 5 轮，清零优先；新增第 9 类"审查对象类型持续系统性误判"），默认每轮自动 commit（`--no-commit` 关闭） |
-| `review-code.md` | 真逻辑 | Codex 审代码，Critical/Warning/Info 分级，审查-修复循环（全局轮数上限 5 轮，清零优先；新增第 9 类"审查对象类型持续系统性误判"，与 `review-plan.md` 共用），默认每轮自动 commit（`--no-commit` 关闭） |
+| `review-plan.md` | 真逻辑 | Codex 审方案（独立角色提示词 `plan-reviewer.md`，不与 `review-code.md` 共用 `reviewer.md`；读取 proposal/design/tasks/specs，审查目标含已暂存的产物），审查-修复循环（全局轮数上限 5 轮，清零优先；新增第 9 类"审查对象类型持续系统性误判"），循环期间不提交、清零后对审查目标全部文件统一提交（`--no-commit` 关闭） |
+| `review-code.md` | 真逻辑 | Codex 审代码，Critical/Warning/Info 分级，审查范围统一 `git diff HEAD`（工作区干净报"无变更"，无历史 commit 兜底），审查-修复循环（全局轮数上限 5 轮，清零优先；新增第 9 类"审查对象类型持续系统性误判"，与 `review-plan.md` 共用），循环期间不提交、清零后对审查范围全部文件统一提交（`--no-commit` 关闭） |
 | `commit.md` `rollback.md` `clean-branches.md` | Git 工具 | 不变 |
 | `worktree.md` | Git 工具 | 默认用户目录 `~/.ly/worktrees/项目名/`；新增隔离检测、`--local` 项目内选项（强制 gitignore 校验）、创建后 baseline 验证；`switch` 定位已注册路径时新增分支校验（不匹配则拒绝，不直接定位） |
 
