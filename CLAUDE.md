@@ -2,13 +2,19 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-18 (v1.5.2)
+**Last Updated**: 2026-08-18 (v1.5.3)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-18 (v1.5.3) — wrapper 版本号与 npm 统一 + 三条断裂修复
+- 🔄 **wrapper 版本号统一**：`codeagent-wrapper/main.go` 的 `version` 与 `installer.ts` 的 `EXPECTED_BINARY_VERSION` 从独立 6.1.0 改为与 npm 包号一致的 `1.5.3`，此后每次发版同步（消除 5.14.0/6.x 与 1.5.x 脱节）。
+- 🐛 **fix(installer)**：二进制下载后版本门禁——CDN 镜像滞留旧 build 且下载"成功"不再校验导致静默装旧；现每源下载后 `--version` 比对 `EXPECTED_BINARY_VERSION`，不符删除并转下一源。
+- 🐛 **fix(uninstall)**：卸载补删 `rules/ly-fast-context.md` 漏网规则文件。
+- 🐛 **fix(hooks)**：`skill-router.js` 模板清 gemini/both 死分支，补 hermes/claude/openclaw 触发，ROLE_FILE 无 prompts 目录时回退 codex。
 
 ### 2026-08-18 (v1.5.2) — migration 迁移日志品牌残留清理
 - 🐛 **fix**：`migration.ts` 迁移日志模板字符串仍是 v1.4.2 清理前的 `~/.ccg/...`（实际操作路径是 `~/.ly/...`），已改对；迁移时跳过 macOS Finder 系统文件 `.DS_Store`，不再复制到新配置目录。
@@ -154,6 +160,6 @@ codeagent-wrapper/        # Go 二进制（codex + claude backend）
 1. 更新 `package.json` 版本号
 2. 更新 `CHANGELOG.md`（新条目在顶部）
 3. 更新本文件的变更记录
-4. Go 代码改动需同步 bump `codeagent-wrapper/main.go` 的 `version` 与 `src/utils/installer.ts` 的 `EXPECTED_BINARY_VERSION`
+4. **wrapper 版本号与 npm 包号统一（每次发版都同步，非仅 Go 改动时）**：`codeagent-wrapper/main.go` 的 `version` 与 `src/utils/installer.ts` 的 `EXPECTED_BINARY_VERSION` 必须与 `package.json` 版本号一致（如 1.5.3），Go 代码改动额外需 bump 这两处并重新构建
 5. `pnpm typecheck && pnpm build && pnpm test` 全绿后 commit
 6. **发布方式：GitHub Actions 自动发布**，不在本地跑 `npm publish`——打 tag `v<版本号>`（如 `v1.2.0`）并 push，`.github/workflows/release.yml` 监听 `push: tags: ['v*.*.*']` 自动触发发布

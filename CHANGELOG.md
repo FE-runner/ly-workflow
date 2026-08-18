@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.3] - 2026-08-18
+
+### Changed
+- **wrapper 版本号与 npm 包号统一**：`codeagent-wrapper` version / `EXPECTED_BINARY_VERSION` 由 6.1.0 改为 `1.5.3`，此后每次发版同步（发布规则第 4 条已更新）——消除 5.14.0/6.x 与 npm 1.5.x 双版本脱节带来的困惑（精确字符串匹配校验，降号无兼容风险）
+
+### Fixed
+- `installer` 二进制下载后版本门禁：优先源 CDN 镜像（github.20031227.xyz）滞留旧 build，下载"成功"后不再校验导致旧版被静默安装；现每源下载后 `--version` 与 `EXPECTED_BINARY_VERSION` 比对，不符则删除并转下一源，均失败显式报错
+- `uninstall` 补删 `~/.claude/rules/ly-fast-context.md`（`writeFastContextPrompt` 单独写入，原固定文件名清单漏删）
+- `skill-router.js` 模板清理 v3.0 多模型时代残留的 gemini/双模型（both）分支（wrapper 已无 gemini backend），`MODEL_ACTIONS` 补 hermes/claude/openclaw；hermes/openclaw 无 prompts 目录时 ROLE_FILE 回退到 codex 角色提示词
+
 ## [1.5.2] - 2026-08-18
 
 ### Fixed
