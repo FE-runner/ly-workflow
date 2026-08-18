@@ -185,6 +185,8 @@ async function downloadBinaryFromRelease(binaryName: string, destPath: string): 
     if (!ok) continue
 
     // Version-gate the downloaded binary before accepting it.
+    // Discard mismatches silently; if no source yields the expected version the
+    // caller reports "Failed to download binary" — never install stale quietly.
     try {
       const { execSync } = await import('node:child_process')
       const versionOutput = execSync(`"${destPath}" --version`, { stdio: 'pipe' }).toString().trim()
@@ -192,10 +194,9 @@ async function downloadBinaryFromRelease(binaryName: string, destPath: string): 
       if (actualVersion === EXPECTED_BINARY_VERSION) {
         return true
       }
-      console.warn(`[ly-workflow] Binary from ${source.name} is v${actualVersion}, expected v${EXPECTED_BINARY_VERSION}; trying next source`)
     }
     catch {
-      console.warn(`[ly-workflow] Binary from ${source.name} failed version check; trying next source`)
+      // Binary is broken — discard and fall through.
     }
 
     // Reject: remove the stale binary so it can never be accepted as installed.
