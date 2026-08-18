@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > Forked from [ccg-workflow](https://github.com/fengshao1227/ccg-workflow) at v3.2.3. History before this point lives in that project's own CHANGELOG.
 
 ---
+---
+
+## [1.5.4] - 2026-08-18
+
+### Changed
+- **退役 v1.4.0 目录迁移**：config 缺失 + ~/.ly 残留时反复触发的一次性迁移（打印 "Migration completed/Skipped"、个别安装卡死）已整体移除；v1.4.1+ 目录结构未变，迁移不再需要
+- banner/状态行清理：CCG 旧 logo → LY、slogan "Claude Code + Codex Review" → "Claude Code + AI Review"、状态行新增 `reviewer: <routing.reviewer>` 且超宽自动拆行
+- **审查后端名动态化**：报告/日志中原有的 "Codex 原文"/"Codex 各轮原始发现" 等流程代号改为 `{{REVIEWER_MODEL}}`（实际后端名），ROLE_FILE 同步指向 `prompts/<backend>/...`，prompts 补齐 hermes/openclaw 角色文件
+
+### Fixed
+- `needsMigration` 跳过阈值放宽（config.toml 存在即跳过）
+- 逐轮执行日志硬性约束：Warning/Info 禁省略号压缩、清零轮判定须写明依据
+- 二进制下载仅保留 GitHub Release 源（删除陈旧 Cloudflare CDN）并加版本门禁，不再静默安装旧 build
 
 ## [1.5.3] - 2026-08-18
 

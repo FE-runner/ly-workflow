@@ -2,13 +2,19 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-18 (v1.5.3)
+**Last Updated**: 2026-08-18 (v1.5.4)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-18 (v1.5.4) — 迁移退役 + 品牌动态化 + 安装链路修复
+- 🔄 **v1.4.0 目录迁移退役**：一次性升级动作，v1.4.1+ 目录结构无变化；此前 config 缺失 + ~/.ly 残留时反复触发并可能卡死安装，已整体移除
+- 🔄 **banner 品牌清理**：CCG logo → LY；slogan 去 "Codex Review"（流程代号已随 `{{REVIEWER_MODEL}}` 动态化）；状态行显示实际 reviewer 并超宽折行
+- 🐛 **fix(installer)**：仅 GitHub Release 下载 + 版本门禁（删失效 CDN，不再静默装旧版）
+- 🐛 **fix(commands)**：报告标签 "Codex 原文" 等 → `{{REVIEWER_MODEL}}`；逐字执行硬约束
 
 ### 2026-08-18 (v1.5.3) — wrapper 版本号与 npm 统一 + 三条断裂修复
 - 🔄 **wrapper 版本号统一**：`codeagent-wrapper/main.go` 的 `version` 与 `installer.ts` 的 `EXPECTED_BINARY_VERSION` 从独立 6.1.0 改为与 npm 包号一致的 `1.5.3`，此后每次发版同步（消除 5.14.0/6.x 与 1.5.x 脱节）。
