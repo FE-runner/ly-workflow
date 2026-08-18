@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.2] - 2026-08-18
+
+### Fixed
+- `migration.ts` 迁移日志模板字符串清理 v1.4.2 残留的 `~/.ccg/...` 品牌路径（实际操作为 `~/.ly/` → `~/.claude/.ly/`，日志显示与实际不符）；迁移时跳过 macOS Finder 系统文件 `.DS_Store`，不再将其复制到新配置目录（`68225cf`）
+
 ## [1.5.1] - 2026-08-18
 
 ### Fixed

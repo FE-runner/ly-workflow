@@ -2,13 +2,16 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-18 (v1.5.1)
+**Last Updated**: 2026-08-18 (v1.5.2)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-18 (v1.5.2) — migration 迁移日志品牌残留清理
+- 🐛 **fix**：`migration.ts` 迁移日志模板字符串仍是 v1.4.2 清理前的 `~/.ccg/...`（实际操作路径是 `~/.ly/...`），已改对；迁移时跳过 macOS Finder 系统文件 `.DS_Store`，不再复制到新配置目录。
 
 ### 2026-08-18 (v1.5.1) — review-plan lite 模式修复
 - 🐛 **fix**：`/ly:review-plan` 模板 command 行补上与 review-code 一致的 `{{LITE_MODE_FLAG}}` 占位符——此前该模板缺占位符，`--lite` 未被注入，init 选定 lite 模式（"不要 web"）后 review-plan 运行时 `liteMode=false` 仍拉起 web server，与 review-code 行为不一致。
