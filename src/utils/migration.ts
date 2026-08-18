@@ -18,8 +18,8 @@ export interface MigrationResult {
  * Migrate from v1.3.x to v1.4.0
  *
  * Changes:
- * 1. ~/.ccg/ → ~/.claude/.ccg/
- * 2. ~/.claude/prompts/ccg/ → ~/.claude/.ccg/prompts/
+ * 1. ~/.ly/ → ~/.claude/.ly/
+ * 2. ~/.claude/prompts/ccg/ → ~/.claude/.ly/prompts/
  */
 export async function migrateToV1_4_0(): Promise<MigrationResult> {
   const result: MigrationResult = {
@@ -38,23 +38,25 @@ export async function migrateToV1_4_0(): Promise<MigrationResult> {
     // Ensure new config directory exists
     await fs.ensureDir(newCcgDir)
 
-    // 1. Migrate ~/.ccg/ → ~/.claude/.ccg/
+    // 1. Migrate ~/.ly/ → ~/.claude/.ly/
     if (await fs.pathExists(oldCcgDir)) {
       const files = await fs.readdir(oldCcgDir)
       for (const file of files) {
+        // macOS Finder 系统文件，不参与迁移
+        if (file === '.DS_Store') continue
         const srcFile = join(oldCcgDir, file)
         const destFile = join(newCcgDir, file)
 
         try {
           // Skip if destination already exists (don't overwrite)
           if (await fs.pathExists(destFile)) {
-            result.skipped.push(`~/.ccg/${file} (already exists in new location)`)
+            result.skipped.push(`~/.ly/${file} (already exists in new location)`)
             continue
           }
 
           // Copy file or directory
           await fs.copy(srcFile, destFile)
-          result.migratedFiles.push(`~/.ccg/${file} → ~/.claude/.ccg/${file}`)
+          result.migratedFiles.push(`~/.ly/${file} → ~/.claude/.ly/${file}`)
         }
         catch (error) {
           result.errors.push(`Failed to migrate ${file}: ${error}`)
@@ -67,19 +69,19 @@ export async function migrateToV1_4_0(): Promise<MigrationResult> {
         const remaining = await fs.readdir(oldCcgDir)
         if (remaining.length === 0) {
           await fs.remove(oldCcgDir)
-          result.migratedFiles.push('Removed old ~/.ccg/ directory')
+          result.migratedFiles.push('Removed old ~/.ly/ directory')
         }
         else {
-          result.skipped.push(`~/.ccg/ (not empty, keeping for safety)`)
+          result.skipped.push(`~/.ly/ (not empty, keeping for safety)`)
         }
       }
       catch (error) {
         // It's okay if we can't remove the old directory
-        result.skipped.push(`~/.ccg/ (could not remove: ${error})`)
+        result.skipped.push(`~/.ly/ (could not remove: ${error})`)
       }
     }
     else {
-      result.skipped.push('~/.ccg/ (does not exist, nothing to migrate)')
+      result.skipped.push('~/.ly/ (does not exist, nothing to migrate)')
     }
 
     // 2. Migrate ~/.claude/prompts/ccg/ → ~/.claude/.ccg/prompts/
