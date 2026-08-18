@@ -129,9 +129,12 @@ export async function migrateToV1_4_0(): Promise<MigrationResult> {
  * Check if migration is needed
  */
 export async function needsMigration(): Promise<boolean> {
-  // If config.toml exists with a version >= 2.0.0, skip migration entirely.
-  // This prevents V3 users from triggering v1.4.0 migration due to stale
-  // directories or getCurrentVersion() returning 0.0.0 on Windows npx cache.
+  // If config.toml exists under ~/.claude/.ly/, its presence itself means the
+  // v1.4.0 directory structure is already in place — skip the v1.3→v1.4
+  // migration entirely. (v1.3.x users have no config.toml here, only the old
+  // ~/.ly paths, so they still fall through to the directory checks below.)
+  // Previously the cutoff was major >= 2, which made every v1.4+/v1.5+ user
+  // re-trigger a pointless migration whenever a stale ~/.ly remnant existed.
   try {
     const configPath = join(homedir(), '.claude', '.ly', 'config.toml')
     if (await fs.pathExists(configPath)) {
@@ -139,7 +142,7 @@ export async function needsMigration(): Promise<boolean> {
       const versionMatch = content.match(/version\s*=\s*"([^"]+)"/)
       if (versionMatch) {
         const major = Number.parseInt(versionMatch[1].split('.')[0], 10)
-        if (major >= 2) return false
+        if (major >= 1) return false
       }
     }
   }
