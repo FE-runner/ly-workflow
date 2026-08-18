@@ -103,7 +103,7 @@ your-project/
 
 面向已存在、已提交的 OpenSpec change，一键定位或创建对应的隔离 worktree，输出续接实施的命令，不自动执行、不自动切会话。
 
-1. **隔离检测**（复用 Add 步骤 1）：已在 worktree 内时**默认不创建**，提示当前所在路径/分支并询问是否仍要为目标 change 新建独立 worktree（默认否）。用户不确认 → 输出当前路径/分支，直接结束，不进入后续步骤。用户明确确认 → 继续。
+1. **创建还是定位**（`switch` 不主动询问）：目标路径**已注册** → 走步骤 3 定位；未注册 → 直接走步骤 4 新建。是否要在当前会话创建/切换由调用方（`/ly:propose` 编排）决定，命令自身不弹"是否新建独立 worktree"确认——若当前已在 worktree 内，直接提示当前路径/分支并继续按注册情况处理，不强制默认否。
 2. **前置校验**：
    - `openspec/changes/<change-name>/proposal.md` **与 `tasks.md` 均必须存在**——只有 `proposal.md` 没有 `tasks.md` 时报错并提示"该 change 尚未生成 tasks.md，请先完成规划（如 `/opsx:propose`）再执行 switch"。
    - `git status --porcelain -- openspec/changes/<change-name>/` 必须为空（无未提交/未跟踪内容），否则报错提示先 commit（worktree 不会带入未提交文件，不做自动迁移；需要迁移用 `migrate`）。
