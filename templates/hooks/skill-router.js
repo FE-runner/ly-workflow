@@ -53,61 +53,46 @@ try {
   );
 
   // ── Model action triggers ──
-  // Detect when user wants to use a specific model for a task
+  // Detect when user wants to use a specific model for a task.
+  // v1.5.2: removed dead gemini/both (dual-model) branches left over from the
+  // pre-v1.0.0 multi-model engine; added hermes/claude/openclaw to match the
+  // wrapper backendRegistry (codex/claude/hermes/openclaw).
   const MODEL_ACTIONS = [
     { keywords: ['codex审查', 'codex 审查', 'codex review', '用codex看', '让codex检查', 'codex检查'], model: 'codex', role: 'reviewer', action: '审查当前代码变更（git diff）' },
     { keywords: ['codex分析', 'codex 分析', 'codex analyze', '用codex分析'], model: 'codex', role: 'analyzer', action: '分析当前项目/代码' },
     { keywords: ['codex调试', 'codex 调试', 'codex debug', '用codex调试'], model: 'codex', role: 'debugger', action: '诊断问题' },
     { keywords: ['codex测试', 'codex 测试', 'codex test', '用codex写测试'], model: 'codex', role: 'tester', action: '生成测试用例' },
-    { keywords: ['gemini审查', 'gemini 审查', 'gemini review', '用gemini看', '让gemini检查'], model: 'gemini', role: 'reviewer', action: '审查当前代码变更（git diff）' },
-    { keywords: ['gemini分析', 'gemini 分析', 'gemini analyze', '用gemini分析'], model: 'gemini', role: 'analyzer', action: '分析当前项目/代码' },
-    { keywords: ['gemini前端', 'gemini 前端', '用gemini做前端'], model: 'gemini', role: 'frontend', action: '前端开发分析' },
-    { keywords: ['双模型审查', '双模型 审查', '两个模型审查', 'dual review'], model: 'both', role: 'reviewer', action: '双模型交叉审查代码变更' },
-    { keywords: ['双模型分析', '双模型 分析', '两个模型分析', 'dual analyze'], model: 'both', role: 'analyzer', action: '双模型并行分析' },
+    { keywords: ['hermes审查', 'hermes 审查', 'hermes review', '用hermes看', '让hermes检查'], model: 'hermes', role: 'reviewer', action: '审查当前代码变更（git diff）' },
+    { keywords: ['hermes分析', 'hermes 分析', 'hermes analyze', '用hermes分析'], model: 'hermes', role: 'analyzer', action: '分析当前项目/代码' },
+    { keywords: ['claude审查', 'claude 审查', 'claude review', '用claude看', '让claude检查'], model: 'claude', role: 'reviewer', action: '审查当前代码变更（git diff）' },
+    { keywords: ['openclaw审查', 'openclaw 审查', 'openclaw review', '用openclaw看'], model: 'openclaw', role: 'reviewer', action: '审查当前代码变更（git diff）' },
   ];
 
   const modelAction = MODEL_ACTIONS.find(a => a.keywords.some(kw => msgLower.includes(kw)));
   if (modelAction) {
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     const wrapperPath = path.join(homeDir, '.claude', 'bin', 'codeagent-wrapper');
+    // hermes/openclaw have no role-prompt dir under prompts/ yet — fall back to
+    // the codex role prompt (generic review/analyze instructions) for them.
+    const promptsBase = path.join(homeDir, '.claude', '.ly', 'prompts');
+    const roleDir = path.join(promptsBase, modelAction.model);
+    const roleFile = fs.existsSync(roleDir)
+      ? path.join(roleDir, modelAction.role + '.md')
+      : path.join(promptsBase, 'codex', modelAction.role + '.md');
 
-    let actionInstructions;
-    if (modelAction.model === 'both') {
-      actionInstructions = `<ly-model-action>
-用户请求双模型${modelAction.role === 'reviewer' ? '审查' : '分析'}。请立即执行：
-
-1. 获取工作目录: WORKDIR=$(pwd)
-2. 并行调用两个模型 (run_in_background: true):
-
-   Backend (codex):
-   ${wrapperPath} --progress --backend codex - "$WORKDIR" <<'EOF'
-   ROLE_FILE: ${path.join(homeDir, '.claude', '.ly', 'prompts', 'codex', modelAction.role + '.md')}
-   <TASK>${modelAction.action}</TASK>
-   EOF
-
-   Frontend (gemini):
-   ${wrapperPath} --progress --backend gemini - "$WORKDIR" <<'EOF'
-   ROLE_FILE: ${path.join(homeDir, '.claude', '.ly', 'prompts', 'gemini', modelAction.role + '.md')}
-   <TASK>${modelAction.action}</TASK>
-   EOF
-
-3. 等待结果，综合输出
-</ly-model-action>`;
-    } else {
-      actionInstructions = `<ly-model-action>
+    const actionInstructions = `<ly-model-action>
 用户请求使用 ${modelAction.model} 执行${modelAction.action}。请立即执行：
 
 1. 获取工作目录: WORKDIR=$(pwd)
 2. 调用模型:
 
    ${wrapperPath} --progress --backend ${modelAction.model} - "$WORKDIR" <<'EOF'
-   ROLE_FILE: ${path.join(homeDir, '.claude', '.ly', 'prompts', modelAction.model, modelAction.role + '.md')}
+   ROLE_FILE: ${roleFile}
    <TASK>${modelAction.action}</TASK>
    EOF
 
 3. 等待结果并输出
 </ly-model-action>`;
-    }
 
     outputHook('UserPromptSubmit', actionInstructions);
     process.exit(0);
