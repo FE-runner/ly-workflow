@@ -97,9 +97,17 @@ interface InstallContext {
 const GITHUB_REPO = 'FE-runner/ly-workflow'
 const RELEASE_TAG = 'preset'
 
-/** Download sources: R2 CDN first (China-friendly) → GitHub fallback (global) */
+/**
+ * Download sources.
+ * GitHub Release is the single source of truth: it carries the freshly built
+ * preset binary for every push (build-binaries.yml) and with the version-gated
+ * download (EXPECTED_BINARY_VERSION) mismatches are rejected loudly.
+ * The old third-party Cloudflare/20031227 mirror was removed — it served a
+ * stale 5.14.0 build and, being first in the list, silently shipped it forever.
+ * If the network can't reach GitHub, the install fails visibly instead of
+ * quietly installing a stale binary.
+ */
 const BINARY_SOURCES = [
-  { name: 'Cloudflare CDN', url: 'https://github.20031227.xyz/preset', timeoutMs: 30_000 },
   { name: 'GitHub Release', url: `https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}`, timeoutMs: 120_000 },
 ]
 
