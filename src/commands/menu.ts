@@ -79,6 +79,31 @@ function boxRow(content: string): string {
   return ansis.cyan('║') + content + ' '.repeat(gap) + ansis.cyan('║')
 }
 
+/**
+ * Split status parts into lines that each fit inside the banner width.
+ * Parts are joined with "  |  "; when adding the next part would overflow
+ * INNER_W, the current line is flushed and a new one starts.
+ */
+function wrapStatusLines(parts: string[], width: number): string[] {
+  const sep = ansis.gray('  |  ')
+  const sepVis = visWidth(sep)
+  const lines: string[] = []
+  let cur = ''
+  for (const p of parts) {
+    const pVis = visWidth(p)
+    const wouldBe = cur ? visWidth(cur) + sepVis + pVis : pVis
+    if (cur && wouldBe > width) {
+      lines.push(cur)
+      cur = p
+    }
+    else {
+      cur = cur ? cur + sep + p : p
+    }
+  }
+  if (cur) lines.push(cur)
+  return lines
+}
+
 function drawHeader(statusParts: string[]): void {
   const top = ansis.cyan('╔' + '═'.repeat(INNER_W) + '╗')
   const bot = ansis.cyan('╚' + '═'.repeat(INNER_W) + '╝')
@@ -104,8 +129,9 @@ function drawHeader(statusParts: string[]): void {
   console.log(boxRow(centerLine(ansis.gray('Two-Role Dev Workflow'), INNER_W)))
   console.log(empty)
   if (statusParts.length > 0) {
-    const statusLine = statusParts.join(ansis.gray('  |  '))
-    console.log(boxRow(centerLine(statusLine, INNER_W)))
+    for (const line of wrapStatusLines(statusParts, INNER_W)) {
+      console.log(boxRow(centerLine(line, INNER_W)))
+    }
     console.log(empty)
   }
   console.log(bot)
