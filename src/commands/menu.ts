@@ -84,14 +84,13 @@ function drawHeader(statusParts: string[]): void {
   const bot = ansis.cyan('╚' + '═'.repeat(INNER_W) + '╝')
   const empty = boxRow(' '.repeat(INNER_W))
 
-  // ASCII Art Logo
+  // ASCII Art Logo — "LY"（品牌重构后替换掉多模型时代残留的 C-C-G 图形）
   const logo = [
-    '  ██████╗  ██████╗  ██████╗ ',
-    ' ██╔════╝ ██╔════╝ ██╔════╝ ',
-    ' ██║      ██║      ██║  ███╗',
-    ' ██║      ██║      ██║   ██║',
-    ' ╚██████╗ ╚██████╗ ╚██████╔╝',
-    '  ╚═════╝  ╚═════╝  ╚═════╝ ',
+    '█             ██   ██',
+    '█              ██ ██ ',
+    '█               ███  ',
+    '█                █   ',
+    '██████           █   ',
   ]
 
   console.log()
@@ -101,7 +100,7 @@ function drawHeader(statusParts: string[]): void {
     console.log(boxRow(centerLine(ansis.bold.white(line), INNER_W)))
   }
   console.log(empty)
-  console.log(boxRow(centerLine(ansis.gray('Claude Code + Codex Review'), INNER_W)))
+  console.log(boxRow(centerLine(ansis.gray('Claude Code + AI Review'), INNER_W)))
   console.log(boxRow(centerLine(ansis.gray('Two-Role Dev Workflow'), INNER_W)))
   console.log(empty)
   if (statusParts.length > 0) {
@@ -142,6 +141,9 @@ export async function showMainMenu(): Promise<void> {
     ]
     if (mcpProvider && mcpProvider !== '—' && mcpProvider !== 'skip') {
       statusParts.push(ansis.magenta(mcpProvider))
+    }
+    if (config?.routing?.reviewer) {
+      statusParts.push(ansis.green(`reviewer: ${config.routing.reviewer}`))
     }
 
     drawHeader(statusParts)
