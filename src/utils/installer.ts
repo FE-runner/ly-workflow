@@ -323,11 +323,16 @@ async function installPromptFiles(ctx: InstallContext): Promise<void> {
     return
   }
 
-  for (const model of ['codex', 'claude']) {
+  // Install role prompts for every backend the wrapper supports. Only codex/
+  // and claude/ ship their own content; hermes/openclaw reuse codex's role
+  // files so that ROLE_FILE: prompts/{{REVIEWER_MODEL}}/... always resolves.
+  for (const model of ['codex', 'claude', 'hermes', 'openclaw']) {
     try {
+      const srcModelDir = join(promptsTemplateDir, model)
+      const srcDir = await fs.pathExists(srcModelDir) ? srcModelDir : join(promptsTemplateDir, 'codex')
       const installed = await copyMdTemplates(
         ctx,
-        join(promptsTemplateDir, model),
+        srcDir,
         join(promptsDir, model),
       )
       for (const name of installed) {

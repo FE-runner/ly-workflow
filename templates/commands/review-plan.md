@@ -1,5 +1,5 @@
 ---
-description: '读取 OpenSpec change 的 proposal/design/tasks，Codex 分级审查方案合理性，审查-修复循环直到 Critical 清零或触发终止条件'
+description: '读取 OpenSpec change 的 proposal/design/tasks，{{REVIEWER_MODEL}} 分级审查方案合理性，审查-修复循环直到 Critical 清零或触发终止条件'
 ---
 
 # Review Plan - 方案审查
@@ -28,16 +28,16 @@ ls -d openspec/changes/*/ 2>/dev/null | grep -v '/archive/'
 
 ### 2. 枚举工件路径（仅首轮执行一次；不读取内容）
 
-枚举该 change 目录下的 `proposal.md`、`design.md`、`tasks.md`（存在的部分即可，缺失的容错跳过，不报错）以及 `specs/**/*.md` 的全部 delta spec 文件路径（存在多份时全部枚举，不只取其中一份）。这一步只确定路径，不读取文件内容拼接成字符串——Codex backend 具备在 `WORKDIR` 下自主读取文件的能力。
+枚举该 change 目录下的 `proposal.md`、`design.md`、`tasks.md`（存在的部分即可，缺失的容错跳过，不报错）以及 `specs/**/*.md` 的全部 delta spec 文件路径（存在多份时全部枚举，不只取其中一份）。这一步只确定路径，不读取文件内容拼接成字符串——{{REVIEWER_MODEL}} backend 具备在 `WORKDIR` 下自主读取文件的能力。
 
 **基线 spec 引用检测**：检查每份 delta spec 文件是否有显式文字引用了基线 spec 中未被本次修改的既有 Requirement（例如"见……'某 Requirement 名'"这类指代，无论出现在 `## MODIFIED Requirements` 内还是外）。若有，额外把该基线能力对应的 `openspec/specs/<capability>/spec.md` 路径也纳入路径清单，并在 TASK 中说明该文件仅作审查上下文（用于核实引用是否准确），不属于修复对象。
 
-### 3. 调用 Codex 审查（首轮）
+### 3. 调用 {{REVIEWER_MODEL}} 审查（首轮）
 
 ```
 WORKDIR=$(pwd)
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/codex/plan-reviewer.md\n<TASK>审查以下OpenSpec方案的合理性：遗漏的边界情况、范围是否清晰、风险点、spec 是否覆盖 proposal 的 What Changes。不做逐行代码风格审查，不把'代码库尚未实现该方案条目'当作 Critical。\n\nchange 目录：openspec/changes/<change-name>/\n请自行读取以下路径的当前内容后再审查：<proposal.md/design.md/tasks.md/全部 delta spec 文件的相对路径清单，逐一列出，不要用\"读取 specs 目录\"这种模糊指代>\n<若步骤 2 检测到基线引用：额外说明\"以下路径仅作审查上下文，不属于本次修复对象：<基线 spec 路径>\">\n</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置/条目（含可解析的文件相对路径）、问题描述、建议\nCODEAGENT_EOF",
+  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/{{REVIEWER_MODEL}}/plan-reviewer.md\n<TASK>审查以下OpenSpec方案的合理性：遗漏的边界情况、范围是否清晰、风险点、spec 是否覆盖 proposal 的 What Changes。不做逐行代码风格审查，不把'代码库尚未实现该方案条目'当作 Critical。\n\nchange 目录：openspec/changes/<change-name>/\n请自行读取以下路径的当前内容后再审查：<proposal.md/design.md/tasks.md/全部 delta spec 文件的相对路径清单，逐一列出，不要用\"读取 specs 目录\"这种模糊指代>\n<若步骤 2 检测到基线引用：额外说明\"以下路径仅作审查上下文，不属于本次修复对象：<基线 spec 路径>\">\n</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置/条目（含可解析的文件相对路径）、问题描述、建议\nCODEAGENT_EOF",
   run_in_background: true,
   timeout: 1800000,
   description: "审查方案: <change-name>"
@@ -76,7 +76,7 @@ Bash({
 
 从第 2 轮起，TASK SHALL NOT 重新传整份 proposal/design/tasks/specs 内容；改为仅包含：
 
-1. 上一轮 Codex 报告的全部 Critical 原文（逐字，不经改写，包含被判定"不认可"的条目）。
+1. 上一轮 {{REVIEWER_MODEL}} 报告的全部 Critical 原文（逐字，不经改写，包含被判定"不认可"的条目）。
 2. 路径清单，必须覆盖"本轮实际改动的 artifact/delta spec 文件"（4.4 记录的清单）∪"上一轮全部 Critical 各自指向的 artifact/delta spec 文件"（即使未被修改）。若上一轮某条 Critical 指向的文件已被删除或重命名，路径清单改用新路径（若有）并说明状态变化。
 
 路径清单之外的文件不重新整段传入。若某条上一轮 Critical 的位置字段缺失可解析路径，命令保守处理：将该 change 目录下全部 artifact/delta spec 路径纳入下一轮路径清单，并在报告中说明该情况（不得静默丢弃该 Critical）。
@@ -93,15 +93,15 @@ Bash({
 2. **熔断**：同一个 Critical（以"文件路径 + 问题类别 + 定位锚点（artifact 内的具体条目/章节）"三者共同判定为同一问题）在相邻两轮审查中都被判定为存在，且上一轮 Claude 对它是"认可"状态
 3. **无法安全自动修复**：需要产品/业务决策、依赖当前会话不具备的信息，或 Claude 判断信息不足——不得进行猜测性修改
 4. **修复后验证失败**：见 4.3（`openspec validate` 未通过）
-5. **分歧未决**：Claude 上一轮判断"不认可"（未修改），下一轮 Codex 仍判定同一问题存在
-6. **审查对象类型持续系统性误判**：连续 3 轮（含本轮）审查中，每一轮的全部 Critical 都被 Claude 判定为同一大类系统性误判——即 Codex 反复以"该轮 Critical 所依据的判断类别不属于方案审查范畴"为由被判定不认可（例如连续 3 轮的 Critical 均以"代码库尚未实现该方案条目"作为理由），不要求这 3 轮之间 Critical 的文件/类别/锚点相互匹配，只要求"判定为不认可的理由类别"在这 3 轮中一致
+5. **分歧未决**：Claude 上一轮判断"不认可"（未修改），下一轮 {{REVIEWER_MODEL}} 仍判定同一问题存在
+6. **审查对象类型持续系统性误判**：连续 3 轮（含本轮）审查中，每一轮的全部 Critical 都被 Claude 判定为同一大类系统性误判——即 {{REVIEWER_MODEL}} 反复以"该轮 Critical 所依据的判断类别不属于方案审查范畴"为由被判定不认可（例如连续 3 轮的 Critical 均以"代码库尚未实现该方案条目"作为理由），不要求这 3 轮之间 Critical 的文件/类别/锚点相互匹配，只要求"判定为不认可的理由类别"在这 3 轮中一致
 7. **达到全局轮数上限**（5 轮，独立于上面 1-6 的判定）
 
-触发条件 2-6（或达到全局轮数上限）时，立即停止循环，不执行任何提交（改动留在工作区），报告中必须明确指出触发的具体条件、涉及的问题（文件/类别/章节/判定依据），并说明需要人工介入。"分歧未决"额外要求并列展示 Codex 每一轮的原始发现与 Claude 每一轮的反驳理由；"审查对象类型持续系统性误判"同样要求并列展示，但展示连续 3 轮（而不是 2 轮）的原始发现与 Claude 每一轮的反驳理由。循环期间的 Warning/Info 不参与终止判定，只在最终报告列出**最后一轮**结果。
+触发条件 2-6（或达到全局轮数上限）时，立即停止循环，不执行任何提交（改动留在工作区），报告中必须明确指出触发的具体条件、涉及的问题（文件/类别/章节/判定依据），并说明需要人工介入。"分歧未决"额外要求并列展示 {{REVIEWER_MODEL}} 每一轮的原始发现与 Claude 每一轮的反驳理由；"审查对象类型持续系统性误判"同样要求并列展示，但展示连续 3 轮（而不是 2 轮）的原始发现与 Claude 每一轮的反驳理由。循环期间的 Warning/Info 不参与终止判定，只在最终报告列出**最后一轮**结果。
 
 ### 逐轮执行日志
 
-每一轮 Codex 调用完成后（包括首轮 Critical 为 0、直接结束的情况），都要在报告中包含一个独立区块，逐字展示该轮 Codex 返回的原始 Critical/Warning/Info 内容（不经概括、改写或合并），与 Claude 对该轮每条 Critical 的认可/不认可判定并排列出（若该轮无 Critical，只展示原文）。这个区块在该轮 Codex 调用返回之后即可呈现，不是流式展示。这是给需要核实细节的人看的补充材料；最终报告的主体是人话摘要（见步骤 5），二者并存，不互相替代。
+每一轮 {{REVIEWER_MODEL}} 调用完成后（包括首轮 Critical 为 0、直接结束的情况），都要在报告中包含一个独立区块，逐字展示该轮 {{REVIEWER_MODEL}} 返回的原始 Critical/Warning/Info 内容（不经概括、改写或合并），与 Claude 对该轮每条 Critical 的认可/不认可判定并排列出（若该轮无 Critical，只展示原文）。这个区块在该轮 {{REVIEWER_MODEL}} 调用返回之后即可呈现，不是流式展示。这是给需要核实细节的人看的补充材料；最终报告的主体是人话摘要（见步骤 5），二者并存，不互相替代。
 
 ### 5. 输出报告
 
@@ -123,7 +123,7 @@ Bash({
 1. [proposal.md / design.md / tasks.md / specs/**/*.md] — <观察/建议，人话>
 
 ## 逐轮执行日志
-（见"逐轮执行日志"一节，按轮次顺序列出每轮的 Codex 原文 + Claude 判定，作为补充材料）
+（见"逐轮执行日志"一节，按轮次顺序列出每轮的 {{REVIEWER_MODEL}} 原文 + Claude 判定，作为补充材料）
 
 ---
 总轮次: [轮数]
@@ -142,13 +142,13 @@ Bash({
 <用人话说清楚发现了什么问题、卡在哪、涉及哪些文件/章节>
 
 （"分歧未决"额外展示，展示 2 轮）
-### Codex 各轮原始发现
+### {{REVIEWER_MODEL}} 各轮原始发现
 第 N 轮：<原文>
 ### Claude 各轮反驳理由
 第 N 轮：<理由>
 
 （"审查对象类型持续系统性误判"额外展示，展示连续 3 轮）
-### Codex 各轮原始发现
+### {{REVIEWER_MODEL}} 各轮原始发现
 第 N 轮：<原文>
 第 N+1 轮：<原文>
 第 N+2 轮：<原文>

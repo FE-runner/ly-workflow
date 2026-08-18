@@ -1,10 +1,10 @@
 ---
-description: '读取 git diff，Codex 审查代码变更，审查-修复循环直到 Critical 清零或触发终止条件'
+description: '读取 git diff，{{REVIEWER_MODEL}} 审查代码变更，审查-修复循环直到 Critical 清零或触发终止条件'
 ---
 
 # Review Code - 代码审查
 
-审查当前代码变更，Codex 单模型审查，输出 Critical/Warning/Info 分级结果。若存在 Critical，进入审查-修复循环：Claude 判断是否认可每条 Critical，认可则修复并自动重新审查，直到清零或触发终止条件。
+审查当前代码变更，{{REVIEWER_MODEL}} 单模型审查，输出 Critical/Warning/Info 分级结果。若存在 Critical，进入审查-修复循环：Claude 判断是否认可每条 Critical，认可则修复并自动重新审查，直到清零或触发终止条件。
 
 循环执行期间默认不提交；仅当循环以"正常清零"结束时，才对审查目标全部文件（`git diff HEAD` 圈定的原始改动 + 循环修复一并暂存）统一提交一次。传入 `--no-commit` 时，连这次最终的统一提交也不做。
 
@@ -25,16 +25,16 @@ git rev-parse HEAD >/dev/null 2>&1 && echo has_head || echo no_head
 git status --porcelain | grep '^??'
 ```
 
-**首轮确定的审查范围（`git diff HEAD`，或零 commit 场景下的三条命令组合说明）必须记录下来，供首轮 TASK 使用**，不重新执行本步骤的分支选择逻辑。判定审查范围本身（选哪条分支）由 Claude 完成，不下放给 Codex。工作区干净场景不进入审查，直接结束。
+**首轮确定的审查范围（`git diff HEAD`，或零 commit 场景下的三条命令组合说明）必须记录下来，供首轮 TASK 使用**，不重新执行本步骤的分支选择逻辑。判定审查范围本身（选哪条分支）由 Claude 完成，不下放给 {{REVIEWER_MODEL}}。工作区干净场景不进入审查，直接结束。
 
-### 2. 调用 Codex 审查（首轮）
+### 2. 调用 {{REVIEWER_MODEL}} 审查（首轮）
 
-Codex backend 以 agentic 模式运行，具备在 `WORKDIR` 下自主执行 shell 命令、读取文件的能力。TASK 里 SHALL NOT 由 Claude 预先读取 `git diff`/未跟踪文件内容拼进字符串；只传基线引用说明和未跟踪文件路径清单，指示 Codex 自行执行对应命令获取实际内容：
+{{REVIEWER_MODEL}} backend 以 agentic 模式运行，具备在 `WORKDIR` 下自主执行 shell 命令、读取文件的能力。TASK 里 SHALL NOT 由 Claude 预先读取 `git diff`/未跟踪文件内容拼进字符串；只传基线引用说明和未跟踪文件路径清单，指示 {{REVIEWER_MODEL}} 自行执行对应命令获取实际内容：
 
 ```
 WORKDIR=$(pwd)
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/codex/reviewer.md\n<TASK>审查以下代码变更。审查范围：<基线引用说明，例如"运行 git diff HEAD 得到的完整 diff"，或零 commit 场景下的三条命令组合说明>。未跟踪文件路径：<路径清单，若有>。请自行在当前目录（WORKDIR）下执行对应命令/读取指定路径获取实际内容后再审查，不要假设范围。</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置（含可解析的文件相对路径）、问题、建议\nCODEAGENT_EOF",
+  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/{{REVIEWER_MODEL}}/reviewer.md\n<TASK>审查以下代码变更。审查范围：<基线引用说明，例如"运行 git diff HEAD 得到的完整 diff"，或零 commit 场景下的三条命令组合说明>。未跟踪文件路径：<路径清单，若有>。请自行在当前目录（WORKDIR）下执行对应命令/读取指定路径获取实际内容后再审查，不要假设范围。</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置（含可解析的文件相对路径）、问题、建议\nCODEAGENT_EOF",
   run_in_background: true,
   timeout: 1800000,
   description: "审查代码变更"
@@ -54,7 +54,7 @@ Bash({
 
 **3.1 Claude 先判断是否认可该 Critical**
 
-Codex 的 Critical 不是必须执行的裁决。对每条 Critical：
+{{REVIEWER_MODEL}} 的 Critical 不是必须执行的裁决。对每条 Critical：
 - **认可**：判断问题确实存在，进入 3.2 修复。
 - **不认可**：判断为误报、对上下文理解有误、或建议本身有问题，则不修复，但必须在本轮报告里写明反驳理由，不能沉默跳过或悄悄忽略。
 
@@ -74,8 +74,8 @@ Codex 的 Critical 不是必须执行的裁决。对每条 Critical：
 
 第 2 轮起，TASK SHALL NOT 重新拼贴完整基线 diff；改为仅包含：
 
-1. 上一轮 Codex 报告的全部 Critical 原文（逐字，不经改写，包含被判定"不认可"的条目——这些原文仍要传，用于"分歧未决"判定所需的比对）。
-2. 路径清单，必须覆盖"本轮实际修复改动的文件"（3.4 记录的清单）∪"上一轮全部 Critical 各自指向的文件"（即使某条因不认可而未被修改，其指向的文件路径也要纳入，否则 Codex 无法重新核实该问题是否仍存在）。若上一轮某条 Critical 指向的文件在本轮被删除或重命名，路径清单改用新路径（若有）并在 TASK 中说明该文件的状态变化，不让 Codex 尝试读取不存在的旧路径。
+1. 上一轮 {{REVIEWER_MODEL}} 报告的全部 Critical 原文（逐字，不经改写，包含被判定"不认可"的条目——这些原文仍要传，用于"分歧未决"判定所需的比对）。
+2. 路径清单，必须覆盖"本轮实际修复改动的文件"（3.4 记录的清单）∪"上一轮全部 Critical 各自指向的文件"（即使某条因不认可而未被修改，其指向的文件路径也要纳入，否则 {{REVIEWER_MODEL}} 无法重新核实该问题是否仍存在）。若上一轮某条 Critical 指向的文件在本轮被删除或重命名，路径清单改用新路径（若有）并在 TASK 中说明该文件的状态变化，不让 {{REVIEWER_MODEL}} 尝试读取不存在的旧路径。
 
 路径清单之外的文件不重新整段传入。若某条上一轮 Critical 的位置字段缺失可解析路径（角色提示词未被遵守等异常情况），按"审查调用失败"终止条件处理（返回内容不符合可解析格式），不得静默丢弃该 Critical。
 
@@ -91,15 +91,15 @@ Codex 的 Critical 不是必须执行的裁决。对每条 Critical：
 2. **熔断**：同一个 Critical（以"文件路径 + 问题类别 + 定位锚点（函数名/路由/调用点）"三者共同判定为同一问题，不要求文字完全一致）在相邻两轮审查中都被判定为存在，且上一轮 Claude 对它是"认可"状态（已尝试修复但没修好）
 3. **无法安全自动修复**：某个 Critical 的修复需要产品/业务决策、依赖当前会话不具备的外部凭据、会改变已发布的公开 API/接口契约，或 Claude 判断信息不足以给出确定性修复——命中时不得进行猜测性修改
 4. **修复后验证失败**：见 3.3
-5. **分歧未决**：Claude 对某条 Critical 上一轮判断"不认可"（未修复），下一轮 Codex 仍判定同一问题存在——区别于熔断（熔断是"尝试修复但没修好"，分歧未决是"根本不认可"）
-6. **审查对象类型持续系统性误判**：连续 3 轮（含本轮）审查中，每一轮的全部 Critical 都被 Claude 判定为同一大类系统性误判——即 Codex 反复以"该轮 Critical 所依据的判断类别不属于当前命令的审查范畴"为由被判定不认可，不要求这 3 轮之间 Critical 的文件/类别/锚点相互匹配，只要求"判定为不认可的理由类别"在这 3 轮中一致
+5. **分歧未决**：Claude 对某条 Critical 上一轮判断"不认可"（未修复），下一轮 {{REVIEWER_MODEL}} 仍判定同一问题存在——区别于熔断（熔断是"尝试修复但没修好"，分歧未决是"根本不认可"）
+6. **审查对象类型持续系统性误判**：连续 3 轮（含本轮）审查中，每一轮的全部 Critical 都被 Claude 判定为同一大类系统性误判——即 {{REVIEWER_MODEL}} 反复以"该轮 Critical 所依据的判断类别不属于当前命令的审查范畴"为由被判定不认可，不要求这 3 轮之间 Critical 的文件/类别/锚点相互匹配，只要求"判定为不认可的理由类别"在这 3 轮中一致
 7. **达到全局轮数上限**（5 轮，独立于上面 1-6 的判定，见上段"清零优先于轮数上限"）
 
-触发条件 2-6（或达到全局轮数上限）时，立即停止循环，不执行任何提交（改动留在工作区），报告中必须明确指出触发的具体条件、涉及的问题（文件/类别/锚点/判定依据），并说明需要人工介入，不得继续自动修复。"分歧未决"额外要求并列展示 Codex 每一轮的原始发现与 Claude 每一轮的反驳理由；"审查对象类型持续系统性误判"同样要求并列展示，但展示连续 3 轮（而不是 2 轮）的原始发现与 Claude 每一轮的反驳理由。循环期间的 Warning/Info 发现不参与终止判定，只在最终报告列出**最后一轮**的结果，不跨轮次合并。
+触发条件 2-6（或达到全局轮数上限）时，立即停止循环，不执行任何提交（改动留在工作区），报告中必须明确指出触发的具体条件、涉及的问题（文件/类别/锚点/判定依据），并说明需要人工介入，不得继续自动修复。"分歧未决"额外要求并列展示 {{REVIEWER_MODEL}} 每一轮的原始发现与 Claude 每一轮的反驳理由；"审查对象类型持续系统性误判"同样要求并列展示，但展示连续 3 轮（而不是 2 轮）的原始发现与 Claude 每一轮的反驳理由。循环期间的 Warning/Info 发现不参与终止判定，只在最终报告列出**最后一轮**的结果，不跨轮次合并。
 
 ### 逐轮执行日志
 
-每一轮 Codex 调用完成后（包括首轮 Critical 为 0、直接跳到步骤 4 结束的情况，不只是进入了循环体的轮次），都要在报告中包含一个独立区块，逐字展示该轮 Codex 返回的原始 Critical/Warning/Info 内容（不经概括、改写或合并），与 Claude 对该轮每条 Critical 的认可/不认可判定并排列出（若该轮无 Critical，只展示原文，不需要并排判定）。这个区块在该轮 Codex 调用返回之后即可呈现，不是 Codex 进程执行期间的流式展示（Codex 的完整结论只在其进程结束时一次性可用）。这是给需要核实细节的人看的补充材料；最终报告的主体是人话摘要（见步骤 4），二者并存，不互相替代。
+每一轮 {{REVIEWER_MODEL}} 调用完成后（包括首轮 Critical 为 0、直接跳到步骤 4 结束的情况，不只是进入了循环体的轮次），都要在报告中包含一个独立区块，逐字展示该轮 {{REVIEWER_MODEL}} 返回的原始 Critical/Warning/Info 内容（不经概括、改写或合并），与 Claude 对该轮每条 Critical 的认可/不认可判定并排列出（若该轮无 Critical，只展示原文，不需要并排判定）。这个区块在该轮 {{REVIEWER_MODEL}} 调用返回之后即可呈现，不是 {{REVIEWER_MODEL}} 进程执行期间的流式展示（{{REVIEWER_MODEL}} 的完整结论只在其进程结束时一次性可用）。这是给需要核实细节的人看的补充材料；最终报告的主体是人话摘要（见步骤 4），二者并存，不互相替代。
 
 ### 4. 输出报告
 
@@ -111,7 +111,7 @@ Codex 的 Critical 不是必须执行的裁决。对每条 Critical：
 📋 代码审查报告
 
 ## Critical（必须修复）
-（本次已自动修复 N 个 Critical，或为空——若曾发现并修复过，必须写明"本次已自动修复 N 个 Critical"，不得用"未发现问题"掩盖。每条用非技术人员能看懂的人话概括问题和已做的改动，不要只贴 Codex 原文技术措辞）
+（本次已自动修复 N 个 Critical，或为空——若曾发现并修复过，必须写明"本次已自动修复 N 个 Critical"，不得用"未发现问题"掩盖。每条用非技术人员能看懂的人话概括问题和已做的改动，不要只贴 {{REVIEWER_MODEL}} 原文技术措辞）
 
 ## Warning（建议修复，最后一轮结果）
 1. [file:line] — <问题描述，人话>
@@ -121,7 +121,7 @@ Codex 的 Critical 不是必须执行的裁决。对每条 Critical：
 1. [file:line] — <观察/建议，人话>
 
 ## 逐轮执行日志
-（见"逐轮执行日志"一节，按轮次顺序列出每轮的 Codex 原文 + Claude 判定，作为补充材料）
+（见"逐轮执行日志"一节，按轮次顺序列出每轮的 {{REVIEWER_MODEL}} 原文 + Claude 判定，作为补充材料）
 
 ---
 总轮次: [轮数]
@@ -140,13 +140,13 @@ Codex 的 Critical 不是必须执行的裁决。对每条 Critical：
 <用人话说清楚发现了什么问题、卡在哪、涉及哪些文件>
 
 （"分歧未决"额外展示，展示 2 轮）
-### Codex 各轮原始发现
+### {{REVIEWER_MODEL}} 各轮原始发现
 第 N 轮：<原文>
 ### Claude 各轮反驳理由
 第 N 轮：<理由>
 
 （"审查对象类型持续系统性误判"额外展示，展示连续 3 轮）
-### Codex 各轮原始发现
+### {{REVIEWER_MODEL}} 各轮原始发现
 第 N 轮：<原文>
 第 N+1 轮：<原文>
 第 N+2 轮：<原文>
