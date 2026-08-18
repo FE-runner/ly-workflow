@@ -42,10 +42,14 @@ export {
 } from './installer-mcp'
 export type { ContextWeaverConfig } from './installer-mcp'
 
-export {
+import {
   removeFastContextPrompt,
   writeFastContextPrompt,
 } from './installer-prompt'
+export {
+  removeFastContextPrompt,
+  writeFastContextPrompt,
+}
 
 export {
   collectInvocableSkills,
@@ -1174,6 +1178,19 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
     catch (error) {
       result.errors.push(`Failed to remove rules: ${error}`)
     }
+  }
+
+  // Remove fast-context rule file (~/.claude/rules/ly-fast-context.md).
+  // Written by writeFastContextPrompt (installer-prompt.ts) — NOT part of
+  // templates/rules/, so the fixed-name list above misses it. Also clears the
+  // marker blocks it appended to ~/.codex/AGENTS.md / ~/.gemini/GEMINI.md.
+  try {
+    await removeFastContextPrompt()
+    result.removedRules = true
+  }
+  catch (error) {
+    result.errors.push(`Failed to remove fast-context rule: ${error}`)
+    result.success = false
   }
 
   // Remove codeagent-wrapper binary (skip during update to avoid unnecessary re-download)
