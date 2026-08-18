@@ -1107,7 +1107,6 @@ export async function installWorkflows(
   await installEngineFiles(ctx)
   await installHookScripts(ctx)
   await registerHooksInSettings(ctx)
-  await installAgentFiles(ctx)
   await installPromptFiles(ctx)
   await installSkillFiles(ctx)
   await installSkillGeneratedCommands(ctx)
