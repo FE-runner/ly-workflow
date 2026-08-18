@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.1] - 2026-08-18
+
+### Fixed
+- `/ly:review-plan` 模板 command 行补上与 review-code 一致的 `{{LITE_MODE_FLAG}}` 占位符：此前该模板缺占位符，`--lite` 未被注入，init 选定 lite 模式（"不要 web"）后 review-plan 运行时 `liteMode=false` 仍拉起 web server——与 review-code 行为不一致（`8e5b1c9`）
+
 ## [1.5.0] - 2026-08-14
 
 ### Added

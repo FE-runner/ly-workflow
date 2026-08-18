@@ -2,13 +2,16 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-13 (v1.4.3)
+**Last Updated**: 2026-08-18 (v1.5.1)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-18 (v1.5.1) — review-plan lite 模式修复
+- 🐛 **fix**：`/ly:review-plan` 模板 command 行补上与 review-code 一致的 `{{LITE_MODE_FLAG}}` 占位符——此前该模板缺占位符，`--lite` 未被注入，init 选定 lite 模式（"不要 web"）后 review-plan 运行时 `liteMode=false` 仍拉起 web server，与 review-code 行为不一致。
 
 ### 2026-08-18 (v1.5.0) — 可选审查 agent：codex/claude/hermes/openclaw + 轮间续聊
 - ✨ **审查后端可选扩展为四值**：`codex`（默认）/`claude`/`hermes`/`openclaw`——init 向导"选择审查模型"步骤新增 Hermes 与 OpenClaw 两项，`routing.reviewer` 持久化四值；修复 `{{REVIEWER_MODEL}}` 断线——review-code/review-plan 模板的 `--backend codex` 改为 `--backend {{REVIEWER_MODEL}}`，init 选定的审查后端真正生效（此前选了 Claude 也不生效，占位符只存在于文档）。
