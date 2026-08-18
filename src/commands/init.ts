@@ -770,7 +770,8 @@ export async function init(options: InitOptions = {}): Promise<void> {
   try {
     // v1.4.0: Auto-migrate from old directory structure
     if (await needsMigration()) {
-      spinner.text = 'Migrating from v1.3.x to v1.4.0...'
+      // 迁移在后台静默执行：v1.4+ 结构下 config 存在即跳过（needsMigration），
+      // 仅在旧路径残留（如卸载后首装）时补迁，不再显示过时的 "v1.3.x" 提示。
       const migrationResult = await migrateToV1_4_0()
 
       if (migrationResult.migratedFiles.length > 0) {
