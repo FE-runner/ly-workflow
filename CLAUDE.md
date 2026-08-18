@@ -2,13 +2,16 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-18 (v1.5.4)
+**Last Updated**: 2026-08-18 (v1.5.5)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-08-18 (v1.5.5) — worktree 询问收敛到 propose 单点
+- 🔄 **`/ly:apply` 不再询问 worktree**：隔离性询问与 switch 分支移除，直接在当前工作区实施（需要隔离自行 switch）；`/ly:worktree switch` 自身"默认不创建"的强制确认也移除。worktree 新建/切换询问只在 `/ly:propose` 编排的自动/手动路径各一处。
 
 ### 2026-08-18 (v1.5.4) — 迁移退役 + 品牌动态化 + 安装链路修复
 - 🔄 **v1.4.0 目录迁移退役**：一次性升级动作，v1.4.1+ 目录结构无变化；此前 config 缺失 + ~/.ly 残留时反复触发并可能卡死安装，已整体移除

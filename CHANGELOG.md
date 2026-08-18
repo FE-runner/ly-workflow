@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 ---
+---
+
+## [1.5.5] - 2026-08-18
+
+### Changed
+- **worktree 询问收敛到 propose 单点**：`/ly:apply` 的隔离检测询问与 switch 分支、`/ly:worktree switch` 自身"已在 worktree 内默认不创建"的强制确认均移除——全局 worktree 新建/切换询问只在 `/ly:propose` 两条路径各一处出现
 
 ## [1.5.4] - 2026-08-18
 
