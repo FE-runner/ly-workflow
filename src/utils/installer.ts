@@ -165,12 +165,33 @@ async function downloadFromUrl(url: string, destPath: string, timeoutMs: number,
 /**
  * Download codeagent-wrapper binary with dual-source fallback.
  * Strategy: R2 mirror (60s) → GitHub Release (120s). Uses curl for proxy support.
+ * Each source's download is version-gated: only a binary whose `--version`
+ * matches EXPECTED_BINARY_VERSION is accepted — a stale CDN mirror used to
+ * "succeed" with an old 5.14.0 build and silently ship, never hitting the
+ * GitHub fallback where the freshest preset build lives.
  */
 async function downloadBinaryFromRelease(binaryName: string, destPath: string): Promise<boolean> {
   for (const source of BINARY_SOURCES) {
     const url = `${source.url}/${binaryName}`
     const ok = await downloadFromUrl(url, destPath, source.timeoutMs)
-    if (ok) return true
+    if (!ok) continue
+
+    // Version-gate the downloaded binary before accepting it.
+    try {
+      const { execSync } = await import('node:child_process')
+      const versionOutput = execSync(`"${destPath}" --version`, { stdio: 'pipe' }).toString().trim()
+      const actualVersion = versionOutput.replace(/^.*version\s*/, '')
+      if (actualVersion === EXPECTED_BINARY_VERSION) {
+        return true
+      }
+      console.warn(`[ly-workflow] Binary from ${source.name} is v${actualVersion}, expected v${EXPECTED_BINARY_VERSION}; trying next source`)
+    }
+    catch {
+      console.warn(`[ly-workflow] Binary from ${source.name} failed version check; trying next source`)
+    }
+
+    // Reject: remove the stale binary so it can never be accepted as installed.
+    await fs.remove(destPath).catch(() => { /* ignore */ })
   }
   return false
 }
