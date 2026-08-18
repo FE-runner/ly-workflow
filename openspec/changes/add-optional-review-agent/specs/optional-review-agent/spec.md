@@ -47,4 +47,23 @@
 
 #### Scenario: 未取得 session_id 时退化为独立调用
 - **WHEN** 首轮 wrapper 返回结果中不包含可解析的 session_id（例如后端模式不返回会话标识）
-- **THEN** 后续轮次以独立调用（非 resume）进行, 报告中如实说明"未取得 session_id, 未启用轮间续聊"'
+- **THEN** 后续轮次以独立调用（非 resume）进行, 报告中如实说明"未取得 session_id, 未启用轮间续聊"
+
+### Requirement: parser 对非 JSON 输出的纯文本兜底收集
+当审查后端输出无法解析为 codex/claude 风格的逐行 JSON 事件时（例如 hermes `-z` 输出纯文本 stdout、或 openclaw `--json` 的多行 JSON blob 无法逐行映射到 backend 事件）, wrapper 的 parser 必须（SHALL）将非 JSON 行收集为 message, 而不是静默丢弃。仅当没有任何 JSON 事件产出 message **且**没有收集到任何非空文本行时, 结果才视为空（message 为空）。
+
+#### Scenario: hermes 纯文本输出被收集为 message
+- **WHEN** 审查后端为 hermes, wrapper 以 `-z <task>` 调用, stdout 输出多行纯文本（非 JSON）
+- **THEN** parser 把全部非空行拼接为该轮 message, 审查结论可被命令层正常解析
+
+#### Scenario: openclaw 多行 JSON blob 提取出 payload 文本
+- **WHEN** 审查后端为 openclaw, `--json` 输出为缩进的多行 JSON blob（含 `payloads[].text` 与 `meta.agentMeta.sessionId`）
+- **THEN** parser 从 blob 中提取 `payloads[].text` 拼接为 message, 并返回 sessionId 作为 session_id（供轮间续聊使用）, 而非把整段原始 JSON 当作 message 原样透传
+
+#### Scenario: 合法 JSON 但非后端事件不误收为 message
+- **WHEN** stdout 含 `{"item":null}` 或 `{}` 这类合法 JSON 但无法识别为 codex/claude/openclaw 事件的空行
+- **THEN** 该行不进入 plainText 收集, 不作为 message 内容; 已有 codex/claude 事件的 message 提取逻辑不受影响
+
+#### Scenario: 纯文本与 JSON 事件并存时 JSON 优先
+- **WHEN** stdout 同时包含 codex 风格 JSON 事件与少量非 JSON 噪声行
+- **THEN** message 取 JSON 事件的文本, 非 JSON 噪声行不被拼入（既有 codex/claude 分支行为不变）
