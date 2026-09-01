@@ -19,14 +19,16 @@
 - **WHEN** 用户在 CLAUDE.md 与 `openspec/` 均已存在且未发生变化的项目中运行 `/ly:init`
 - **THEN** 命令跳过 commit 步骤，在汇总中如实说明无变动可提交，不视为失败
 
-### Requirement: Explore 命令是纯委托；Apply 实施完成立即提交；Propose 是编排入口
+### Requirement: Explore 命令是纯委托；Apply 委托 Implementer agent 实施完成立即提交；Propose 是编排入口
 `/ly:explore` 必须（SHALL）只调用 `opsx:explore`，原样转发 `$ARGUMENTS`，不得包含自定义的多模型分派、环境校验，或超出底层技能本身的输出后处理逻辑。
 
-`/ly:apply` SHALL 在调用 `opsx:apply` **之前**解析目标 change 名：按固定优先级 `$ARGUMENTS` 中显式且合法的 change 名 → `openspec/changes/` 下唯一未归档的 change → 无法唯一确定时直接询问用户。SHALL NOT 使用"当前 worktree 反查"或"固定目标路径匹配"（新模型下 worktree 目录/分支锁定为开发分支名、不等于 change 名，不存在可反查的固定路径映射）。`/ly:apply` SHALL NOT 再执行基于 `/ly:worktree switch` 的隔离检测——是否隔离由 `/ly:propose` 在创建方案前决定；apply 只负责在**当前工作区**（无论是否 worktree）实施 tasks。`/ly:apply` SHALL NOT 调用 `/ly:worktree switch`，其会话尾部 SHALL NOT 再提示"如需隔离环境可用 `/ly:worktree switch ...`"。
+`/ly:apply` SHALL 在委托实施**之前**解析目标 change 名：按固定优先级 `$ARGUMENTS` 中显式且合法的 change 名 → `openspec/changes/` 下唯一未归档的 change → 无法唯一确定时直接询问用户。SHALL NOT 使用"当前 worktree 反查"或"固定目标路径匹配"（新模型下 worktree 目录/分支锁定为开发分支名、不等于 change 名，不存在可反查的固定路径映射）。`/ly:apply` SHALL NOT 再执行基于 `/ly:worktree switch` 的隔离检测——是否隔离由 `/ly:propose` 在创建方案前决定；apply 只负责在**当前工作区**（无论是否 worktree）实施 tasks。`/ly:apply` SHALL NOT 调用 `/ly:worktree switch`，其会话尾部 SHALL NOT 再提示"如需隔离环境可用 `/ly:worktree switch ...`"。
 
-实施完成后 SHALL 检查是否有实际文件变动（`git status --porcelain`）。有变动时 SHALL `git add` 本次实际改动的文件，然后**立即 commit**（提交信息 `apply: <change-name>`）；无变动则跳过，SHALL NOT 创建空 commit。该 commit 即为 `/ly:review-code` 的审查对象（见 `ly-propose-flow` 的"审查对象 = 最近一次相关 commit"）。若 `git commit` 失败，如实报告 Git 返回的原始错误。
+`/ly:apply` SHALL NOT 直接调用 `opsx:apply` 让 Claude 自己实施代码——实施步骤 SHALL 读取 `routing.implementer`，委托 `codeagent-wrapper --backend <routing.implementer>`（`ROLE_FILE` 指向 `builder.md`）以单次 agentic 调用完成全部 tasks（具体行为见 `optional-implementer-agent` 能力）。
 
-若实施前工作区已存在该 change 目录之外的未提交改动（如审查修复残留），`/ly:apply` SHALL 先检查 `git status --porcelain`：存在与本次实施无关的预存改动时，`git add` 范围仅限本次 `opsx:apply` 实际改动的文件，SHALL NOT 将预存改动一并暂存/提交，并在报告中说明"预存改动未被提交"。
+Implementer agent 返回 `OVERALL: PASS` 后 SHALL 检查是否有实际文件变动（`git status --porcelain`）。有变动时 SHALL `git add` 本次实际改动的文件，然后**立即 commit**（提交信息 `apply: <change-name>`）；无变动则跳过，SHALL NOT 创建空 commit。该 commit 即为 `/ly:review-code` 的审查对象（见 `ly-propose-flow` 的"审查对象 = 最近一次相关 commit"）。若 `git commit` 失败，如实报告 Git 返回的原始错误。返回 `OVERALL: FAIL` 或调用本身失败时的处理见 `optional-implementer-agent` 能力，不执行提交。
+
+若实施前工作区已存在该 change 目录之外的未提交改动（如审查修复残留），`/ly:apply` SHALL 先检查 `git status --porcelain`：存在与本次实施无关的预存改动时，`git add` 范围仅限本次 Implementer agent 实际改动的文件，SHALL NOT 将预存改动一并暂存/提交，并在报告中说明"预存改动未被提交"。
 
 `/ly:archive` 必须（SHALL）调用 `opsx:archive` 并原样转发 `$ARGUMENTS`；归档完成后若 `openspec/` 下存在实际文件变动，SHALL 提交（提交信息形如 `archive: <change-name>`）；无变动或提交本身失败则跳过并如实报告。
 
@@ -40,20 +42,20 @@
 - **WHEN** 用户运行 `/ly:archive`，归档移动了 `openspec/changes/<change-name>/` 到 `archive/` 目录
 - **THEN** 命令调用 `opsx:archive` 技能完成归档后, 提交 `openspec/` 下的文件移动, 提交信息形如 `archive: <change-name>`
 
-#### Scenario: apply 实施完成立即提交，不再暂存区持有
-- **WHEN** 用户运行 `/ly:apply` 实施产生实际文件变动
+#### Scenario: apply 委托 Implementer agent，PASS 后立即提交，不再暂存区持有
+- **WHEN** 用户运行 `/ly:apply`，`routing.implementer` 为某个后端，Implementer agent 实施后返回 `OVERALL: PASS` 且产生实际文件变动
 - **THEN** 命令 `git add` 本次实际改动的文件后立即 `git commit -m "apply: <change-name>"`，作为 `/ly:review-code` 的审查对象；不再询问是否提交、不存在暂存区持有
 
 #### Scenario: apply 实施前工作区已有与本次无关的预存改动
-- **WHEN** 用户在某个 worktree 内运行 `/ly:apply`，实施前该 worktree 已存在未提交的预存改动（如 review 修复残留），`opsx:apply` 实施产生新的实际改动
-- **THEN** 命令 `git add` 仅限本次 `opsx:apply` 实际改动的文件，SHALL NOT 将预存改动一并暂存/提交，并说明"预存改动未被提交"
+- **WHEN** 用户在某个 worktree 内运行 `/ly:apply`，实施前该 worktree 已存在未提交的预存改动（如 review 修复残留），Implementer agent 实施产生新的实际改动并返回 `OVERALL: PASS`
+- **THEN** 命令 `git add` 仅限本次 Implementer agent 实际改动的文件，SHALL NOT 将预存改动一并暂存/提交，并说明"预存改动未被提交"
 
 #### Scenario: apply 不在 worktree 内时直接在当前工作区实施
 - **WHEN** 用户在主工作区（非 worktree）运行 `/ly:apply`
-- **THEN** 命令不询问是否切换 worktree、不调用 `/ly:worktree switch`，直接在当前工作区调用 `opsx:apply` 实施 tasks
+- **THEN** 命令不询问是否切换 worktree、不调用 `/ly:worktree switch`，直接在当前工作区委托 Implementer agent 实施 tasks
 
 #### Scenario: apply 无实际文件变动, 跳过提交
-- **WHEN** 用户运行 `/ly:apply` 实施完成后 `git status --porcelain` 无任何变动
+- **WHEN** 用户运行 `/ly:apply`，Implementer agent 返回 `OVERALL: PASS` 后 `git status --porcelain` 无任何变动
 - **THEN** 命令跳过提交, 不创建空 commit
 
 #### Scenario: propose 命令在委托前先问 worktree 再问全自动/手动
