@@ -20,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
@@ -44,6 +44,13 @@ jobs:
             echo "Tag version ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
             exit 1
           fi
+
+      - name: Debug OIDC claims
+        run: |
+          # 打印 OIDC 令牌主体，核对 npm Trusted Publisher 匹配字段
+          curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm" \
+            | python3 -c "import sys,json;d=json.load(sys.stdin);c=json.loads(d['value']);print('sub:',c.get('sub'));print('job_workflow_ref:',c.get('job_workflow_ref'));print('repository:',c.get('repository'));print('workflow:',c.get('workflow'))"
 
       - name: Publish to npm
         run: npm publish --provenance --access public
