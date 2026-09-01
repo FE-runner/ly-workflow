@@ -39,7 +39,7 @@
 - **替代方案**：保留 `switch` 无 `--auto` 作为"按 change 名定位"——被"切点前移"否决：无调用方，死重。
 
 ### D4: propose 每步 commit + apply 立即 commit
-- proposep：index 干净 → `git add -- openspec/changes/<change>` → `git commit -m "propose: <change>"` → `git show --name-only` 校验文件集合属于该 change 目录。
+- propose：index 干净 → `git add -- openspec/changes/<change>` → `git commit -m "propose: <change>"` → `git show --name-only` 校验文件集合属于该 change 目录。
 - apply：`git add` 本次实际改动 → `git commit -m "apply: <change>"` → 无变动跳过。
 - **替代方案（现状）**：暂存区持有、清零/跳过审查才提交——被"每步 commit"否决：全程留档、审查对象清晰。
 

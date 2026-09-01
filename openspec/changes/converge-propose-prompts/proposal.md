@@ -12,7 +12,7 @@
 - **全自动 = 自动流水线直到审完代码**：`/ly:propose` 审方案清零后，不询问 worktree、不依赖 switch 续接，而是**在同一会话内自动进入 `/ly:apply` 实施 → 自动进入 `/ly:review-code` 审查**，清零/终止后结束；`/ly:archive` 仍手动。任一环节非清零终止 → 停止流水线，报告终止原因。
 - **propose 产物每步 commit**：`opsx:propose` 生成方案后立即 `git commit -m "propose: <change-name>"`，不再"暂存区持有、清零/询问时统一提交"。
 - **apply 产物每步 commit**：`opsx:apply` 实施完成立即 `git commit -m "apply: <change-name>"`，不再"暂存区持有、跳过审查时才询问提交"。
-- **审查对象 = 最近一次相关 commit**：`review-plan` 审查对象是 `propose:` commit，`review-code` 审查对象是 `apply:` commit（都是最近一次相关 commit），不再从"未提交 diff"开始；修复在审查-修复循环内保持现状"结束时统一提交"（见 `ly-review-gates`）。
+- **审查对象 = 最近一次相关 commit**：`review-plan` 审查对象是 `propose:` commit，`review-code` 审查对象是 `apply:` commit（都以 `git log --grep` 按前缀定位最近一期相关 commit，`git show <commit>` + `git diff HEAD` 组合取范围），不再从"未提交 diff"开始；修复在审查-修复循环内保持现状"结束时统一提交"（见 `ly-review-gates`）。
 
 ## Capabilities
 
@@ -34,4 +34,4 @@
 - `templates/commands/review-plan.md` / `review-code.md`：审查对象基线改为"最近一次相关 commit"（`git show HEAD` + `git diff HEAD` 组合，保护未提交修复不丢失）。
 - `openspec/specs/ly-propose-flow/`、`worktree-switch/`、`ly-lifecycle-commands/`：对应 delta spec。
 - `workflow.md`：propose/apply mermaid 流程图同步（每步 commit、前置 worktree、无 switch、全自动流水线）。
-- 待检查：`src/commands/` 下是否有源码头文件/技能引用 `worktree switch`、`--auto`、隔离检测等（若有则一并清理）。
+- 待检查：`templates/commands/{propose,apply,worktree}.md` 与 `templates/CLAUDE.md` 中残留的 `switch`/`--auto`/隔离检测引用（实测集中在 templates 层）；`src/` 下如仍有引用一并清理。

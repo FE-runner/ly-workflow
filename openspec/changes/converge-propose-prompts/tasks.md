@@ -23,7 +23,7 @@
 
 ## 4. apply 命令改造（移除隔离检测 + 立即 commit）
 
-- [ ] 4.1 `templates/commands/apply.md`：删除固定目标路径 + 分支双重匹配的隔离检测（change 名解析保留三步优先级：显式 → worktree 反查唯一 → 唯一未归档 → 询问），不再出现"是否先切换到隔离 worktree"询问
+- [ ] 4.1 `templates/commands/apply.md`：删除隔离检测（固定目标路径+分支匹配+"是否先切换"询问）与"worktree 反查"优先级，change 名解析收敛为三步：显式参数 → `openspec/changes/` 下唯一未归档 change → 询问
 - [ ] 4.2 删除会话尾部"如需隔离环境可用 `/ly:worktree switch ...`"提示；删除"暂存区持有、跳过审查才询问提交"逻辑
 - [ ] 4.3 实施完成后 `git add` 本次实际改动 → **立即 commit** `apply: <change-name>` → 无变动跳过；commit 失败如实报告
 
@@ -35,14 +35,15 @@
 
 ## 6. docs 同步
 
+- [ ] 6.0 同步修订基线 spec 的 Purpose 段：`openspec/specs/ly-lifecycle-commands/spec.md` 基线 Purpose 现写 apply"将改动暂存、默认不自动提交，仅在用户明确跳过 review-code 审查时询问是否提交"——与本 change 的 MODIFIED Requirement（实施完成立即 commit）冲突；归档后基线 Purpose 会残留旧行为描述，需在实施时直接编辑基线 Purpose（或确认 delta 归档后手工修订）使之一致
 - [ ] 6.1 `CLAUDE.md`：变更记录新增 v1.6.x 条目（worktree 询问前置单点、switch 退役、全自动流水线、每步 commit、审查对象=最近 commit）；Slash Commands 表、关键设计决策同步
 - [ ] 6.2 `workflow.md`：/ly:propose 与 /ly:apply 两张 mermaid 图按新流程重绘（创建方案前 worktree 询问单点、无 switch、全自动流水线、propose/apply 每步 commit）
 - [ ] 6.3 `templates/CLAUDE.md`：commands 表与已删除命令说明同步（worktree 描述、apply/propose 说明）
 - [ ] 6.4 CHANGELOG.md 顶部加条目（发版规则要求）
-- [ ] 6.5 grep 全仓库残留 `switch --auto` / `worktree switch` / 隔离检测相关引用，逐一清理；`src/` 下如有引用一并处理
+- [ ] 6.5 显式清理以下残留引用（不只在 6.5 一次性 grep，逐一改目标文件）：`templates/commands/worktree.md` 的 `--auto`（仅 switch 用）选项行、`add` 子命令因删除 switch 而需确认是否保留 `--local` 标注；`templates/commands/apply.md` 会话尾部"如需隔离环境可用 `/ly:worktree switch ...`"提示；`templates/commands/propose.md` 的 switch 调用与 switch 结果判定规则；确认 `add` 子命令的 `<change-name>`/`<开发分支名>` 用法在新流程下的表述与"单层平铺"一致
 
 ## 7. 验证
 
 - [ ] 7.1 `openspec validate` 通过（新增/移除 delta 合法、scenario 四井号格式正确）
 - [ ] 7.2 `pnpm typecheck && pnpm build && pnpm test` 全绿
-- [ ] 7.3 通读三份改动命令模板与 spec delta，确认 16 条决策逐条有落点（对照 todo.md）
+- [ ] 7.3 通读三份改动命令模板与 spec delta，确认设计决策（对照 `design.md` 的 D1–D6 及 `templates/CLAUDE.md` 变更记录）逐条有落点

@@ -3,9 +3,11 @@
 ### Requirement: Explore 命令是纯委托；Apply 实施完成立即提交；Propose 是编排入口
 `/ly:explore` 必须（SHALL）只调用 `opsx:explore`，原样转发 `$ARGUMENTS`，不得包含自定义的多模型分派、环境校验，或超出底层技能本身的输出后处理逻辑。
 
-`/ly:apply` SHALL 在调用 `opsx:apply` **之前**解析目标 change 名：按固定优先级 `$ARGUMENTS` 中显式且合法的 change 名 → 当前 worktree 反查（枚举 `openspec/changes/` 下未归档的 change，若当前路径是唯一一个未归档 change worktree 则采用）→ `openspec/changes/` 下唯一未归档的 change → 无法唯一确定时直接询问用户。`/ly:apply` SHALL NOT 再执行基于 `/ly:worktree switch` 的隔离检测（固定目标路径 `<主仓库上级目录>/.ly/<主仓库目录名>/<change-name>` 匹配、分支名匹配、不匹配询问"是否先切换"等逻辑全部移除）——是否隔离由 `/ly:propose` 在创建方案前决定；apply 只负责在**当前工作区**（无论是否 worktree）实施 tasks。`/ly:apply` SHALL NOT 调用 `/ly:worktree switch`，其会话尾部 SHALL NOT 再提示"如需隔离环境可用 `/ly:worktree switch ...`"。
+`/ly:apply` SHALL 在调用 `opsx:apply` **之前**解析目标 change 名：按固定优先级 `$ARGUMENTS` 中显式且合法的 change 名 → `openspec/changes/` 下唯一未归档的 change → 无法唯一确定时直接询问用户。SHALL NOT 使用"当前 worktree 反查"或"固定目标路径匹配"（新模型下 worktree 目录/分支锁定为开发分支名、不等于 change 名，不存在可反查的固定路径映射）。`/ly:apply` SHALL NOT 再执行基于 `/ly:worktree switch` 的隔离检测——是否隔离由 `/ly:propose` 在创建方案前决定；apply 只负责在**当前工作区**（无论是否 worktree）实施 tasks。`/ly:apply` SHALL NOT 调用 `/ly:worktree switch`，其会话尾部 SHALL NOT 再提示"如需隔离环境可用 `/ly:worktree switch ...`"。
 
 实施完成后 SHALL 检查是否有实际文件变动（`git status --porcelain`）。有变动时 SHALL `git add` 本次实际改动的文件，然后**立即 commit**（提交信息 `apply: <change-name>`）；无变动则跳过，SHALL NOT 创建空 commit。该 commit 即为 `/ly:review-code` 的审查对象（见 `ly-propose-flow` 的"审查对象 = 最近一次相关 commit"）。若 `git commit` 失败，如实报告 Git 返回的原始错误。
+
+若实施前工作区已存在该 change 目录之外的未提交改动（如审查修复残留），`/ly:apply` SHALL 先检查 `git status --porcelain`：存在与本次实施无关的预存改动时，`git add` 范围仅限本次 `opsx:apply` 实际改动的文件，SHALL NOT 将预存改动一并暂存/提交，并在报告中说明"预存改动未被提交"。
 
 `/ly:archive` 必须（SHALL）调用 `opsx:archive` 并原样转发 `$ARGUMENTS`；归档完成后若 `openspec/` 下存在实际文件变动，SHALL 提交（提交信息形如 `archive: <change-name>`）；无变动或提交本身失败则跳过并如实报告。
 
@@ -22,6 +24,10 @@
 #### Scenario: apply 实施完成立即提交，不再暂存区持有
 - **WHEN** 用户运行 `/ly:apply` 实施产生实际文件变动
 - **THEN** 命令 `git add` 本次实际改动的文件后立即 `git commit -m "apply: <change-name>"`，作为 `/ly:review-code` 的审查对象；不再询问是否提交、不存在暂存区持有
+
+#### Scenario: apply 实施前工作区已有与本次无关的预存改动
+- **WHEN** 用户在某个 worktree 内运行 `/ly:apply`，实施前该 worktree 已存在未提交的预存改动（如 review 修复残留），`opsx:apply` 实施产生新的实际改动
+- **THEN** 命令 `git add` 仅限本次 `opsx:apply` 实际改动的文件，SHALL NOT 将预存改动一并暂存/提交，并说明"预存改动未被提交"
 
 #### Scenario: apply 不在 worktree 内时直接在当前工作区实施
 - **WHEN** 用户在主工作区（非 worktree）运行 `/ly:apply`
