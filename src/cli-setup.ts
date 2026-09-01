@@ -48,6 +48,7 @@ function customizeHelp(sections: any[]): any[] {
       ansis.gray(`  ${i18n.t('cli:help.nonInteractiveMode')}`),
       `  ${ansis.green('--skip-prompt, -s')}         ${i18n.t('cli:help.optionDescriptions.skipAllPrompts')}`,
       `  ${ansis.green('--reviewer, -r')} <model>    ${i18n.t('cli:help.optionDescriptions.reviewerModel')}`,
+      `  ${ansis.green('--implementer')} <model>     ${i18n.t('cli:help.optionDescriptions.implementerModel')}`,
       `  ${ansis.green('--workflows, -w')} <list>    ${i18n.t('cli:help.optionDescriptions.workflows')}`,
       `  ${ansis.green('--install-dir, -d')} <path>  ${i18n.t('cli:help.optionDescriptions.installDir')}`,
     ].join('\n'),
@@ -64,7 +65,7 @@ function customizeHelp(sections: any[]): any[] {
       `  ${ansis.cyan('npx ly-workflow i')}`,
       '',
       ansis.gray(`  # ${i18n.t('cli:help.exampleDescriptions.customModels')}`),
-      `  ${ansis.cyan('npx ly-workflow i --reviewer claude')}`,
+      `  ${ansis.cyan('npx ly-workflow i --reviewer hermes --implementer codex')}`,
       '',
     ].join('\n'),
   })
@@ -102,6 +103,7 @@ export async function setupCommands(cli: CAC): Promise<void> {
     .option('--skip-prompt, -s', i18n.t('cli:help.optionDescriptions.skipAllPrompts'))
     .option('--skip-mcp', 'Skip MCP configuration (used during update)')
     .option('--reviewer, -r <model>', i18n.t('cli:help.optionDescriptions.reviewerModel'))
+    .option('--implementer <model>', i18n.t('cli:help.optionDescriptions.implementerModel'))
     .option('--workflows, -w <workflows>', i18n.t('cli:help.optionDescriptions.workflows'))
     .option('--install-dir, -d <path>', i18n.t('cli:help.optionDescriptions.installDir'))
     .action(async (options: CliOptions) => {

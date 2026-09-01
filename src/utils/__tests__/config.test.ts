@@ -6,6 +6,11 @@ describe('createDefaultRouting', () => {
     const routing = createDefaultRouting()
     expect(routing.reviewer).toBe('codex')
   })
+
+  it('returns hermes as default implementer', () => {
+    const routing = createDefaultRouting()
+    expect(routing.implementer).toBe('hermes')
+  })
 })
 
 describe('createDefaultConfig', () => {

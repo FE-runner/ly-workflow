@@ -1,12 +1,13 @@
 // 支持的语言
 export type SupportedLang = 'zh-CN' | 'en'
 
-// 模型类型（审查阶段可选模型）
+// 模型类型（审查/实施阶段可选后端；claude 仅供 wrapper 内部兼容，routing 配置不再允许选它）
 export type ModelType = 'codex' | 'claude' | 'hermes' | 'openclaw'
 
-// 模型路由配置：Claude 自己完成聊天/分析/规划/实施，仅审查阶段可选模型
+// 模型路由配置：Claude 是总指挥（出方案/裁决/commit），审查与实施阶段可选独立后端
 export interface ModelRouting {
   reviewer: ModelType
+  implementer: ModelType
 }
 
 // ly-workflow 配置
@@ -56,6 +57,7 @@ export interface InitOptions {
   force?: boolean
   // 非交互模式参数
   reviewer?: string
+  implementer?: string
   workflows?: string
   installDir?: string
 }

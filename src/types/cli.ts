@@ -6,6 +6,7 @@ export interface CliOptions {
   skipPrompt?: boolean
   skipMcp?: boolean
   reviewer?: string
+  implementer?: string
   workflows?: string
   installDir?: string
 }

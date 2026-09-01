@@ -133,7 +133,7 @@ npx ly-workflow menu    # 交互式菜单
 | `/ly:init` | 生成 CLAUDE.md（原生 `init` 技能）+ `openspec init` + 自动 commit |
 | `/ly:explore` | 委托 `opsx:explore` |
 | `/ly:propose` | 创建方案前问一次 worktree（不在 worktree 内才问，从当前分支 HEAD 切）+ 问"全自动/手动" → 委托 `opsx:propose` → 立即 commit `propose: <change>`；全自动 = review-plan → apply → review-code 自动化流水线；手动 = 逐步确认 |
-| `/ly:apply` | 只在当前工作区委托 `opsx:apply` 实施，实施完成立即 commit `apply: <change>`（无隔离检测、无 worktree 询问） |
+| `/ly:apply` | 读取 `routing.implementer`（`codex`/`hermes`/`openclaw`），委托 `codeagent-wrapper` + `builder.md` 单次 agentic 调用实施 tasks；`OVERALL: PASS` 后立即 commit `apply: <change>`，`OVERALL: FAIL`/调用失败原样呈报转人工（不重试不兜底）（无隔离检测、无 worktree 询问） |
 | `/ly:archive` | 委托 `opsx:archive` + 自动 commit |
 | `/ly:review-plan` | 审查对象为目标 change 的 `propose:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
 | `/ly:review-code` | 审查对象为目标 change 的最近 `apply:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
@@ -154,6 +154,7 @@ npx ly-workflow menu    # 交互式菜单
 2. **审查走 codeagent-wrapper 而非直连 Codex API**：复用已有的 session 管理、进度回调、超时重试。
 3. **Go wrapper 只删 Backend 层**：`Backend` interface 保持不变，删除具体实现（Gemini/Grok/Antigravity）不影响执行引擎（并发调度/日志/SSE）。
 4. **LICENSE + git 历史不动**：文档整体重写，但版权声明和提交历史保留可追溯性。
+5. **`apply` 的实施委托给外部 Implementer agent，Claude 只做判定/commit**：`routing.implementer`（`codex`/`hermes`/`openclaw` 三选一，必选，不含 `claude`）与 `routing.reviewer`（同样三选一，不含 `claude`）各自独立配置——Claude（当前交互会话）本身是总指挥，不该再被选为被调度的审查/实施 backend。`/ly:apply` 单次 agentic 调用委托实施（不逐任务拆分、不做审查-修复循环），PASS 才提交，FAIL 原样呈报转人工；`review-plan`/`review-code` 的审查-修复循环不变，认可的 Critical 仍由 Claude 亲自修复，不委托给 Implementer。
 
 ---
 

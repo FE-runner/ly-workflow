@@ -64,6 +64,7 @@ const MCP_PROVIDERS: Record<string, { tool: string, param: string }> = {
 export function injectConfigVariables(content: string, config: {
   routing?: {
     reviewer?: string
+    implementer?: string
   }
   liteMode?: boolean
   mcpProvider?: string
@@ -74,6 +75,10 @@ export function injectConfigVariables(content: string, config: {
   const routing = config.routing || {}
   const reviewer = routing.reviewer || 'codex'
   processed = processed.replace(/\{\{REVIEWER_MODEL\}\}/g, reviewer)
+
+  // Implementer model injection (used by apply.md to delegate implementation)
+  const implementer = routing.implementer || 'hermes'
+  processed = processed.replace(/\{\{IMPLEMENTER_MODEL\}\}/g, implementer)
 
   // Lite mode flag for codeagent-wrapper
   // If liteMode is true, inject "--lite" flag

@@ -101,6 +101,20 @@ describe('injectConfigVariables — routing variables', () => {
     const result = injectConfigVariables(input, {})
     expect(result).toBe('reviewer: codex')
   })
+
+  it('injects implementer model', () => {
+    const input = 'implementer: {{IMPLEMENTER_MODEL}}'
+    const result = injectConfigVariables(input, {
+      routing: { implementer: 'openclaw' },
+    })
+    expect(result).toBe('implementer: openclaw')
+  })
+
+  it('defaults to hermes when implementer not specified', () => {
+    const input = 'implementer: {{IMPLEMENTER_MODEL}}'
+    const result = injectConfigVariables(input, {})
+    expect(result).toBe('implementer: hermes')
+  })
 })
 
 describe('injectConfigVariables — liteMode', () => {

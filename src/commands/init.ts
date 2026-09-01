@@ -224,18 +224,34 @@ export async function init(options: InitOptions = {}): Promise<void> {
     await initI18n(language)
   }
 
-  // Review model configuration (Codex reviews plans/code; Claude does everything else)
+  // Review/implement model configuration (Claude is the commander; Codex/Hermes/
+  // OpenClaw are the only selectable backends for reviewer/implementer — Claude
+  // itself is never a valid routing.reviewer/routing.implementer value)
   let reviewer: ModelType = 'codex'
+  let implementer: ModelType = 'hermes'
+  let legacyClaudeReviewerReset = false
   const selectedWorkflows = getCoreCommandIds()
 
   // Non-interactive mode: preserve existing config
   if (options.skipPrompt) {
     const existingConfig = await readLyConfig()
     if (existingConfig?.routing?.reviewer) {
-      reviewer = existingConfig.routing.reviewer
+      if (existingConfig.routing.reviewer === 'claude') {
+        // claude 已不再是合法的 routing.reviewer 值，静默重置为默认值
+        legacyClaudeReviewerReset = true
+      }
+      else {
+        reviewer = existingConfig.routing.reviewer
+      }
     }
-    if (options.reviewer === 'codex' || options.reviewer === 'claude' || options.reviewer === 'hermes' || options.reviewer === 'openclaw') {
+    if (existingConfig?.routing?.implementer) {
+      implementer = existingConfig.routing.implementer
+    }
+    if (options.reviewer === 'codex' || options.reviewer === 'hermes' || options.reviewer === 'openclaw') {
       reviewer = options.reviewer
+    }
+    if (options.implementer === 'codex' || options.implementer === 'hermes' || options.implementer === 'openclaw') {
+      implementer = options.implementer
     }
   }
 
@@ -291,9 +307,13 @@ export async function init(options: InitOptions = {}): Promise<void> {
   if (!options.skipPrompt) {
     const existingConfig = await readLyConfig()
 
-    // Initialize from existing config so re-running init shows saved values as defaults
-    if (existingConfig?.routing?.reviewer) {
+    // Initialize from existing config so re-running init shows saved values as defaults.
+    // `claude` 已不再是合法值——存在历史遗留值时不预选它，强制用户在向导里重新选择。
+    if (existingConfig?.routing?.reviewer && existingConfig.routing.reviewer !== 'claude') {
       reviewer = existingConfig.routing.reviewer
+    }
+    if (existingConfig?.routing?.implementer) {
+      implementer = existingConfig.routing.implementer
     }
     if (existingConfig?.performance?.liteMode !== undefined) {
       liteMode = existingConfig.performance.liteMode
@@ -380,12 +400,11 @@ export async function init(options: InitOptions = {}): Promise<void> {
         message: i18n.t('init:model.selectReviewer'),
         choices: [
           { name: `Codex ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'codex' as ModelType },
-          { name: 'Claude', value: 'claude' as ModelType },
           { name: 'Hermes', value: 'hermes' as ModelType },
           { name: 'OpenClaw', value: 'openclaw' as ModelType },
           ...navSentinels(canGoBack),
         ],
-        default: reviewer,
+        default: reviewer === 'claude' ? 'codex' : reviewer,
       }])
 
       if (selectedReviewer === BACK_SENTINEL)
@@ -394,6 +413,32 @@ export async function init(options: InitOptions = {}): Promise<void> {
         return 'cancel'
 
       reviewer = selectedReviewer
+
+      const { selectedImplementer } = await inquirer.prompt([{
+        type: 'list',
+        name: 'selectedImplementer',
+        message: i18n.t('init:model.selectImplementer'),
+        choices: [
+          { name: 'Codex', value: 'codex' as ModelType },
+          { name: `Hermes ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'hermes' as ModelType },
+          { name: 'OpenClaw', value: 'openclaw' as ModelType },
+          ...navSentinels(canGoBack),
+        ],
+        default: implementer === 'claude' ? 'hermes' : implementer,
+      }])
+
+      if (selectedImplementer === BACK_SENTINEL)
+        return 'back'
+      if (selectedImplementer === CANCEL_SENTINEL)
+        return 'cancel'
+
+      implementer = selectedImplementer
+
+      if (implementer === reviewer) {
+        console.log()
+        console.log(ansis.yellow(`  ⚠ ${i18n.t('init:model.independenceWarning')}`))
+      }
+
       return 'next'
     }
 
@@ -640,6 +685,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
       })()
       console.log(`  ${ansis.cyan(i18n.t('init:summary.apiProvider'))}  ${apiLabel}`)
       console.log(`  ${ansis.cyan(i18n.t('init:summary.reviewerModel'))}  ${ansis.green(reviewer.charAt(0).toUpperCase() + reviewer.slice(1))}`)
+      console.log(`  ${ansis.cyan(i18n.t('init:summary.implementerModel'))}  ${ansis.green(implementer.charAt(0).toUpperCase() + implementer.slice(1))}`)
       console.log(`  ${ansis.cyan(i18n.t('init:summary.commandCount'))}  ${ansis.yellow(workflowsCount.toString())}`)
       const mcpSummary = (() => {
         if (mcpProvider === 'fast-context')
@@ -747,6 +793,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
   // Build routing config
   const routing: ModelRouting = {
     reviewer,
+    implementer,
   }
 
   // Summary + confirmation handled by runSummaryStep() inside the state
@@ -758,8 +805,14 @@ export async function init(options: InitOptions = {}): Promise<void> {
     console.log(ansis.bold(`  ${i18n.t('init:summary.title')}`))
     console.log()
     console.log(`  ${ansis.cyan(i18n.t('init:summary.reviewerModel'))}  ${ansis.green(reviewer.charAt(0).toUpperCase() + reviewer.slice(1))}`)
+    console.log(`  ${ansis.cyan(i18n.t('init:summary.implementerModel'))}  ${ansis.green(implementer.charAt(0).toUpperCase() + implementer.slice(1))}`)
     console.log(`  ${ansis.cyan(i18n.t('init:summary.commandCount'))}  ${ansis.yellow(selectedWorkflows.length.toString())}`)
     console.log(ansis.yellow('━'.repeat(50)))
+    console.log()
+  }
+
+  if (legacyClaudeReviewerReset) {
+    console.log(ansis.yellow(`  ⚠ ${i18n.t('init:model.legacyClaudeReset')}`))
     console.log()
   }
 

@@ -77,5 +77,6 @@ export function createDefaultConfig(options: {
 export function createDefaultRouting(): ModelRouting {
   return {
     reviewer: 'codex',
+    implementer: 'hermes',
   }
 }
