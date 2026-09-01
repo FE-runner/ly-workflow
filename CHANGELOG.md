@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ---
 
+## [1.6.0] - 2026-09-01
+
+### Changed
+- **worktree 询问前置单点**：`/ly:propose` 的 worktree 询问从"方案提交后/审查循环终止后"（原 6a/6b 共四处）前移到**创建方案前、全局只问一次**——不在任何 worktree 内时询问，选"是"则从**当前分支 HEAD** 用 `git worktree add -b <开发分支名>` 切出（目录 `~/.ly/worktrees/<项目名>/<开发分支名>`，单层平铺，worktree/分支锁定为开发分支名、不随 change 重命名），打印续接命令后结束会话，change 后续在隔离区内生成；已在 worktree 内 → 跳过该询问（隔离已存在）。
+- **`/ly:worktree switch` 子命令整体删除（含 `--auto`）**：worktree 命令树只留 `add`/`list`/`remove`/`prune`/`migrate`；`/ly:apply` 的隔离检测（固定路径+分支匹配+不匹配问 switch）与"worktree 反查"优先级一并移除，apply 只在当前工作区实施。
+- **propose/apply 每步 commit**：`opsx:propose` 生成方案后立即 commit `propose: <change-name>`；`opsx:apply` 实施完成后立即 commit `apply: <change-name>`；不再"暂存区持有、审查循环/跳过审查时才提交"。
+- **全自动 = 自动流水线直到审完代码**：选全自动时 `/ly:propose` 同一会话连续自动执行 review-plan（清零）→ apply（立即 commit）→ review-code（清零），任一环节非清零终止即停止并报告；`/ly:archive` 仍手动。
+- **审查对象 = 最近一次相关 commit**：review-plan 审 `propose:` commit、review-code 审 `apply:` commit（`git log --grep` 按前缀定位最近一期），审查范围 = 相关 commit 差异 + `git diff HEAD` + 未跟踪清单；无相关 commit 时退化为未提交 diff。
+
+### Removed
+- `/ly:worktree switch` 子命令与 `--auto` 标志
+- apply 隔离检测、`propose.md` 原 6a/6b 的四处 worktree 询问与 switch 结果统一判定规则
+
 ## [1.5.5] - 2026-08-18
 
 ### Changed

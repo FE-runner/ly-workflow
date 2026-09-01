@@ -1,44 +1,44 @@
 ```mermaid
 flowchart TD
-    Start["/ly:propose 触发"] --> Ask1["问总开关: 全自动 / 手动?"]
-    Ask1 -->|全自动| A1["opsx:propose 生成方案"]
-    Ask1 -->|手动| A1
+    Start["/ly:propose 触发"] --> IsWt{已在worktree内?}
+    IsWt -->|是| AskAuto["问: 全自动 / 手动?"]
+    IsWt -->|否| AskWt["问: 切到隔离worktree?"]
+    AskWt -->|是| WtCreate["git worktree add -b 开发分支名<br/>~/.ly/worktrees/项目名/开发分支名<br/>(从当前分支HEAD切出) + baseline"]
+    WtCreate --> WtLog["打印续接命令,会话结束<br/>(change未生成,等下一次在工作区内的propose)"]
+    AskWt -->|否| AskAuto
 
-    A1 --> Commit["确定change名 -> commit(无条件执行)"]
+    AskAuto -->|全自动| A1["opsx:propose 生成方案"]
+    AskAuto -->|手动| A1
 
-    Commit -->|全自动分支| B1["调用 /ly:review-plan<br/>默认逐轮自动commit"]
+    A1 --> Commit["确定change名 -> commit: propose: change-name"]
+
+    Commit -->|全自动分支| B1["调用 /ly:review-plan<br/>(审查对象: propose commit)"]
     B1 --> B2{循环终止原因}
-    B2 -->|清零| B3["问: 要不要新建隔离worktree?"]
-    B3 -->|是| B4["/ly:worktree switch --auto<br/>新worktree自动续跑review-code"]
-    B3 -->|否| B5["留在当前工作区,结束"]
-    B2 -->|其余终止原因| B6["输出终止报告"]
-    B6 --> B6a["问: 要不要新建隔离worktree去处理?"]
-    B6a -->|是| B6b["/ly:worktree switch(不带--auto)<br/>不自动续跑审查,先人工处理未决问题"]
-    B6a -->|否| B6c["留在当前工作区,结束"]
+    B2 -->|清零| BApply["自动 /ly:apply 实施 -> commit: apply: change-name"]
+    B2 -->|其余终止原因| B6["输出终止报告,流水线停止"]
+    BApply --> BCode["自动 /ly:review-code<br/>(审查对象: apply commit)"]
+    BCode --> B5{循环终止原因}
+    B5 -->|清零| B7["结束(archive仍手动)"]
+    B5 -->|其余终止原因| B8["输出终止报告,停止"]
 
-    Commit -->|手动分支| C1["问: 方案已提交,要不要现在切worktree?"]
-    C1 -->|是| C2["/ly:worktree switch(不带--auto)<br/>输出续接命令,结束"]
-    C1 -->|否| C3["问: 要不要现在跑review-plan审查?"]
-    C3 -->|否| C4["结束(只生成方案+提交)"]
-    C3 -->|是| C5["调用 /ly:review-plan<br/>默认逐轮自动commit"]
+    Commit -->|手动分支| C3["问: 要不要跑review-plan审查?"]
+    C3 -->|否| C4["结束(方案已commit)"]
+    C3 -->|是| C5["调用 /ly:review-plan<br/>(审查对象: propose commit)"]
     C5 --> C6{循环终止原因}
-    C6 -->|清零| C7["问: 审查通过,要不要新建隔离worktree?"]
-    C7 -->|是| C8["/ly:worktree switch(不带--auto)"]
-    C7 -->|否| C9["留在当前工作区,结束"]
-    C6 -->|其余终止原因| C10["输出终止报告"]
-    C10 --> C10a["问: 要不要新建隔离worktree去处理?"]
-    C10a -->|是| C10b["/ly:worktree switch(不带--auto)"]
-    C10a -->|否| C10c["留在当前工作区,结束"]
+    C6 -->|清零| C7["结束(修复已统一提交,日后自行apply/review-code)"]
+    C6 -->|其余终止原因| C8["输出终止报告,结束"]
 ```
 
 ```mermaid
 flowchart TD
-    Apply["/ly:apply 触发"] --> Check{已在worktree内?}
-    Check -->|是| Impl["直接 opsx:apply 实施"]
-    Check -->|否| AskWt["问: 要不要切换到隔离worktree?"]
-    AskWt -->|是| Sw["/ly:worktree switch<br/>输出续接命令,结束"]
-    AskWt -->|否| Impl
-    Impl --> ApplyCommit["有变动则commit(apply: change-name)"]
+    Apply["/ly:apply 触发"] --> Resolve["解析change名: 显式 -> 唯一未归档 -> 询问"]
+    Resolve --> Impl["当前工作区直接 opsx:apply 实施<br/>(无隔离检测/无worktree询问)"]
+    Impl --> PreCheck{"有与本次无关的预存改动?"}
+    PreCheck -->|是| PreNote["git add 仅限本次改动,预存改动不提交"]
+    PreCheck -->|否| Normal["git add 本次实际改动"]
+    PreNote --> AppCommit["立即 commit: apply: change-name"]
+    Normal --> AppCommit
+    AppCommit --> End["结束(apply commit即review-code审查对象)"]
 ```
 
 ```mermaid

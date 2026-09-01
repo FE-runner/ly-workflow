@@ -2,13 +2,20 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-08-18 (v1.5.5)
+**Last Updated**: 2026-09-01 (v1.6.0)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-09-01 (v1.6.0) — worktree 询问前置单点 + switch 退役 + 每步 commit + 全自动流水线
+- 🔄 **worktree 询问只在创建方案前，全局一次**：`/ly:propose` 在委托 `opsx:propose` 之前询问一次"是否切到隔离 worktree"（不在任何 worktree 内才问），从**当前分支 HEAD** 用 `git worktree add -b <开发分支名>` 切出（目录 `~/.ly/worktrees/<项目名>/<开发分支名>`，单层平铺）；打印续接命令后结束会话，change 后续在隔离区内生成。原方案提交后/审查循环终止后的四处 worktree 询问全部移除。已在 worktree 内 → 跳过该询问（隔离已存在）；worktree/分支锁定为开发分支名，不随 change 名重命名。
+- 🗑️ **`/ly:worktree switch` 子命令整体删除（含 `--auto`）**：worktree 命令树只留 `add`/`list`/`remove`/`prune`/`migrate`；`/ly:apply` 的隔离检测（固定路径+分支匹配+不匹配问 switch）与"worktree 反查"优先级一并移除，apply 只在当前工作区实施。
+- 🔄 **propose/apply 每步 commit**：`opsx:propose` 生成方案后立即 commit `propose: <change-name>`；`opsx:apply` 实施完成后立即 commit `apply: <change-name>`；不再"暂存区持有、审查循环/跳过审查时才提交"。
+- 🔄 **全自动 = 自动流水线直到审完代码**：选全自动时 `/ly:propose` 在同一会话内连续自动执行 `review-plan`（清零）→ `apply`（立即 commit）→ `review-code`（清零），任一环节非清零终止即停止流水线并报告；`/ly:archive` 仍手动。
+- 🔄 **审查对象 = 最近一次相关 commit**：`review-plan` 审 `propose:` commit（`git log --grep="^propose:"`），`review-code` 审 `apply:` commit（`git log --grep="^apply:"`），审查范围 = 相关 commit 差异 + `git diff HEAD` + 未跟踪清单；无相关 commit 时退化为未提交 diff。两处审查一致处理。
 
 ### 2026-08-18 (v1.5.5) — worktree 询问收敛到 propose 单点
 - 🔄 **`/ly:apply` 不再询问 worktree**：隔离性询问与 switch 分支移除，直接在当前工作区实施（需要隔离自行 switch）；`/ly:worktree switch` 自身"默认不创建"的强制确认也移除。worktree 新建/切换询问只在 `/ly:propose` 编排的自动/手动路径各一处。
@@ -125,13 +132,13 @@ npx ly-workflow menu    # 交互式菜单
 |------|------|
 | `/ly:init` | 生成 CLAUDE.md（原生 `init` 技能）+ `openspec init` + 自动 commit |
 | `/ly:explore` | 委托 `opsx:explore` |
-| `/ly:propose` | 问"全自动/手动" → 委托 `opsx:propose` → commit → 两条路径各自的审查循环 + worktree 询问编排 |
-| `/ly:apply` | 执行前隔离检测（固定路径+分支双重匹配，不匹配问 worktree）→ 委托 `opsx:apply` + 自动 commit + 追加通用 worktree 提示 |
+| `/ly:propose` | 创建方案前问一次 worktree（不在 worktree 内才问，从当前分支 HEAD 切）+ 问"全自动/手动" → 委托 `opsx:propose` → 立即 commit `propose: <change>`；全自动 = review-plan → apply → review-code 自动化流水线；手动 = 逐步确认 |
+| `/ly:apply` | 只在当前工作区委托 `opsx:apply` 实施，实施完成立即 commit `apply: <change>`（无隔离检测、无 worktree 询问） |
 | `/ly:archive` | 委托 `opsx:archive` + 自动 commit |
-| `/ly:review-plan` | 读取目标 change 的 proposal/design/tasks，Codex 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），默认每轮自动 commit（`--no-commit` 关闭） |
-| `/ly:review-code` | 读取 git diff，Codex 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），默认每轮自动 commit（`--no-commit` 关闭） |
+| `/ly:review-plan` | 审查对象为目标 change 的 `propose:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
+| `/ly:review-code` | 审查对象为目标 change 的最近 `apply:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
 
-不变的 Git 工具：`/ly:commit` `/ly:rollback` `/ly:clean-branches`；`/ly:worktree` 的 `switch <change-name> [--auto]` 子命令新增分支校验（定位已注册路径时确认注册分支严格等于 `<change-name>`）。
+不变的 Git 工具：`/ly:commit` `/ly:rollback` `/ly:clean-branches`；`/ly:worktree` 只留 `add`/`list`/`remove`/`prune`/`migrate`（`switch` 子命令已随 v1.6.0 删除——隔离切换统一由 `/ly:propose` 创建方案前触发）。
 
 ### 典型工作流
 
@@ -143,7 +150,7 @@ npx ly-workflow menu    # 交互式菜单
 
 ## 关键设计决策
 
-1. **`propose` 是编排入口，`init`/`apply`/`archive` 现在也各自带一段自动 commit 逻辑，`explore` 仍是纯薄壳**：`propose.md` 包含总开关询问、commit、审查循环调用、worktree 询问等编排逻辑；`init.md`/`apply.md`/`archive.md` 在委托对应 opsx 技能之后补了一段"提交本次产生的文件变动"，`explore.md` 只做参数转发+一句转向提示。是否要加编排逻辑按需判断即可，不受任何"必须是薄壳"的原则约束——原有的"委托而非重新封装"原则已废止（2026-08-08）。
+1. **`propose` 是编排入口，`apply`/`archive` 现在也各自带一段自动 commit 逻辑，`explore` 仍是纯薄壳**：`propose.md` 包含创建方案前的 worktree 询问（不在 worktree 内才问，从当前分支 HEAD 用 `git worktree add` 切出）、全自动/手动询问、每步 commit、全自动流水线（review-plan → apply → review-code）等编排逻辑；`apply.md` 只负责在工作区实施 + 立即 commit，`archive.md` 在委托 opsx 技能之后提交文件变动，`explore.md` 只做参数转发+一句转向提示。是否要加编排逻辑按需判断即可，不受任何"必须是薄壳"的原则约束——原有的"委托而非重新封装"原则已废止（2026-08-08）。
 2. **审查走 codeagent-wrapper 而非直连 Codex API**：复用已有的 session 管理、进度回调、超时重试。
 3. **Go wrapper 只删 Backend 层**：`Backend` interface 保持不变，删除具体实现（Gemini/Grok/Antigravity）不影响执行引擎（并发调度/日志/SSE）。
 4. **LICENSE + git 历史不动**：文档整体重写，但版权声明和提交历史保留可追溯性。

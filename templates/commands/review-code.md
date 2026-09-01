@@ -12,20 +12,22 @@ description: '读取 git diff，{{REVIEWER_MODEL}} 审查代码变更，审查-�
 
 ### 1. 判定审查范围（仅首轮执行一次，后续轮次复用）
 
-按是否**存在未提交变更**判定（审查对象总是"当前工作区尚未提交的变更"，历史 commit 不属于审查范围）：
+按目标 change 的最近一期 `apply:` commit 作为审查基线（编排方 `/ly:apply` 在实施完成后立即提交，提交信息 `apply: <change-name>`）：
 
-1. 有未提交变更（已暂存或未暂存均可） → 审查范围是 `git diff HEAD`（覆盖已暂存修改+未暂存修改）。
-2. 仓库零 commit（`git rev-parse HEAD` 失败） → 用三条固定命令组合表达审查范围：`git diff --cached`（已暂存改动）+ `git diff`（未暂存改动）+ `git status --porcelain` 过滤 `??` 得到的未跟踪文件路径清单。不构造任何独立持久化的"快照"——这三条命令本身就是对"当前状态"的确定性表达；不得尝试执行 `git diff HEAD` 或 `git diff HEAD~1`（无 HEAD 时无意义或报错）。
-3. 无未提交变更且仓库有历史 commit → **报告"无变更可审查"，直接结束**。审查对象是"未提交的变更"，历史 commit 的 diff 不属于审查范围——不再回退 `git diff HEAD~1` 或 `git show HEAD`（旧版无条件 commit 时代为兜底审查"最近一次 commit"而设，已废弃）。
+1. 解析目标 change（优先级同 `/ly:apply`：`$ARGUMENTS` 显式 change 名 → `openspec/changes/` 下唯一未归档 change → 询问）。
+2. `git log --grep="^apply: <change-name>"` 取 HEAD 侧最近一期匹配 commit：
+   - **存在** → 审查范围 = 该 `apply:` commit 差异（`git show <commit>`）+ 当前 `git diff HEAD`（循环修复）+ `git status --porcelain` 过滤 `??` 得到的未跟踪文件路径清单。工作区/暂存区干净时**仍按该 commit 审查**，不报"无变更可审查"。
+   - **不存在**（零 commit 仓库，或该 change 尚未产生 apply commit）→ 退化为"有未提交变更"组合：`git diff HEAD`（覆盖已暂存+未暂存）+ `??` 未跟踪清单；仓库零 commit（`git rev-parse HEAD` 失败）→ 三条固定命令组合：`git diff --cached` + `git diff` + `??` 未跟踪路径清单。无未提交变更且也无相关 apply commit → 报告"无变更可审查"，直接结束。
 
 **无论哪种情况**，额外用 `git status --porcelain` 抓取 `??` 开头的未跟踪文件路径——避免新建但未 `git add` 的文件被漏审。
 
 ```bash
+git log --grep="^apply: <change-name>" -1 --format='%H' 2>/dev/null
 git rev-parse HEAD >/dev/null 2>&1 && echo has_head || echo no_head
 git status --porcelain | grep '^??'
 ```
 
-**首轮确定的审查范围（`git diff HEAD`，或零 commit 场景下的三条命令组合说明）必须记录下来，供首轮 TASK 使用**，不重新执行本步骤的分支选择逻辑。判定审查范围本身（选哪条分支）由 Claude 完成，不下放给 {{REVIEWER_MODEL}}。工作区干净场景不进入审查，直接结束。
+**首轮确定的审查范围（`git log --grep` 定位 commit / `git diff HEAD` / 零 commit 三条命令组合）必须记录下来，供首轮 TASK 使用**，不重新执行本步骤的分支选择逻辑。判定审查范围本身（选哪条分支、取哪个 commit）由 Claude 完成，不下放给 {{REVIEWER_MODEL}}。
 
 ### 2. 调用 {{REVIEWER_MODEL}} 审查（首轮）
 

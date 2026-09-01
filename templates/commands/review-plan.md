@@ -24,7 +24,7 @@ description: '读取 OpenSpec change 的 proposal/design/tasks，{{REVIEWER_MODE
 ls -d openspec/changes/*/ 2>/dev/null | grep -v '/archive/'
 ```
 
-审查对象是目标 change 的 artifact 与 delta spec 文件的**当前状态**（`git diff HEAD` 覆盖的未提交改动，或已提交内容），这些文件在循环开始前可能已被编排方（`/ly:propose`）暂存、也可能未暂存，均为正常状态，不需要记录循环开始前的文件状态，也不存在"循环开始前已脏需隔离"的情形。
+审查对象是目标 change 的 `propose:` commit（编排方 `/ly:propose` 在生成方案后立即提交，提交信息 `propose: <change-name>`）。审查基线 SHALL 用 `git log --grep="^propose: <change-name>"` 取 HEAD 侧最近一期匹配 commit，审查范围 = 该 commit 差异（`git show <commit>`）+ 当前 `git diff HEAD` + 未跟踪文件清单（`??`）——修复在审查-修复循环内未提交时不丢失。不存在 `propose:` commit（零 commit 仓库、或尚未生成方案提交）时，退化为 `git diff HEAD` + 未跟踪清单组合。审查期间新产生的修复改动（循环内每轮修复未提交）始终计入审查范围，不在中途产生新 commit（提交只发生在正常清零后的统一提交，见步骤 5）。循环开始前可能已有编排方已提交的 `propose:` commit 与未提交修复，均为正常状态。
 
 ### 2. 枚举工件路径（仅首轮执行一次；不读取内容）
 
