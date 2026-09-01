@@ -2,11 +2,19 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-09-01 (v1.6.0)
+**Last Updated**: 2026-09-01 (v1.7.0)
 
 ---
 
 ## 变更记录 (Changelog)
+
+> 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-09-01 (v1.7.0) — `/ly:apply` 委托外部 Implementer agent + reviewer 收窄三选一
+- ✨ **新增 `routing.implementer` 可选实施后端**：`npx ly-workflow init` 在"选择审查模型"之后新增"选择实施后端"步骤（`codex`/`hermes`（默认）/`openclaw` 三选一，必选）；`/ly:apply` 不再由 Claude 自己实施，改为委托 `codeagent-wrapper --backend <routing.implementer>`（`ROLE_FILE: builder.md`）单次 agentic 调用完成 tasks——与审查关卡对称，Claude 只做判定（`OVERALL: PASS` 后走现有 commit 步骤，`FAIL`/调用失败原样呈报转人工，不重试不切回自己实施）；`routing.implementer` 与 `routing.reviewer` 相同时给出独立性下降提示（不阻断）。`npx ly-workflow update` 非交互路径下 implementer 缺失时静默补齐 `hermes`。
+- 🔄 **BREAKING：`routing.reviewer` 移除 `claude` 选项**，收窄为 `codex`（默认）/`hermes`/`openclaw`——Claude（当前交互会话）本身是总指挥，不该再被选为被调度的审查/实施 backend。存量 `claude` 配置：交互式 `init` 不再预选、强制重新选择；非交互 `update` 静默重置为 `codex` 并在汇总中提示。
+- 🔄 **`ly menu` 模型路由配置入口同步**：移除 `claude`、补齐三选一，新增 `implementer` 编辑入口；历史配置读取统一收口为 `isValidRoutingBackend` 白名单校验（此前 reviewer 挡 claude、implementer 完全不设防，现对称）。
+- 🔄 **`review-plan`/`review-code` 审查-修复循环不变**：认可的 Critical 仍由 Claude 亲自修复，不委托给 Implementer agent——只有 `apply` 这一次性的"从 tasks.md 到代码"步骤委托给外部 agent。
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
 

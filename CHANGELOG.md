@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ---
 
+## [1.7.0] - 2026-09-01
+
+### Added
+- **`routing.implementer` 可选实施后端**：`npx ly-workflow init` 新增"选择实施后端"步骤（`codex`/`hermes`（默认）/`openclaw` 三选一，必选）；`/ly:apply` 不再由 Claude 自己实施代码，改为委托 `codeagent-wrapper --backend <routing.implementer>`（`ROLE_FILE: builder.md`）以单次 agentic 调用实施全部 tasks——与审查关卡对称，Claude 只做判定（PASS 后 commit，FAIL 原样呈报转人工，不重试不兜底）。`routing.implementer` 与 `routing.reviewer` 选同一个 backend 时给出独立性下降提示（不阻断）。
+- `npx ly-workflow update`（非交互 `--skip-prompt` 路径）在 `routing.implementer` 缺失时静默补齐默认值 `hermes`。
+
+### Changed
+- **BREAKING：`routing.reviewer` 移除 `claude` 选项**，收窄为 `codex`（默认）/`hermes`/`openclaw` 三选一——Claude（当前交互会话）本身是总指挥，不应再被选为被调度的审查/实施 backend。存量配置为 `claude` 的项目：交互式 `npx ly-workflow init` 不再预选该值、要求重新选择；非交互 `npx ly-workflow update` 静默重置为默认值 `codex` 并在汇总中提示。
+- `ly menu` 的"模型路由配置"入口同步移除 `claude`、补齐三选一，新增 `routing.implementer` 编辑入口，历史配置读取统一收口为白名单校验（`isValidRoutingBackend`）。
+- `/ly:review-plan`/`/ly:review-code` 的审查-修复循环不变：认可的 Critical 仍由 Claude 亲自修复，不委托给 Implementer agent。
+
 ## [1.6.0] - 2026-09-01
 
 ### Changed
