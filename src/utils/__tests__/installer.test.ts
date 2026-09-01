@@ -91,9 +91,9 @@ describe('injectConfigVariables — routing variables', () => {
   it('injects reviewer model', () => {
     const input = 'reviewer: {{REVIEWER_MODEL}}'
     const result = injectConfigVariables(input, {
-      routing: { reviewer: 'claude' },
+      routing: { reviewer: 'hermes' },
     })
-    expect(result).toBe('reviewer: claude')
+    expect(result).toBe('reviewer: hermes')
   })
 
   it('defaults to codex when reviewer not specified', () => {

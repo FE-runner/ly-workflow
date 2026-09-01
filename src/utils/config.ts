@@ -9,6 +9,16 @@ import { version as packageVersion } from '../../package.json'
 const LY_DIR = join(homedir(), '.claude', '.ly')
 const CONFIG_FILE = join(LY_DIR, 'config.toml')
 
+// routing.reviewer/routing.implementer 的合法值——claude 已不再可选（Claude 本身是总指挥，
+// 不应再被选为被调度的审查/实施 backend）。init.ts、menu.ts 的历史配置读取统一走这个白名单，
+// 避免手改 config.toml 残留的非法值被原样透传进最终执行的命令串。
+const VALID_ROUTING_BACKENDS = ['codex', 'hermes', 'openclaw'] as const
+export type RoutingBackend = typeof VALID_ROUTING_BACKENDS[number]
+
+export function isValidRoutingBackend(value: unknown): value is RoutingBackend {
+  return typeof value === 'string' && (VALID_ROUTING_BACKENDS as readonly string[]).includes(value)
+}
+
 export function getLyDir(): string {
   return LY_DIR
 }

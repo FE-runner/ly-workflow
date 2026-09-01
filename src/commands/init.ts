@@ -6,7 +6,7 @@ import ora from 'ora'
 import { homedir } from 'node:os'
 import { join } from 'pathe'
 import { i18n, initI18n } from '../i18n'
-import { createDefaultConfig, ensureLyDir, getLyDir, readLyConfig, writeLyConfig } from '../utils/config'
+import { createDefaultConfig, ensureLyDir, getLyDir, isValidRoutingBackend, readLyConfig, writeLyConfig } from '../utils/config'
 import { getCoreCommandIds, installAceTool, installAceToolRs, installContextWeaver, installFastContext, installMcpServer, installWorkflows, showBinaryDownloadWarning, syncMcpToCodex, writeFastContextPrompt } from '../utils/installer'
 import { isWindows } from '../utils/platform'
 
@@ -236,19 +236,21 @@ export async function init(options: InitOptions = {}): Promise<void> {
   if (options.skipPrompt) {
     const existingConfig = await readLyConfig()
     if (existingConfig?.routing?.reviewer) {
-      if (existingConfig.routing.reviewer === 'claude') {
-        // claude 已不再是合法的 routing.reviewer 值，静默重置为默认值
-        legacyClaudeReviewerReset = true
-      }
-      else {
+      if (isValidRoutingBackend(existingConfig.routing.reviewer)) {
         reviewer = existingConfig.routing.reviewer
       }
+      else {
+        // claude 或任意非法值已不再是合法的 routing.reviewer 值，静默重置为默认值
+        legacyClaudeReviewerReset = true
+      }
     }
-    if (existingConfig?.routing?.implementer) {
+    if (existingConfig?.routing?.implementer && isValidRoutingBackend(existingConfig.routing.implementer)) {
       implementer = existingConfig.routing.implementer
     }
     if (options.reviewer === 'codex' || options.reviewer === 'hermes' || options.reviewer === 'openclaw') {
       reviewer = options.reviewer
+      // 显式 --reviewer 覆盖了历史值，实际生效值来自用户显式指定，不是"静默重置为默认值"
+      legacyClaudeReviewerReset = false
     }
     if (options.implementer === 'codex' || options.implementer === 'hermes' || options.implementer === 'openclaw') {
       implementer = options.implementer
@@ -308,11 +310,11 @@ export async function init(options: InitOptions = {}): Promise<void> {
     const existingConfig = await readLyConfig()
 
     // Initialize from existing config so re-running init shows saved values as defaults.
-    // `claude` 已不再是合法值——存在历史遗留值时不预选它，强制用户在向导里重新选择。
-    if (existingConfig?.routing?.reviewer && existingConfig.routing.reviewer !== 'claude') {
+    // `claude`（或任何非法值）已不再是合法值——存在历史遗留值时不预选它，强制用户在向导里重新选择。
+    if (existingConfig?.routing?.reviewer && isValidRoutingBackend(existingConfig.routing.reviewer)) {
       reviewer = existingConfig.routing.reviewer
     }
-    if (existingConfig?.routing?.implementer) {
+    if (existingConfig?.routing?.implementer && isValidRoutingBackend(existingConfig.routing.implementer)) {
       implementer = existingConfig.routing.implementer
     }
     if (existingConfig?.performance?.liteMode !== undefined) {
@@ -404,7 +406,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
           { name: 'OpenClaw', value: 'openclaw' as ModelType },
           ...navSentinels(canGoBack),
         ],
-        default: reviewer === 'claude' ? 'codex' : reviewer,
+        default: reviewer,
       }])
 
       if (selectedReviewer === BACK_SENTINEL)
@@ -424,7 +426,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
           { name: 'OpenClaw', value: 'openclaw' as ModelType },
           ...navSentinels(canGoBack),
         ],
-        default: implementer === 'claude' ? 'hermes' : implementer,
+        default: implementer,
       }])
 
       if (selectedImplementer === BACK_SENTINEL)

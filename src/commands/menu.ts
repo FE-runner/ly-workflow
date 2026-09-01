@@ -12,7 +12,7 @@ import { version } from '../../package.json'
 import { configMcp } from './config-mcp'
 import { i18n } from '../i18n'
 import { collectInvocableSkills, getWorkflowConfigs, installCodexMode, uninstallCodexMode, uninstallWorkflows } from '../utils/installer'
-import { readLyConfig, writeLyConfig } from '../utils/config'
+import { isValidRoutingBackend, readLyConfig, writeLyConfig } from '../utils/config'
 import { init } from './init'
 import { update } from './update'
 import { isWindows } from '../utils/platform'
@@ -170,6 +170,9 @@ export async function showMainMenu(): Promise<void> {
     }
     if (config?.routing?.reviewer) {
       statusParts.push(ansis.green(`reviewer: ${config.routing.reviewer}`))
+    }
+    if (config?.routing?.implementer) {
+      statusParts.push(ansis.green(`implementer: ${config.routing.implementer}`))
     }
 
     drawHeader(statusParts)
@@ -509,10 +512,16 @@ async function configModelRouting(): Promise<void> {
   console.log(ansis.cyan.bold(`  ${i18n.t('init:model.title')}`))
   console.log()
 
-  const currentReviewer = config?.routing?.reviewer || 'codex'
+  const currentReviewer = isValidRoutingBackend(config?.routing?.reviewer)
+    ? config!.routing.reviewer
+    : 'codex'
+  const currentImplementer = isValidRoutingBackend(config?.routing?.implementer)
+    ? config!.routing.implementer
+    : 'hermes'
 
   console.log(ansis.gray(`  ${i18n.t('init:model.currentRouting')}:`))
   console.log(`  ${ansis.cyan('Reviewer:')} ${ansis.green(currentReviewer)}`)
+  console.log(`  ${ansis.cyan('Implementer:')} ${ansis.green(currentImplementer)}`)
   console.log()
 
   const { selectedReviewer } = await inquirer.prompt([{
@@ -521,18 +530,37 @@ async function configModelRouting(): Promise<void> {
     message: i18n.t('init:model.selectReviewer'),
     choices: [
       { name: `Codex ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'codex' },
-      { name: 'Claude', value: 'claude' },
+      { name: 'Hermes', value: 'hermes' },
+      { name: 'OpenClaw', value: 'openclaw' },
     ],
     default: currentReviewer,
   }])
 
-  if (selectedReviewer === currentReviewer) {
+  const { selectedImplementer } = await inquirer.prompt([{
+    type: 'list',
+    name: 'selectedImplementer',
+    message: i18n.t('init:model.selectImplementer'),
+    choices: [
+      { name: 'Codex', value: 'codex' },
+      { name: `Hermes ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'hermes' },
+      { name: 'OpenClaw', value: 'openclaw' },
+    ],
+    default: currentImplementer,
+  }])
+
+  if (selectedImplementer === selectedReviewer) {
+    console.log()
+    console.log(ansis.yellow(`  ⚠ ${i18n.t('init:model.independenceWarning')}`))
+  }
+
+  if (selectedReviewer === currentReviewer && selectedImplementer === currentImplementer) {
     console.log(ansis.gray(`  ${i18n.t('common:configNotModified')}`))
     return
   }
 
   if (config) {
     config.routing.reviewer = selectedReviewer
+    config.routing.implementer = selectedImplementer
     await writeLyConfig(config)
   }
 

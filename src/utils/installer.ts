@@ -76,6 +76,7 @@ const EXPECTED_BINARY_VERSION = '1.6.0'
 interface InstallConfig {
   routing: {
     reviewer?: string
+    implementer?: string
   }
   liteMode: boolean
   mcpProvider: string
@@ -1053,6 +1054,7 @@ export async function installWorkflows(
   config?: {
     routing?: {
       reviewer?: string
+      implementer?: string
     }
     liteMode?: boolean
     mcpProvider?: string

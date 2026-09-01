@@ -4,7 +4,7 @@ description: '委托 routing.implementer 对应的外部 agent 实施 tasks（�
 
 # Apply
 
-不再由 Claude 自己实施代码。读取 `routing.implementer`（`codex`/`hermes`/`openclaw` 三选一），委托 `codeagent-wrapper --backend <routing.implementer>`（`ROLE_FILE: builder.md`）在**当前工作区**以单次 agentic 调用实施全部 tasks。隔离 worktree 的询问/新建统一收敛到 `/ly:propose` 入口（创建方案前从当前分支切），apply 不再触发任何 worktree 询问、不再调用 `/ly:worktree switch`、不再做隔离检测——不在任何 worktree 内时直接在当前目录实施。Implementer agent 返回 `OVERALL: PASS` 后立即 commit（`apply: <change-name>`），作为 `/ly:review-code` 的审查对象；`OVERALL: FAIL` 或调用本身失败时原样呈报，不重试、不切回 Claude 自己实施。
+不再由 Claude 自己实施代码。委托 `codeagent-wrapper --backend {{IMPLEMENTER_MODEL}}`（`ROLE_FILE: builder.md`，backend 已在安装期按 `routing.implementer` 渲染好）在**当前工作区**以单次 agentic 调用实施全部 tasks。隔离 worktree 的询问/新建统一收敛到 `/ly:propose` 入口（创建方案前从当前分支切），apply 不再触发任何 worktree 询问、不再调用 `/ly:worktree switch`、不再做隔离检测——不在任何 worktree 内时直接在当前目录实施。Implementer agent 返回 `OVERALL: PASS` 后立即 commit（`apply: <change-name>`），作为 `/ly:review-code` 的审查对象；`OVERALL: FAIL` 或调用本身失败时原样呈报，不重试、不切回 Claude 自己实施。
 
 ## 步骤
 
@@ -20,14 +20,16 @@ description: '委托 routing.implementer 对应的外部 agent 实施 tasks（�
 
 任一步骤无法唯一确定时，不得继续执行后续步骤。
 
-### 2. 读取 routing.implementer，记录实施前快照
+### 2. 记录实施前快照
 
-读取项目配置中的 `routing.implementer`（有效值 `codex`/`hermes`/`openclaw`）。若配置值不在这三者之内（例如手改配置文件残留的 `claude` 或其他非法字符串），如实报告"实施后端配置值非法：<值>，必须是 codex/hermes/openclaw 之一"并停止，不静默回退到任何默认值。
+`--backend {{IMPLEMENTER_MODEL}}` 与 `ROLE_FILE` 路径已经是安装期从 `routing.implementer` 渲染好的具体值（渲染于 `~/.claude/.ly/config.toml`，全局配置，非项目内文件），写在下方步骤 3 的命令里——不需要在运行时另外读取配置或做合法性校验，直接执行步骤 3 里已经写好的命令即可。
 
-实施前先记录一次 `git status --porcelain` 作为快照（用于两个目的：检测本次实施前是否已有预存改动；PASS 后计算"本次 Implementer agent 实际改动的文件"范围）：
+实施前先记录一次 `git status --porcelain` 快照，以及 `git diff HEAD --name-only` 与 `git ls-files -o --exclude-standard`（用于两个目的：检测本次实施前是否已有预存改动；PASS 后按步骤 5.1 的确定性算法计算"本次 Implementer agent 实际改动的文件"范围）：
 
 ```bash
 git status --porcelain
+git diff HEAD --name-only
+git ls-files -o --exclude-standard
 ```
 
 ### 3. 委托 Implementer agent 单次 agentic 调用
@@ -42,7 +44,7 @@ Bash({
 })
 ```
 
-**后端二进制缺失时如实报错**：若 wrapper 报告对应 CLI 不存在于 PATH，如实报告"实施后端 <routing.implementer> 二进制缺失"并停止，不静默切换到其他后端。
+**后端二进制缺失时如实报错**：若 wrapper 报告对应 CLI 不存在于 PATH，如实报告"实施后端 {{IMPLEMENTER_MODEL}} 二进制缺失"并停止，不静默切换到其他后端。
 
 ### 4. 判定 Execution Report
 
@@ -56,8 +58,11 @@ Bash({
 
 ### 5. 暂存与提交（仅 PASS 时执行）
 
-1. 用步骤 2 记录的快照对比当前 `git status --porcelain`，得到本次 Implementer agent 实际改动/新增的文件路径清单。
-2. 若步骤 2 的快照本身就非空（实施前已存在与本次无关的预存改动，如审查修复残留），`git add` 范围仅限上一步算出的"本次实际改动的文件"，SHALL NOT 将预存改动一并暂存/提交，并在报告中说明"预存改动未被提交"。
+1. 用步骤 2 记录的三份快照（`git status --porcelain`、`git diff HEAD --name-only`、`git ls-files -o --exclude-standard`）与实施后的同名命令结果对比，按以下确定性算法算出"本次 Implementer agent 实际改动/新增的文件"清单：
+   - 新增路径 = 实施后 `git ls-files -o --exclude-standard` 相对实施前该命令结果新增的路径。
+   - 变化路径 = 实施后 `git diff HEAD --name-only` 相对实施前该命令结果新增的路径，**加上**两者都包含、但 `git diff HEAD -- <path>` 内容在实施前后不同的路径（覆盖"实施前已存在改动、实施中又被继续编辑"的文件，不能靠状态行是否变化来判断）。
+   - 清单 = 新增路径 ∪ 变化路径。
+2. 若步骤 2 的快照本身就非空（实施前已存在与本次无关的预存改动，如审查修复残留），`git add` 范围仅限上一步算出的清单，SHALL NOT 将预存改动一并暂存/提交，并在报告中说明"预存改动未被提交"。
 3. 有实际文件变动则暂存本次实际改动的文件：
    ```
    git add -- <本次实际改动的文件>

@@ -36,8 +36,8 @@ CLI 工具的全部 TypeScript 实现：安装/更新 `ly-workflow` 到 `~/.clau
 
 | 类型 | 说明 |
 |------|------|
-| `ModelType` | `'codex' \| 'claude'` |
-| `ModelRouting` | `{ reviewer: ModelType }` — 只控制审查阶段用哪个模型 |
+| `ModelType` | `'codex' \| 'claude' \| 'hermes' \| 'openclaw'`（`claude` 仅供 wrapper 内部兼容，`routing.reviewer`/`routing.implementer` 不再允许选它） |
+| `ModelRouting` | `{ reviewer: ModelType, implementer: ModelType }` — 分别控制审查、实施阶段用哪个后端（各自三选一：codex/hermes/openclaw） |
 | `LyConfig` | 完整配置结构 |
 
 ## utils/installer.ts 要点
