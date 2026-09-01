@@ -1,8 +1,4 @@
-## Purpose
-
-让 `/ly:propose` 的收尾流程在创建方案前收敛为两个单点询问（隔离 worktree + 全自动/手动），生成方案后每步 commit（`propose: <change-name>`），并按所选路径自动收尾：全自动路径在审方案清零后同会话自动进入 apply → 自动审代码的流水线，手动路径在方案提交后询问一次是否跑审查。自动化程度由用户在流程最开始明确选择，不默默展开、不需要用户手动记住下一步该做什么。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: 在委托 opsx:propose 之前询问一次"全自动 vs 手动"
 `/ly:propose` SHALL 在调用 `Skill(opsx:propose)` **之前**询问用户一次："本次收尾走全自动（自动审查 + 自动实施 + 审完代码才停，非清零即停），还是手动逐步确认（每一步都问）？"。该询问 SHALL 是整条收尾编排链路里唯一决定"自动/手动"路径的开关询问，命令后续步骤 SHALL NOT 再重复询问"要不要继续自动"。该询问 SHALL 在 worktree 询问之后进行（若未隔离且用户选择切换 worktree，则本次会话在打印续接命令后结束，下一次会话在 worktree 内的 `/ly:propose` 调用再询问）。该选择 SHALL NOT 影响"是否走 worktree"（是否隔离在 worktree 询问中独立决定，两者正交），SHALL NOT 决定"要不要走 review-plan"（两条路径下都有机会走，只是询问的时机和次数不同——全自动自动进入，手动先问要不要跑）。
@@ -14,17 +10,6 @@
 #### Scenario: 已隔离时先问自动还是手动，不出现 worktree 询问
 - **WHEN** 用户已在某个 worktree 内执行 `/ly:propose "描述"`
 - **THEN** 命令跳过 worktree 询问，直接询问"全自动 or 手动"，随后进入生成/审查/实施流水线
-
-### Requirement: propose 收尾时通过前后快照比对确定真实 change 名
-`/ly:propose` SHALL 在调用 `Skill(opsx:propose)` 之前记录一次 `openspec list --json` 的候选 change 名集合（快照 A），委托完成后再查询一次（快照 B），取快照 B 相对快照 A 新增的那一条作为本次实际生成的 change 名，SHALL NOT 依赖 `$ARGUMENTS`、SHALL NOT 单纯依赖全局 `lastModified` 最新一条。若新增条目不唯一或没有新增条目，SHALL NOT 猜测，必须（SHALL）直接询问用户本次生成的 change 名。
-
-#### Scenario: 用户输入的描述与最终 slug 不同
-- **WHEN** 用户执行 `/ly:propose "给批量导出接口加限流"`，`opsx:propose` 内部生成的 change 名为 `add-export-rate-limit`
-- **THEN** 后续 commit、（若自动化开启）调用 `/ly:review-plan`、询问 worktree 时使用的都是 `add-export-rate-limit`，不是用户输入的原始描述，且该名字来自快照比对而非 `lastModified` 猜测
-
-#### Scenario: 快照比对无法唯一确定
-- **WHEN** 委托完成后快照比对发现新增条目不唯一（或没有新增条目）
-- **THEN** 命令 SHALL NOT 继续猜测，直接询问用户本次生成的 change 名，待用户确认后再继续后续步骤
 
 ### Requirement: propose 产物每步 commit，不再暂存区持有
 `/ly:propose` SHALL 在确定真实 change 名后，先检查整个 Git index（`git diff --cached --name-only`）；若存在该 change 目录之外的已暂存内容，SHALL 停止并要求用户先处理。确认 index 干净后，SHALL `git add -- openspec/changes/<change-name>/`（该目录含 `openspec new change` 生成的 `.openspec.yaml` 元数据文件、proposal/design/tasks 及 delta spec 全部文件，集群暂存，不使用 `git add -A`），然后**立即 commit**（提交信息 `propose: <change-name>`），SHALL NOT 把产物保留在暂存区等待清零/询问时统一提交。commit 完成后 SHALL 用 `git show --name-only --format=` 校验该次 commit 的实际文件集合严格属于 `openspec/changes/<change-name>/` 目录（含 `.openspec.yaml`）。若该目录下无可提交内容、`git commit` 本身失败，或校验发现文件集合超出该目录范围，SHALL 停止后续自动化步骤，报告具体原因。该 commit 即为 `review-plan` 的审查对象（见 Requirement"审查对象 = 最近一次相关 commit"）。
@@ -45,7 +30,6 @@
 当且仅当用户在开始时选择"全自动"，`/ly:propose` SHALL 在 `propose:` commit 完成后自动按序执行：
 1. 自动调用 `/ly:review-plan <change-name>`（审查对象为 `propose:` commit，见新增 Requirement）。以 Critical 清零结束时自动进入下一步；以其余任一种终止（熔断、分歧未决、无法安全修复、验证失败、审查调用失败、提交失败、达到全局轮数上限）时，SHALL 停止流水线，复用该循环已产出的终止报告（SHALL NOT 重新生成或重复一份）报告终止原因，SHALL NOT 继续执行 apply。
 2. 自动进入 `/ly:apply <change-name>` 实施 tasks（`apply` 产物按 `ly-lifecycle-commands` 的实施完成立即 commit 规则落库），自动进入 `/ly:review-code <change-name>`（审查对象为 `apply:` commit）。以 Critical 清零结束；以其余任一种终止时，SHALL 停止流水线，报告终止原因。
-
 流水线执行过程中 SHALL NOT 出现任何 worktree 询问或 `/ly:worktree switch` 调用；`/ly:archive` SHALL 仍由用户手动触发，propose 不自动归档。
 
 #### Scenario: 全自动流水线走到审完代码

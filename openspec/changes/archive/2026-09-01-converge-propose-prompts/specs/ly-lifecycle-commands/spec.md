@@ -1,23 +1,4 @@
-## Purpose
-
-提供五个统一前缀的 `/ly:*` 命令：`explore` 是纯委托（不附加自定义编排逻辑）；`init`/`archive` 各自委托对应的 Claude Code 原生 `init` 技能或 OpenSpec 原生 `fsaw`/`archive` 技能并在完成后自动提交本步骤产生的文件变动（`apply` 委托 `opsx:apply` 在**当前工作区**实施 tasks，实施完成后立即提交 `apply: <change-name>`——无隔离检测、不暂存区持有，隔离 worktree 由 `/ly:propose` 创建方案前决定）；`propose` 是收尾编排的入口——委托 `opsx:propose` 生成方案之外，还负责创建方案前的 worktree 询问（不在 worktree 内才问，从当前分支 HEAD 切出）、全自动/手动询问、每步 commit（`propose: <change-name>`）与全自动流水线（review-plan → apply → review-code）。
-
-## Requirements
-
-### Requirement: init 命令串联 CLAUDE.md 生成、OpenSpec 初始化与提交
-`/ly:init` 必须（SHALL）按顺序执行三步：（1）调用原生 `init` 技能生成/更新 CLAUDE.md；（2）确保 `openspec` CLI 已安装，然后运行 `openspec init` 搭建 `openspec/` 目录结构；（3）若步骤 1-2 产生了实际文件变动，暂存 `CLAUDE.md`、`openspec/` 并执行一次 commit。前两步都不得静默跳过；如果 `openspec` CLI 未安装，命令必须先安装它再继续。第三步若无可提交内容或 `git commit` 本身失败，SHALL 跳过提交并在汇总中如实报告，SHALL NOT 因此中断或视为命令失败。
-
-#### Scenario: 全新项目, 既无 CLAUDE.md 也无 openspec/ 目录
-- **WHEN** 用户在既无 CLAUDE.md 也无 `openspec/` 目录的项目中运行 `/ly:init`
-- **THEN** 命令通过原生 `init` 技能生成 CLAUDE.md, 同时通过 `openspec init` 初始化 `openspec/`, 并提交这两部分产物
-
-#### Scenario: openspec CLI 未安装
-- **WHEN** 用户运行 `/ly:init` 且 PATH 中找不到 `openspec` 命令
-- **THEN** 命令先全局安装 `@fission-ai/openspec`, 再运行 `openspec init`, 完成后提交产物
-
-#### Scenario: init 无新变动, 跳过提交
-- **WHEN** 用户在 CLAUDE.md 与 `openspec/` 均已存在且未发生变化的项目中运行 `/ly:init`
-- **THEN** 命令跳过 commit 步骤，在汇总中如实说明无变动可提交，不视为失败
+## MODIFIED Requirements
 
 ### Requirement: Explore 命令是纯委托；Apply 实施完成立即提交；Propose 是编排入口
 `/ly:explore` 必须（SHALL）只调用 `opsx:explore`，原样转发 `$ARGUMENTS`，不得包含自定义的多模型分派、环境校验，或超出底层技能本身的输出后处理逻辑。
