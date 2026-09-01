@@ -44,6 +44,6 @@
 
 ## 7. 验证
 
-- [ ] 7.1 `openspec validate` 通过（新增/移除 delta 合法、scenario 四井号格式正确）
-- [ ] 7.2 `pnpm typecheck && pnpm build && pnpm test` 全绿
-- [ ] 7.3 通读三份改动命令模板与 spec delta，确认设计决策（对照 `design.md` 的 D1–D6 及 `templates/CLAUDE.md` 变更记录）逐条有落点
+- [x] 7.1 `openspec validate` 通过（新增/移除 delta 合法、scenario 四井号格式正确）
+- [x] 7.2 `pnpm typecheck && pnpm build && pnpm test` 全绿
+- [x] 7.3 通读三份改动命令模板与 spec delta，确认设计决策（对照 `design.md` 的 D1–D6 及 `templates/CLAUDE.md` 变更记录）逐条有落点

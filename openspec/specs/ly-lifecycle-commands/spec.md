@@ -1,6 +1,6 @@
 ## Purpose
 
-提供五个统一前缀的 `/ly:*` 命令：`explore` 是纯委托（不附加自定义编排逻辑）；`init`/`archive` 各自委托对应的 Claude Code 原生 `init` 技能或 OpenSpec 原生 `fsaw`/`archive` 技能并在完成后自动提交本步骤产生的文件变动（`apply` 委托 `opsx:apply` 实施后将改动暂存、默认不自动提交，仅在用户明确跳过 review-code 审查时询问是否提交）；`propose` 是收尾编排的入口——委托 `opsx:propose` 生成方案之外，还负责总开关询问、暂存产物、审查循环调用与隔离 worktree 询问。
+提供五个统一前缀的 `/ly:*` 命令：`explore` 是纯委托（不附加自定义编排逻辑）；`init`/`archive` 各自委托对应的 Claude Code 原生 `init` 技能或 OpenSpec 原生 `fsaw`/`archive` 技能并在完成后自动提交本步骤产生的文件变动（`apply` 委托 `opsx:apply` 在**当前工作区**实施 tasks，实施完成后立即提交 `apply: <change-name>`——无隔离检测、不暂存区持有，隔离 worktree 由 `/ly:propose` 创建方案前决定）；`propose` 是收尾编排的入口——委托 `opsx:propose` 生成方案之外，还负责创建方案前的 worktree 询问（不在 worktree 内才问，从当前分支 HEAD 切出）、全自动/手动询问、每步 commit（`propose: <change-name>`）与全自动流水线（review-plan → apply → review-code）。
 
 ## Requirements
 
