@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **update 非交互补齐值 `hermes` → `claude`**：`--skip-prompt` 路径检测到 `routing.implementer` 缺失时静默写 `claude`；存量合法值（含 v1.7.0 写入的 `hermes`）一律尊重不改写。
 - **决策 5 心智模型更新**：Claude 是默认实施者 + 循环 Critical 亲自修复者；外部 implementer 后端降级为进阶选项（想保持实施视角多样性/隔离性的用户手动选择）。
 
+### Fixed
+- **`--implementer` CLI help 与 `templates/CLAUDE.md` apply.md 描述同步**：help 文本补上 `claude` 选项与默认值说明（原仍写三选一，误导用户以为 claude 不可选）；apply.md 命令表描述区分"claude=本人实施 / 外部后端=委托 wrapper"双路径。
+
 ## [1.7.0] - 2026-09-01
 
 ### Added
