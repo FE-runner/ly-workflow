@@ -11,12 +11,6 @@
 - **WHEN** claude 模式下实施过程因外部原因（如用户中断）未完成全部任务
 - **THEN** 命令如实报告已完成/未完成的任务清单，不执行 commit，不存在"委托失败转人工"的报告形态
 
-## RENAMED Requirements
-
-### Requirement: init 可选择实施后端（codex/hermes/openclaw，必选）
-- **FROM**: init 可选择实施后端（codex/hermes/openclaw，必选）
-- **TO**: init 可选择实施后端（claude 默认，四选一）
-
 ## MODIFIED Requirements
 
 ### Requirement: init 可选择实施后端（claude 默认，四选一）
