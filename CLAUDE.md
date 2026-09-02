@@ -2,13 +2,16 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-09-02 (v1.7.2)
+**Last Updated**: 2026-09-02 (v1.7.3)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-09-02 (v1.7.3) — README 发布管线命令补齐
+- 📝 **README 同步**：命令表补 `/ly:release`/`/ly:changelog`/`/ly:publish`，`/ly:apply` 描述改为按 `routing.implementer` 路由，架构节补发布方式说明（仅文档，无代码变更）
 
 ### 2026-09-02 (v1.7.2) — implementer 默认 Claude（本人实施）+ 白名单拆分 + apply 条件块渲染
 - ✨ **`routing.implementer` 合法值扩为四选一**：`claude`（新默认）/`codex`/`hermes`/`openclaw`——reviewer 白名单不变（仍不收 `claude`）；`config.ts` 拆分独立 `VALID_IMPLEMENTER_BACKENDS` + `isValidImplementerBackend()`（`ModelRouting.implementer` 类型收窄为 `ImplementerBackend`），`init.ts`/`menu.ts` 存量值校验随语义迁移

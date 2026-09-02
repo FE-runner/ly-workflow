@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ---
 
+## [1.7.3] - 2026-09-02
+
+### Changed
+- **README 同步**：命令表补上 v1.7.1 起缺失的 `/ly:release`/`/ly:changelog`/`/ly:publish` 三条发布管线命令；`/ly:apply` 描述修正为按 `routing.implementer` 路由（原仍写 v1.6.x 的"委托 `opsx:apply`"）；架构节补充 claude 默认实施、reviewer 可配置与 tag 触发 CI 自动发包的说明。
+
 ## [1.7.2] - 2026-09-02
 
 ### Added
