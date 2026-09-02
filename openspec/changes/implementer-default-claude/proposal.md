@@ -25,7 +25,7 @@ v1.7.0 将 `/ly:apply` 的实施步骤强制委托给外部 agent（`routing.imp
 
 ## Impact
 
-- **代码**：`src/utils/config.ts`（白名单拆分）、`src/commands/init.ts`（默认值、向导选项、update 补齐值）、`src/commands/menu.ts`（implementer 编辑入口补 claude 选项，如存在同类枚举）、`src/i18n/index.ts`（新增选项文案）
+- **代码**：`src/utils/config.ts`（白名单拆分、`createDefaultRouting()` 默认值）、`src/types/index.ts`（`ModelRouting.implementer` 类型收窄）、`src/commands/init.ts`（默认值、向导选项、update 补齐值）、`src/commands/menu.ts`（implementer 编辑入口补 claude 选项，如存在同类枚举）、`src/i18n/index.ts`（新增选项文案）
 - **模板**：`templates/commands/apply.md`（claude 分支渲染逻辑）、渲染器（`src/utils/installer-template.ts` 或 `installer.ts` 中 `{{IMPLEMENTER_MODEL}}` 的分支处理）
 - **测试**：`src/utils/__tests__/config.test.ts`、`src/utils/__tests__/installer.test.ts` 中 implementer 白名单/默认值/渲染断言
 - **文档**：`CLAUDE.md`（决策 5、命令表）、`CHANGELOG.md`

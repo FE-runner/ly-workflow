@@ -2,7 +2,7 @@
 
 ## Context
 
-v1.7.0 起实施后端由 `routing.implementer` 控制，合法值白名单 `VALID_ROUTING_BACKENDS = ['codex', 'hermes', 'openclaw']`（`src/utils/config.ts:15`）同时约束 reviewer 与 implementer 两处；默认值散落在三处硬编码：`src/commands/init.ts:231`（`'hermes'`）、`src/commands/menu.ts:520`（fallback `'hermes'`）、`src/utils/installer-template.ts:80`（fallback `'hermes'`）。`apply.md` 模板通过安装期 `{{IMPLEMENTER_MODEL}}` 字符串替换（`injectConfigVariables`）渲染出 wrapper 委托命令，`ROLE_FILE: prompts/{{IMPLEMENTER_MODEL}}/builder.md`。动机见 proposal.md 的 Why。
+v1.7.0 起实施后端由 `routing.implementer` 控制，合法值白名单 `VALID_ROUTING_BACKENDS = ['codex', 'hermes', 'openclaw']`（`src/utils/config.ts:15`）同时约束 reviewer 与 implementer 两处；默认值散落在四处硬编码：`src/commands/init.ts:231`（`'hermes'`）、`src/commands/menu.ts:520`（fallback `'hermes'`）、`src/utils/installer-template.ts:80`（fallback `'hermes'`）、`src/utils/config.ts:87-90` 的 `createDefaultRouting()`（公共导出，经 `src/index.ts:11` 对外暴露，返回 `implementer: 'hermes'`，运行时 init 写配置路径不经过它，但属公共 API 语义）；另有 `src/utils/__tests__/config.test.ts:10-13` 对该默认值的显式断言。`apply.md` 模板通过安装期 `{{IMPLEMENTER_MODEL}}` 字符串替换（`injectConfigVariables`）渲染出 wrapper 委托命令，`ROLE_FILE: prompts/{{IMPLEMENTER_MODEL}}/builder.md`。现有值校验调用点 `src/commands/init.ts:247`/`src/commands/init.ts:317`/`src/commands/menu.ts:518` 均走 `isValidRoutingBackend`。动机见 proposal.md 的 Why。
 
 ## Goals / Non-Goals
 
@@ -25,7 +25,7 @@ v1.7.0 起实施后端由 `routing.implementer` 控制，合法值白名单 `VAL
 
 `config.ts` 拆为两组：`VALID_ROUTING_BACKENDS`（reviewer 用，保持 `['codex','hermes','openclaw']` 不动）与新增 `VALID_IMPLEMENTER_BACKENDS = ['claude','codex','hermes','openclaw']`；新增 `isValidImplementerBackend()`，`isValidRoutingBackend()` 保留原语义继续服务 reviewer。类型层面新增 `ImplementerBackend`，`ModelRouting.implementer` 收窄为 `ImplementerBackend`（`reviewer` 仍为 `ModelType` 收窄后的三值）。
 
-**备选**：单一白名单 + 调用处按字段过滤——否决，两处约束未来还会继续分化（本次就是分化点），双白名单让约束显式化。
+**备选**：单一白名单 + 调用处按字段过滤——否决，两处约束未来还会继续分化（本次就是分化点），双白名单让约束显式化。白名单拆分的同时，现有校验调用点随语义迁移：`src/commands/init.ts:247`（skipPrompt 路径存量校验）、`src/commands/init.ts:317`（交互路径存量校验）、`src/commands/menu.ts:518`（`currentImplementer` 读取）从 `isValidRoutingBackend` 切换为 `isValidImplementerBackend`——否则合法的 `claude` 存量值会被旧校验判非法、交互 re-run 不预选、menu 显示 fallback 值。
 
 ### D2: apply.md 用单模板 + 条件块标记，而非两份模板文件
 
@@ -50,7 +50,7 @@ v1.7.0 起实施后端由 `routing.implementer` 控制，合法值白名单 `VAL
 
 ### D4: 独立性提示逻辑不动
 
-`selectedImplementer === selectedReviewer` 的提示判断保持原样——reviewer 白名单不含 `claude`，implementer=claude 时条件天然为假，无需特判。
+`selectedImplementer === selectedReviewer` 的提示判断保持原样——reviewer 白名单不含 `claude`，implementer=claude 时条件天然为假，无需特判。基线 spec 的「routing.implementer 与 routing.reviewer 相同时给出独立性提示」Requirement 本身保持不动（无任何 Requirement 变化，故不出现在 delta 中），并非遗漏。
 
 ### D5: update 非交互补齐值改 `claude`，存量不改写
 

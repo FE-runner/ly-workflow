@@ -11,9 +11,15 @@
 - **WHEN** claude 模式下实施过程因外部原因（如用户中断）未完成全部任务
 - **THEN** 命令如实报告已完成/未完成的任务清单，不执行 commit，不存在"委托失败转人工"的报告形态
 
-## MODIFIED Requirements
+## RENAMED Requirements
 
 ### Requirement: init 可选择实施后端（codex/hermes/openclaw，必选）
+- **FROM**: init 可选择实施后端（codex/hermes/openclaw，必选）
+- **TO**: init 可选择实施后端（claude 默认，四选一）
+
+## MODIFIED Requirements
+
+### Requirement: init 可选择实施后端（claude 默认，四选一）
 `npx ly-workflow init` 的交互式向导必须（SHALL）在"选择审查模型"步骤之后新增"选择实施后端"步骤，提供 `claude`（默认）/`codex`/`hermes`/`openclaw` 四个选项供用户选择；选择结果持久化为 `routing.implementer`（有效值为这四个之一）。该配置项必选，不提供"不配置"的选项。后续 `/ly:apply` 必须（SHALL）按该值路由实施方式：`claude` 为编排者本人实施，其余三个为委托外部 agent 实施。
 
 #### Scenario: 默认后端为 claude
@@ -56,3 +62,29 @@
 #### Scenario: PASS 后正常提交
 - **WHEN** Implementer agent 返回的 Execution Report 显示 `OVERALL: PASS`
 - **THEN** 命令暂存本次实施产生的文件变动并提交 `apply: <change-name>`，作为 `/ly:review-code` 的审查对象
+
+### Requirement: Execution Report 判定 FAIL 或调用失败时原样呈报，不重试不兜底
+当 `routing.implementer` 为 `codex`/`hermes`/`openclaw` 之一，且 Implementer agent 返回的 Execution Report 中 `OVERALL: FAIL`，或 wrapper 调用本身超时/非零退出/返回空响应时，`/ly:apply` 必须（SHALL）原样呈报失败详情给用户，SHALL NOT 自动重试同一次调用，SHALL NOT 自动切换到其他外部后端，SHALL NOT 执行任何提交。`routing.implementer` 为 `claude` 时本条不适用（不存在 wrapper 调用与 Execution Report 语义，见"claude 实施模式下 /ly:apply 由编排者本人实施"）。
+
+#### Scenario: 实施失败时原样呈报并停止
+- **WHEN** `routing.implementer` 为 `codex` 时 Implementer agent 返回的 Execution Report 显示 `OVERALL: FAIL`
+- **THEN** 命令展示该报告的失败详情，不进行第二次调用，不切换到其他后端，不执行 git commit，等待用户决定后续处理
+
+#### Scenario: wrapper 调用超时视为失败
+- **WHEN** 委托 Implementer agent 的 wrapper 调用超时
+- **THEN** 命令按上一条件处理：报告超时详情，不重试不兜底，不执行 commit
+
+#### Scenario: claude 模式不适用 FAIL 处理
+- **WHEN** `routing.implementer` 为 `claude`
+- **THEN** 本条的 FAIL 呈报/不重试语义不参与 `/ly:apply` 流程，实施中断按"编排者本人实施"条目的中断语义处理
+
+### Requirement: 实施后端二进制缺失时如实报错
+当 `routing.implementer` 为 `codex`/`hermes`/`openclaw` 之一且对应 CLI 二进制不存在于 PATH 时，`/ly:apply` 必须（SHALL）明确报告该后端缺失并结束，不得静默切换到其他后端。`routing.implementer` 为 `claude` 时不涉及外部 CLI 二进制，本条不适用。
+
+#### Scenario: 实施后端二进制缺失
+- **WHEN** `routing.implementer` 为 `openclaw` 但执行环境中不存在 `openclaw` 命令
+- **THEN** `/ly:apply` 报告"实施后端 openclaw 二进制缺失"并结束，不静默改用其他后端
+
+#### Scenario: claude 模式不涉及二进制检查
+- **WHEN** `routing.implementer` 为 `claude`
+- **THEN** `/ly:apply` 不做外部 CLI 二进制存在性检查，直接由编排者本人实施
