@@ -14,7 +14,7 @@ ly-workflow 现有 11 个 slash command，全量安装在 `~/.claude/commands/ly
 **Non-Goals:**
 - 不在 init 向导中增加可选项（三个命令全量安装，不按需跳过）
 - 不新增 npm 依赖或 Go wrapper backend
-- 不修改 `src/types/index.ts`、`src/i18n/`、`src/commands/init.ts`
+- 不修改 `src/types/index.ts` 或 `src/types/cli.ts`（`CommandCategory` 是 `installer-data.ts` 内的局部类型，新增 `'release'` 在该文件内完成）
 - 不改变现有 11 个命令的任何行为
 
 ## Decisions
@@ -37,9 +37,9 @@ ly-workflow 现有 11 个 slash command，全量安装在 `~/.claude/commands/ly
 
 **理由**：现有 git 工具命令（commit、rollback、clean-branches）都是纯 shell 操作模式，不需要通过 Go wrapper 调用外部 agent。review-plan/review-code 需要 codeagent-wrapper 是因为要驱动外部 AI agent 做审查判断，而 release/changelog/publish 是纯操作型任务。
 
-### 4. 版本号推导规则：三个命令共享相同逻辑描述
+### 4. 版本号推导规则：release 和 publish 共享相同逻辑描述
 
-**选择**：SemVer 推导规则（基于 Conventional Commits 前缀）在三处分别内联书写（不提取共享模块），但内容保持一致。
+**选择**：SemVer 推导规则（基于 Conventional Commits 前缀）在 `/ly:release` 和 `/ly:publish` 两处分别内联书写（不提取共享模块），但内容保持一致。`/ly:changelog` 仅复用 Conventional Commits 分组规则（feat→Added、fix→Fixed），不涉及版本号推导。
 
 **理由**：每个命令模版是独立可读的完整指令——Claude 读取单个命令时应获得完整上下文，不依赖"先读另一个命令模版"。共享模块化在 ly-workflow 的模板系统中没有先例（每个命令模板彼此独立），引入共享引用会增加安装器的复杂度（需要跨文件变量注入），收益有限。
 

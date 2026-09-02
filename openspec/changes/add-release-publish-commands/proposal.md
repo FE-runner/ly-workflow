@@ -25,5 +25,5 @@ ly-workflow 目前包含 11 个命令（init/explore/propose/apply/archive/revie
 ## Impact
 
 - **新增文件**：`templates/commands/release.md`、`templates/commands/changelog.md`、`templates/commands/publish.md`
-- **修改文件**：`src/utils/installer-data.ts`（+3 条 `cmd()` 注册）、`CLAUDE.md`（根目录变更记录+命令表）、`templates/CLAUDE.md`（模板索引）
+- **修改文件**：`src/utils/installer-data.ts`（`CommandCategory` union + 3 条 `cmd()` 注册）、`src/utils/__tests__/installer.test.ts`（命令数断言 11→14，新增 category 断言）、`CLAUDE.md`（根目录变更记录+命令表）、`templates/CLAUDE.md`（模板索引）
 - **不影响**：installer.ts（自动从 templates/ 目录发现）、menu.ts（help 从 getWorkflowConfigs() 动态读取）、init.ts、types、i18n、codeagent-wrapper

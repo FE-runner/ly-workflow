@@ -71,3 +71,48 @@ Each scenario SHALL include pre-flight checks (node/pnpm version, git clean stat
 - **WHEN** user selects bmc Nexus as target
 - **THEN** the system checks `.npmrc` for `@bmc:registry` configuration
 - **AND** verifies `npm whoami` against the Nexus registry before proceeding
+
+### Requirement: Publish execution and verification
+
+The `/ly:publish` command SHALL execute build before publish, and SHALL NOT attempt publishing if the build fails or authentication fails.
+
+For local publishing (targets 1-3), the system SHALL:
+
+- Run the project's build script (`pnpm build` or equivalent) before `npm publish`
+- Abort and report the failure if `pnpm build` exits non-zero
+- After successful publish, verify the new version exists on the target registry via `npm view <pkg>@<version>`
+- If the version already exists on the target registry (409 Conflict), SHALL prompt to bump to a new version instead of overwriting
+
+For CI auto-publish (target 4), the system SHALL:
+
+- NOT run `npm publish` locally — only prepare version bump and tag
+- Push the tag (`git push --follow-tags`) to trigger the existing GitHub Actions workflow
+- Verify that a `.github/workflows/` publish workflow exists before proceeding; if absent, offer to create one
+- After push, monitor the CI run status (via `gh run watch` or instruct user to check GitHub Actions)
+
+#### Scenario: Build failure aborts publish
+- **WHEN** `/ly:publish` runs `pnpm build` and it exits non-zero
+- **THEN** the system SHALL stop and report "build failed" without attempting `npm publish`
+
+#### Scenario: Successful local publish with verification
+- **WHEN** `/ly:publish` successfully publishes to a target registry
+- **THEN** the system SHALL run `npm view <pkg>@<version> --registry=<url>` to confirm the version is visible
+
+#### Scenario: CI publish with missing workflow
+- **WHEN** user selects CI auto-publish but no `.github/workflows/` file has a publish job
+- **THEN** the system SHALL offer to create a `.github/workflows/publish.yml` with tag-triggered publish configuration
+
+### Requirement: Changelog generation boundaries and update semantics
+
+The `/ly:changelog` command SHALL determine the commit range from the last version boundary (tag, version.sh bump commit, or package.json version bump — tried in that order) to the current HEAD, excluding `bump version` commits.
+
+The system SHALL insert the new version entry at the top of an existing `CHANGELOG.md` (not overwrite or append). If a version header with the same version number already exists, the system SHALL warn and ask whether to overwrite or skip. If no `CHANGELOG.md` exists, the system SHALL create one with the new entry as the first version. If the commit range is empty (no commits since last version), the system SHALL report the empty range and not create a version section.
+
+#### Scenario: New changelog entry inserted at top
+- **WHEN** `CHANGELOG.md` already has entries for v1.0.0 and v0.9.0
+- **AND** the new version is v1.1.0
+- **THEN** the new `## [1.1.0]` entry SHALL be inserted above `## [1.0.0]`
+
+#### Scenario: Empty commit range prevents empty version section
+- **WHEN** no commits exist since the last version boundary
+- **THEN** the system SHALL report "no commits since last version" and SHALL NOT generate a version section
