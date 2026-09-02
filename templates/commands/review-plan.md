@@ -37,7 +37,12 @@ ls -d openspec/changes/*/ 2>/dev/null | grep -v '/archive/'
 ```
 WORKDIR=$(pwd)
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/{{REVIEWER_MODEL}}/plan-reviewer.md\n<TASK>审查以下OpenSpec方案的合理性：遗漏的边界情况、范围是否清晰、风险点、spec 是否覆盖 proposal 的 What Changes。不做逐行代码风格审查，不把'代码库尚未实现该方案条目'当作 Critical。\n\nchange 目录：openspec/changes/<change-name>/\n请自行读取以下路径的当前内容后再审查：<proposal.md/design.md/tasks.md/全部 delta spec 文件的相对路径清单，逐一列出，不要用\"读取 specs 目录\"这种模糊指代>\n<若步骤 2 检测到基线引用：额外说明\"以下路径仅作审查上下文，不属于本次修复对象：<基线 spec 路径>\">\n</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置/条目（含可解析的文件相对路径）、问题描述、建议\nCODEAGENT_EOF",
+  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/{{REVIEWER_MODEL}}/plan-reviewer.md\n<TASK>审查以下OpenSpec方案的合理性：遗漏的边界情况、范围是否清晰、风险点、spec 是否覆盖 proposal 的 What Changes。
+
+核心约束（加速审查、减少无关探索）：
+- 只审查该 change 目录下 artifact 之间的内在一致性和完整性（proposal vs design vs tasks vs spec 是否互相矛盾、是否有遗漏）
+- 不做代码库探索：不 grep 源码、不读测试文件、不读 src/ 下的实现代码、不核对"方案声称改的文件数/路径"与代码库是否一致——这些是 apply 后 code-review 的职责
+- 不把'代码库尚未实现该方案条目'当作 Critical（方案审查阶段代码库本来就没有实现，这是正常状态）\n\nchange 目录：openspec/changes/<change-name>/\n请自行读取以下路径的当前内容后再审查：<proposal.md/design.md/tasks.md/全部 delta spec 文件的相对路径清单，逐一列出，不要用\"读取 specs 目录\"这种模糊指代>\n<若步骤 2 检测到基线引用：额外说明\"以下路径仅作审查上下文，不属于本次修复对象：<基线 spec 路径>\">\n</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置/条目（含可解析的文件相对路径）、问题描述、建议\nCODEAGENT_EOF",
   run_in_background: true,
   timeout: 1800000,
   description: "审查方案: <change-name>"
