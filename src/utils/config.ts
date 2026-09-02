@@ -9,14 +9,23 @@ import { version as packageVersion } from '../../package.json'
 const LY_DIR = join(homedir(), '.claude', '.ly')
 const CONFIG_FILE = join(LY_DIR, 'config.toml')
 
-// routing.reviewer/routing.implementer 的合法值——claude 已不再可选（Claude 本身是总指挥，
-// 不应再被选为被调度的审查/实施 backend）。init.ts、menu.ts 的历史配置读取统一走这个白名单，
+// routing.reviewer 的合法值——claude 已不再可选（Claude 本身是总指挥，
+// 不应再被选为被调度的审查 backend）。init.ts、menu.ts 的历史配置读取统一走这个白名单，
 // 避免手改 config.toml 残留的非法值被原样透传进最终执行的命令串。
 const VALID_ROUTING_BACKENDS = ['codex', 'hermes', 'openclaw'] as const
 export type RoutingBackend = typeof VALID_ROUTING_BACKENDS[number]
 
+// routing.implementer 的合法值——四选一，claude（编排者本人实施）为默认。
+// 与 reviewer 白名单独立：实施对速度敏感（默认本人直做），审查对独立性敏感（不选 claude）。
+const VALID_IMPLEMENTER_BACKENDS = ['claude', 'codex', 'hermes', 'openclaw'] as const
+export type ImplementerBackend = typeof VALID_IMPLEMENTER_BACKENDS[number]
+
 export function isValidRoutingBackend(value: unknown): value is RoutingBackend {
   return typeof value === 'string' && (VALID_ROUTING_BACKENDS as readonly string[]).includes(value)
+}
+
+export function isValidImplementerBackend(value: unknown): value is ImplementerBackend {
+  return typeof value === 'string' && (VALID_IMPLEMENTER_BACKENDS as readonly string[]).includes(value)
 }
 
 export function getLyDir(): string {
@@ -87,6 +96,6 @@ export function createDefaultConfig(options: {
 export function createDefaultRouting(): ModelRouting {
   return {
     reviewer: 'codex',
-    implementer: 'hermes',
+    implementer: 'claude',
   }
 }

@@ -2,13 +2,19 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-09-01 (v1.7.0)
+**Last Updated**: 2026-09-02 (v1.7.2)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-09-02 (v1.7.2) — implementer 默认 Claude（本人实施）+ 白名单拆分 + apply 条件块渲染
+- ✨ **`routing.implementer` 合法值扩为四选一**：`claude`（新默认）/`codex`/`hermes`/`openclaw`——reviewer 白名单不变（仍不收 `claude`）；`config.ts` 拆分独立 `VALID_IMPLEMENTER_BACKENDS` + `isValidImplementerBackend()`（`ModelRouting.implementer` 类型收窄为 `ImplementerBackend`），`init.ts`/`menu.ts` 存量值校验随语义迁移
+- ✨ **默认值四处同改**：init 向导"选择实施后端"四选一、`Claude (recommended)` 置顶；update 非交互补齐值、`{{IMPLEMENTER_MODEL}}` fallback、`createDefaultRouting()` 公共 API 默认值均由 `hermes` → `claude`
+- ✨ **`/ly:apply` claude 分支**：`apply.md` 新增条件块（`LY:IF:IMPLEMENTER_EXTERNAL/CLAUDE`，未闭合/未知标记显式报错），implementer=claude 渲染"本人实施"单路径——当前会话直接读 tasks.md 逐任务实施+验证+勾 checkbox → commit，无 wrapper 调用/OVERALL 解析/委托失败分支；非 claude 值仍渲染 wrapper 委托路径
+- 🔄 **决策 5 心智模型更新**：Claude 是默认实施者 + 循环 Critical 亲自修复者；外部 implementer 后端降级为进阶选项
 
 ### 2026-09-02 (v1.7.1) — 新增发布管线命令：release/changelog/publish
 - ✨ **新增 3 个 `/ly:*` 命令**（category: `release`，order 40-42，全量安装）：`/ly:release`（GitFlow 四场景发版——feature/release/hotfix/dev-offline + SemVer 自动推导版本号）、`/ly:changelog`（Keep a Changelog 格式生成 CHANGELOG.md，按 commit 前缀分组 Added/Fixed/Changed）、`/ly:publish`（npm 包发布四场景——bmc 私域 Nexus/GitHub Packages/npmjs+GitHub Release/CI 自动发布，前置检查→版本号推导→构建→发布→验证）；内容源自 liyang-gitflow/liyang-changelog/liyang-npm-publish skill v2.0.0，不新增 npm 依赖或 Go wrapper backend
@@ -145,7 +151,7 @@ npx ly-workflow menu    # 交互式菜单
 | `/ly:init` | 生成 CLAUDE.md（原生 `init` 技能）+ `openspec init` + 自动 commit |
 | `/ly:explore` | 委托 `opsx:explore` |
 | `/ly:propose` | 创建方案前问一次 worktree（不在 worktree 内才问，从当前分支 HEAD 切）+ 问"全自动/手动" → 委托 `opsx:propose` → 立即 commit `propose: <change>`；全自动 = review-plan → apply → review-code 自动化流水线；手动 = 逐步确认 |
-| `/ly:apply` | 读取 `routing.implementer`（`codex`/`hermes`/`openclaw`），委托 `codeagent-wrapper` + `builder.md` 单次 agentic 调用实施 tasks；`OVERALL: PASS` 后立即 commit `apply: <change>`，`OVERALL: FAIL`/调用失败原样呈报转人工（不重试不兜底）（无隔离检测、无 worktree 询问） |
+| `/ly:apply` | 读取 `routing.implementer`（`claude`（默认）/`codex`/`hermes`/`openclaw`）渲染：claude=当前会话本人读 tasks.md 逐任务实施+验证+勾 checkbox→commit；非 claude=委托 `codeagent-wrapper` + `builder.md` 单次 agentic 调用实施 tasks。全部任务完成后立即 commit `apply: <change-name>`；未全部完成原样呈报转人工（不重试不兜底）（无隔离检测、无 worktree 询问） |
 | `/ly:archive` | 委托 `opsx:archive` + 自动 commit |
 | `/ly:review-plan` | 审查对象为目标 change 的 `propose:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
 | `/ly:review-code` | 审查对象为目标 change 的最近 `apply:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
@@ -169,7 +175,7 @@ npx ly-workflow menu    # 交互式菜单
 2. **审查走 codeagent-wrapper 而非直连 Codex API**：复用已有的 session 管理、进度回调、超时重试。
 3. **Go wrapper 只删 Backend 层**：`Backend` interface 保持不变，删除具体实现（Gemini/Grok/Antigravity）不影响执行引擎（并发调度/日志/SSE）。
 4. **LICENSE + git 历史不动**：文档整体重写，但版权声明和提交历史保留可追溯性。
-5. **`apply` 的实施委托给外部 Implementer agent，Claude 只做判定/commit**：`routing.implementer`（`codex`/`hermes`/`openclaw` 三选一，必选，不含 `claude`）与 `routing.reviewer`（同样三选一，不含 `claude`）各自独立配置——Claude（当前交互会话）本身是总指挥，不该再被选为被调度的审查/实施 backend。`/ly:apply` 单次 agentic 调用委托实施（不逐任务拆分、不做审查-修复循环），PASS 才提交，FAIL 原样呈报转人工；`review-plan`/`review-code` 的审查-修复循环不变，认可的 Critical 仍由 Claude 亲自修复，不委托给 Implementer。
+5. **`apply` 默认由 Claude 本人实施，外部 Implementer agent 降级为可选后端**：`routing.implementer` 四选一（`claude`（默认）/`codex`/`hermes`/`openclaw`），reviewer 仍三选一（不含 `claude`）——Claude（当前交互会话）是总指挥，不该被选为被调度的审查 backend；实施对速度敏感（默认本人直做，带着 propose 阶段全部上下文直接开干），审查对独立性敏感（必须独立于编排者）。implementer=claude 时 `apply.md` 在安装期渲染为"本人实施"单路径（读 tasks.md 逐任务实施+验证+勾 checkbox + commit，无 wrapper 调用/OVERALL 解析/委托失败分支）；非 claude 值仍渲染 wrapper 委托路径（单次 agentic 调用，PASS 才提交，FAIL 原样呈报转人工，不重试不切回自己实施）。外部后端保留为进阶选项——想保持实施视角多样性/隔离性的用户手动选择。`review-plan`/`review-code` 的审查-修复循环不变，认可的 Critical 仍由 Claude 亲自修复，不委托给 Implementer。
 
 ---
 

@@ -1,13 +1,17 @@
+import type { ImplementerBackend, RoutingBackend } from '../utils/config'
+
 // 支持的语言
 export type SupportedLang = 'zh-CN' | 'en'
 
-// 模型类型（审查/实施阶段可选后端；claude 仅供 wrapper 内部兼容，routing 配置不再允许选它）
+// 模型类型（审查/实施阶段可选后端；claude 仅供 wrapper 内部兼容）
 export type ModelType = 'codex' | 'claude' | 'hermes' | 'openclaw'
 
-// 模型路由配置：Claude 是总指挥（出方案/裁决/commit），审查与实施阶段可选独立后端
+// 模型路由配置：Claude 是总指挥（出方案/裁决/commit）
+// - reviewer 三选一（codex/hermes/openclaw），不包含 claude——审查必须独立于编排者
+// - implementer 四选一（claude/codex/hermes/openclaw），默认 claude——实施对速度敏感，默认本人直做
 export interface ModelRouting {
-  reviewer: ModelType
-  implementer: ModelType
+  reviewer: RoutingBackend
+  implementer: ImplementerBackend
 }
 
 // ly-workflow 配置

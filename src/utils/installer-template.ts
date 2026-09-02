@@ -76,9 +76,27 @@ export function injectConfigVariables(content: string, config: {
   const reviewer = routing.reviewer || 'codex'
   processed = processed.replace(/\{\{REVIEWER_MODEL\}\}/g, reviewer)
 
-  // Implementer model injection (used by apply.md to delegate implementation)
-  const implementer = routing.implementer || 'hermes'
+  // Implementer model injection (used by apply.md to delegate implementation;
+  // claude = orchestrator implements in-session, no wrapper delegation)
+  const implementer = routing.implementer || 'claude'
   processed = processed.replace(/\{\{IMPLEMENTER_MODEL\}\}/g, implementer)
+
+  // Implementer conditional blocks (apply.md): each `LY:IF:<COND>` block is kept
+  // only when its condition matches the selected implementer, otherwise removed.
+  // Unclosed / unknown markers abort loudly so the wrong branch can never be
+  // silently retained in the installed artifact.
+  const CONDITIONAL_BLOCK = /\n?<!--\s*LY:IF:([A-Z_]+)\s*-->([\s\S]*?)<!--\s*LY:ENDIF\s*-->\n?/g
+  processed = processed.replace(CONDITIONAL_BLOCK, (_match, cond: string, body: string): string => {
+    if (cond === 'IMPLEMENTER_EXTERNAL') return implementer !== 'claude' ? body : ''
+    if (cond === 'IMPLEMENTER_CLAUDE') return implementer === 'claude' ? body : ''
+    throw new Error(`[ly] unknown implementer conditional marker: <!-- LY:IF:${cond} -->`)
+  })
+
+  // Catch any unclosed / stray markers that the regex above didn't consume.
+  const stray = processed.match(/<!--\s*LY:(?:IF|ENDIF):?[A-Z_]*\s*-->/g)
+  if (stray) {
+    throw new Error(`[ly] unclosed/stray implementer conditional marker: ${stray.join(' ')}`)
+  }
 
   // Lite mode flag for codeagent-wrapper
   // If liteMode is true, inject "--lite" flag

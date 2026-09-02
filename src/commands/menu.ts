@@ -12,7 +12,7 @@ import { version } from '../../package.json'
 import { configMcp } from './config-mcp'
 import { i18n } from '../i18n'
 import { collectInvocableSkills, getWorkflowConfigs, installCodexMode, uninstallCodexMode, uninstallWorkflows } from '../utils/installer'
-import { isValidRoutingBackend, readLyConfig, writeLyConfig } from '../utils/config'
+import { isValidImplementerBackend, isValidRoutingBackend, readLyConfig, writeLyConfig } from '../utils/config'
 import { init } from './init'
 import { update } from './update'
 import { isWindows } from '../utils/platform'
@@ -515,9 +515,9 @@ async function configModelRouting(): Promise<void> {
   const currentReviewer = isValidRoutingBackend(config?.routing?.reviewer)
     ? config!.routing.reviewer
     : 'codex'
-  const currentImplementer = isValidRoutingBackend(config?.routing?.implementer)
+  const currentImplementer = isValidImplementerBackend(config?.routing?.implementer)
     ? config!.routing.implementer
-    : 'hermes'
+    : 'claude'
 
   console.log(ansis.gray(`  ${i18n.t('init:model.currentRouting')}:`))
   console.log(`  ${ansis.cyan('Reviewer:')} ${ansis.green(currentReviewer)}`)
@@ -541,8 +541,9 @@ async function configModelRouting(): Promise<void> {
     name: 'selectedImplementer',
     message: i18n.t('init:model.selectImplementer'),
     choices: [
+      { name: i18n.t('init:model.implementerClaudeRecommended'), value: 'claude' },
       { name: 'Codex', value: 'codex' },
-      { name: `Hermes ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'hermes' },
+      { name: 'Hermes', value: 'hermes' },
       { name: 'OpenClaw', value: 'openclaw' },
     ],
     default: currentImplementer,

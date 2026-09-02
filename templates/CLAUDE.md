@@ -52,7 +52,7 @@
 | 占位符 | 说明 |
 |--------|------|
 | `{{REVIEWER_MODEL}}` | 审查模型（codex/hermes/openclaw，不含 claude），默认 codex |
-| `{{IMPLEMENTER_MODEL}}` | 实施模型（codex/hermes/openclaw，不含 claude），默认 hermes，`apply.md` 使用 |
+| `{{IMPLEMENTER_MODEL}}` | 实施模型（claude/codex/hermes/openclaw，含 claude），默认 claude；`apply.md` 使用，claude 时连同 `LY:IF:IMPLEMENTER_*` 条件块一起渲染"本人实施"路径 |
 | `{{LITE_MODE_FLAG}}` | 轻量模式标志 |
 | `{{MCP_SEARCH_TOOL}}` / `{{MCP_SEARCH_PARAM}}` | MCP provider 注册表驱动（当前 14 个命令均未使用，代码保留但暂无消费者） |
 

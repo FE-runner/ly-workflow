@@ -122,10 +122,116 @@ describe('injectConfigVariables — routing variables', () => {
     expect(result).toBe('implementer: openclaw')
   })
 
-  it('defaults to hermes when implementer not specified', () => {
+  it('defaults to claude when implementer not specified', () => {
     const input = 'implementer: {{IMPLEMENTER_MODEL}}'
     const result = injectConfigVariables(input, {})
-    expect(result).toBe('implementer: hermes')
+    expect(result).toBe('implementer: claude')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────
+// B2. Implementer conditional blocks (apply.md)
+// ─────────────────────────────────────────────────────────────
+describe('injectConfigVariables — implementer conditional blocks', () => {
+  const externalBlock = '<!-- LY:IF:IMPLEMENTER_EXTERNAL -->\nEXT_BODY\n<!-- LY:ENDIF -->'
+  const claudeBlock = '<!-- LY:IF:IMPLEMENTER_CLAUDE -->\nCLAUDE_BODY\n<!-- LY:ENDIF -->'
+  const template = `${externalBlock}\nSHARED\n${claudeBlock}`
+
+  it('keeps only the external block when implementer is external', () => {
+    const result = injectConfigVariables(template, { routing: { implementer: 'codex' } })
+    expect(result).toContain('EXT_BODY')
+    expect(result).not.toContain('CLAUDE_BODY')
+    expect(result).toContain('SHARED')
+    expect(result).not.toContain('LY:IF')
+    expect(result).not.toContain('LY:ENDIF')
+  })
+
+  it('keeps only the external block for hermes/openclaw', () => {
+    for (const backend of ['hermes', 'openclaw']) {
+      const result = injectConfigVariables(template, { routing: { implementer: backend } })
+      expect(result).toContain('EXT_BODY')
+      expect(result).not.toContain('CLAUDE_BODY')
+      expect(result).not.toContain('LY:IF')
+    }
+  })
+
+  it('keeps only the claude block when implementer is claude', () => {
+    const result = injectConfigVariables(template, { routing: { implementer: 'claude' } })
+    expect(result).toContain('CLAUDE_BODY')
+    expect(result).not.toContain('EXT_BODY')
+    expect(result).toContain('SHARED')
+    expect(result).not.toContain('LY:IF')
+    expect(result).not.toContain('LY:ENDIF')
+  })
+
+  it('defaults to claude branch when implementer not specified', () => {
+    const result = injectConfigVariables(template, {})
+    expect(result).toContain('CLAUDE_BODY')
+    expect(result).not.toContain('EXT_BODY')
+  })
+
+  it('throws when a conditional is unclosed', () => {
+    expect(() => injectConfigVariables('<!-- LY:IF:IMPLEMENTER_EXTERNAL -->\nBODY\n', { routing: { implementer: 'codex' } }))
+      .toThrow(/unclosed\/stray implementer conditional/)
+  })
+
+  it('throws on unknown conditional marker', () => {
+    expect(() => injectConfigVariables('<!-- LY:IF:IMPLEMENTER_FOO -->\nBODY\n<!-- LY:ENDIF -->', { routing: { implementer: 'codex' } }))
+      .toThrow(/unknown implementer conditional/)
+  })
+
+  it('nested / two-branch-with-single-endif form still errors', () => {
+    expect(() => injectConfigVariables(
+      '<!-- LY:IF:IMPLEMENTER_EXTERNAL -->\nA\n<!-- LY:IF:IMPLEMENTER_CLAUDE -->\nB\n<!-- LY:ENDIF -->',
+      { routing: { implementer: 'hermes' } },
+    )).toThrow(/unclosed\/stray implementer conditional/)
+  })
+})
+
+describe('injectConfigVariables — apply.md render snapshots', () => {
+  const applyTemplate = readFileSync(join(TEMPLATES_DIR, 'apply.md'), 'utf-8')
+
+  it('renders the in-session implementation branch when implementer=claude (no wrapper)', () => {
+    const result = injectConfigVariables(applyTemplate, {
+      routing: { reviewer: 'codex', implementer: 'claude' },
+      liteMode: false,
+      mcpProvider: 'ace-tool',
+    })
+    // Claude branch present, external machinery absent (frontmatter description
+    // still mentions both paths in general terms — assert the body only)
+    const body = result.split('---', 3)[2] ?? ''
+    expect(result).toContain('本人实施')
+    expect(result).toContain('不委托任何外部 agent')
+    expect(body).not.toContain('codeagent-wrapper')
+    expect(body).not.toContain('OVERALL')
+    expect(result).not.toContain('LY:IF')
+    expect(result).not.toContain('LY:ENDIF')
+    // Shared parts remain
+    expect(result).toContain('确定目标 change 名')
+    expect(result).toContain('git commit -m "apply:')
+  })
+
+  it('renders the wrapper delegation branch when implementer=codex/hermes/openclaw', () => {
+    for (const backend of ['codex', 'hermes', 'openclaw']) {
+      const result = injectConfigVariables(applyTemplate, {
+        routing: { reviewer: 'codex', implementer: backend },
+        liteMode: false,
+        mcpProvider: 'ace-tool',
+      })
+      expect(result, `backend=${backend}`).toContain('委托 Implementer agent 单次 agentic 调用')
+      expect(result).toContain(`--backend ${backend}`)
+      expect(result).toContain('OVERALL')
+      expect(result).not.toContain('IMPLEMENTER_CLAUDE')
+      expect(result).not.toContain('不委托任何外部 agent')
+      expect(result).not.toContain('LY:IF')
+      expect(result).not.toContain('LY:ENDIF')
+    }
+  })
+
+  it('throws when apply.md conditional is left unclosed', () => {
+    const broken = applyTemplate.replace('<!-- LY:ENDIF -->', '')
+    expect(() => injectConfigVariables(broken, { routing: { implementer: 'codex' } }))
+      .toThrow(/unclosed\/stray implementer conditional/)
   })
 })
 

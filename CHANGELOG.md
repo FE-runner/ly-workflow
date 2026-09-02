@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ---
 
+## [1.7.2] - 2026-09-02
+
+### Added
+- **`routing.implementer` 合法值扩为四选一**：`claude`（新默认）/`codex`/`hermes`/`openclaw`——reviewer 白名单不变（仍不收 `claude`），拆分出独立 `VALID_IMPLEMENTER_BACKENDS` 白名单与 `isValidImplementerBackend()` 校验（`ModelRouting.implementer` 类型收窄为 `ImplementerBackend`）。实施对速度敏感、审查对独立性敏感，"实施默认本人直做、外部模型只保留为可选实施后端与审查关卡"成为更合理的默认。
+- **init 向导**："选择实施后端"步骤四选一，`Claude (recommended)` 置顶为默认（原 `Hermes`）；`ly menu` 模型路由入口同步补 Claude 选项、(recommended) 标记迁移；`{{IMPLEMENTER_MODEL}}` 缺失 fallback 与 `createDefaultRouting()` 公共 API 默认值均由 `hermes` 改为 `claude`。
+- **`/ly:apply` claude 分支**：`apply.md` 新增安装期条件块（`<!-- LY:IF:IMPLEMENTER_EXTERNAL -->` / `<!-- LY:IF:IMPLEMENTER_CLAUDE -->`），implementer=claude 时渲染"本人实施"单路径版本——当前会话 Claude 直接读 tasks.md 逐任务实施+验证+勾 checkbox → commit，无 wrapper 调用、无 OVERALL 解析、无委托失败分支；非 claude 值仍渲染现有 wrapper 委托路径。条件块未闭合/未知标记显式报错不静默保留（`injectConfigVariables`）。
+
+### Changed
+- **update 非交互补齐值 `hermes` → `claude`**：`--skip-prompt` 路径检测到 `routing.implementer` 缺失时静默写 `claude`；存量合法值（含 v1.7.0 写入的 `hermes`）一律尊重不改写。
+- **决策 5 心智模型更新**：Claude 是默认实施者 + 循环 Critical 亲自修复者；外部 implementer 后端降级为进阶选项（想保持实施视角多样性/隔离性的用户手动选择）。
+
 ## [1.7.0] - 2026-09-01
 
 ### Added

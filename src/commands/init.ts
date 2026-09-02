@@ -6,7 +6,7 @@ import ora from 'ora'
 import { homedir } from 'node:os'
 import { join } from 'pathe'
 import { i18n, initI18n } from '../i18n'
-import { createDefaultConfig, ensureLyDir, getLyDir, isValidRoutingBackend, readLyConfig, writeLyConfig } from '../utils/config'
+import { createDefaultConfig, ensureLyDir, getLyDir, isValidImplementerBackend, isValidRoutingBackend, readLyConfig, writeLyConfig } from '../utils/config'
 import { getCoreCommandIds, installAceTool, installAceToolRs, installContextWeaver, installFastContext, installMcpServer, installWorkflows, showBinaryDownloadWarning, syncMcpToCodex, writeFastContextPrompt } from '../utils/installer'
 import { isWindows } from '../utils/platform'
 
@@ -224,11 +224,11 @@ export async function init(options: InitOptions = {}): Promise<void> {
     await initI18n(language)
   }
 
-  // Review/implement model configuration (Claude is the commander; Codex/Hermes/
-  // OpenClaw are the only selectable backends for reviewer/implementer — Claude
-  // itself is never a valid routing.reviewer/routing.implementer value)
+  // Review/implement model configuration (Claude is the commander; reviewer is
+  // codex/hermes/openclaw only, implementer additionally allows claude — itself,
+  // the default — for speed-sensitive implementation)
   let reviewer: ModelType = 'codex'
-  let implementer: ModelType = 'hermes'
+  let implementer: ModelType = 'claude'
   let legacyClaudeReviewerReset = false
   const selectedWorkflows = getCoreCommandIds()
 
@@ -244,7 +244,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
         legacyClaudeReviewerReset = true
       }
     }
-    if (existingConfig?.routing?.implementer && isValidRoutingBackend(existingConfig.routing.implementer)) {
+    if (existingConfig?.routing?.implementer && isValidImplementerBackend(existingConfig.routing.implementer)) {
       implementer = existingConfig.routing.implementer
     }
     if (options.reviewer === 'codex' || options.reviewer === 'hermes' || options.reviewer === 'openclaw') {
@@ -252,7 +252,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
       // 显式 --reviewer 覆盖了历史值，实际生效值来自用户显式指定，不是"静默重置为默认值"
       legacyClaudeReviewerReset = false
     }
-    if (options.implementer === 'codex' || options.implementer === 'hermes' || options.implementer === 'openclaw') {
+    if (options.implementer === 'claude' || options.implementer === 'codex' || options.implementer === 'hermes' || options.implementer === 'openclaw') {
       implementer = options.implementer
     }
   }
@@ -314,7 +314,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
     if (existingConfig?.routing?.reviewer && isValidRoutingBackend(existingConfig.routing.reviewer)) {
       reviewer = existingConfig.routing.reviewer
     }
-    if (existingConfig?.routing?.implementer && isValidRoutingBackend(existingConfig.routing.implementer)) {
+    if (existingConfig?.routing?.implementer && isValidImplementerBackend(existingConfig.routing.implementer)) {
       implementer = existingConfig.routing.implementer
     }
     if (existingConfig?.performance?.liteMode !== undefined) {
@@ -421,8 +421,9 @@ export async function init(options: InitOptions = {}): Promise<void> {
         name: 'selectedImplementer',
         message: i18n.t('init:model.selectImplementer'),
         choices: [
+          { name: i18n.t('init:model.implementerClaudeRecommended'), value: 'claude' as ModelType },
           { name: 'Codex', value: 'codex' as ModelType },
-          { name: `Hermes ${ansis.green(`(${i18n.t('init:model.recommended')})`)}`, value: 'hermes' as ModelType },
+          { name: 'Hermes', value: 'hermes' as ModelType },
           { name: 'OpenClaw', value: 'openclaw' as ModelType },
           ...navSentinels(canGoBack),
         ],
