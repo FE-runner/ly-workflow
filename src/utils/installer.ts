@@ -67,7 +67,7 @@ export type { SkillMeta } from './skill-registry'
  * Must match the `version` constant in codeagent-wrapper/main.go.
  * When this differs from the installed binary, update triggers re-download.
  */
-const EXPECTED_BINARY_VERSION = '1.7.0'
+const EXPECTED_BINARY_VERSION = '1.7.1'
 
 // ═══════════════════════════════════════════════════════
 // Install context — shared across sub-functions

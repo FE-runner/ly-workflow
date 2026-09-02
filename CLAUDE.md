@@ -10,7 +10,7 @@
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
 
-### 2026-09-02 (v1.8.0) — 新增发布管线命令：release/changelog/publish
+### 2026-09-02 (v1.7.1) — 新增发布管线命令：release/changelog/publish
 - ✨ **新增 3 个 `/ly:*` 命令**（category: `release`，order 40-42，全量安装）：`/ly:release`（GitFlow 四场景发版——feature/release/hotfix/dev-offline + SemVer 自动推导版本号）、`/ly:changelog`（Keep a Changelog 格式生成 CHANGELOG.md，按 commit 前缀分组 Added/Fixed/Changed）、`/ly:publish`（npm 包发布四场景——bmc 私域 Nexus/GitHub Packages/npmjs+GitHub Release/CI 自动发布，前置检查→版本号推导→构建→发布→验证）；内容源自 liyang-gitflow/liyang-changelog/liyang-npm-publish skill v2.0.0，不新增 npm 依赖或 Go wrapper backend
 - 🔄 **命令总数 11 → 14**：`CommandCategory` 新增 `'release'`，`src/utils/installer-data.ts` 的 `CORE_CONFIGS` 注册 3 条 `cmd()`；测试断言与文档计数同步更新
 
