@@ -37,7 +37,7 @@ git ls-files -o --exclude-standard
 ```
 WORKDIR=$(pwd)
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{IMPLEMENTER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/{{IMPLEMENTER_MODEL}}/builder.md\n<TASK>阅读 openspec/changes/<change-name>/tasks.md，自主实施全部未完成任务：读取所需上下文文件、编写/修改代码、按 tasks.md 里指定的验证方式逐任务验证。不要询问，遇到歧义按最简方案处理。完成后按 Output Format 输出 Execution Report，末尾给出 OVERALL: PASS 或 OVERALL: FAIL。</TASK>\nOUTPUT: ## Execution Report（逐任务 Status/Files changed/Validation，末尾 OVERALL: [PASS/FAIL]）\nCODEAGENT_EOF",
+  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{IMPLEMENTER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/{{IMPLEMENTER_MODEL}}/builder.md\n<TASK>阅读 openspec/changes/<change-name>/tasks.md，自主实施全部未完成任务：读取所需上下文文件、编写/修改代码、按 tasks.md 里指定的验证方式逐任务验证。每完成一个任务，必须把 tasks.md 中对应的 checkbox 从 `- [ ]` 改为 `- [x]`（勾选标记）。不要询问，遇到歧义按最简方案处理。完成后按 Output Format 输出 Execution Report，末尾给出 OVERALL: PASS 或 OVERALL: FAIL。</TASK>\nOUTPUT: ## Execution Report（逐任务 Status/Files changed/Validation，末尾 OVERALL: [PASS/FAIL]）\nCODEAGENT_EOF",
   run_in_background: true,
   timeout: 1800000,
   description: "委托实施: <change-name>"
