@@ -4,7 +4,7 @@ import type { WorkflowConfig } from '../types'
 // Command builder — adding a new command = 1 function call
 // ═══════════════════════════════════════════════════════
 
-type CommandCategory = 'init' | 'git' | 'opsx' | 'review'
+type CommandCategory = 'init' | 'git' | 'opsx' | 'review' | 'release'
 
 /**
  * Create a WorkflowConfig with sensible defaults.
@@ -57,6 +57,11 @@ const CORE_CONFIGS: WorkflowConfig[] = [
   // ── Review gates (Codex-backed) ──────────────────────
   cmd('review-plan', 30, 'review', '方案审查', 'Review Plan', '读取 OpenSpec change 的 proposal/design/tasks，Codex 审查方案合理性', 'Reads OpenSpec change artifacts, Codex reviews plan soundness'),
   cmd('review-code', 31, 'review', '代码审查', 'Review Code', '读取 git diff，Codex 审查代码变更，分级输出 Critical/Warning/Info', 'Reads git diff, Codex reviews code changes with severity grading'),
+
+  // ── Release pipeline ───────────────────────────────────
+  cmd('release', 40, 'release', 'GitFlow 发版', 'GitFlow Release', 'GitFlow 四场景发版流程，SemVer 自动推导版本号', 'GitFlow branching workflow with SemVer auto-detection'),
+  cmd('changelog', 41, 'release', '生成 Changelog', 'Generate Changelog', 'Keep a Changelog 格式生成 CHANGELOG.md，按 commit 前缀分组', 'Generate Keep a Changelog format CHANGELOG.md from commit history'),
+  cmd('publish', 42, 'release', 'npm 发布', 'npm Publish', 'npm 包发布：bmc 私域/GitHub/npmjs/CI 四场景', 'npm publish to bmc Nexus/GitHub/npmjs/CI targets'),
 ]
 
 const WORKFLOW_CONFIGS: WorkflowConfig[] = CORE_CONFIGS

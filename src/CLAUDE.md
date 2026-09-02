@@ -42,7 +42,7 @@ CLI 工具的全部 TypeScript 实现：安装/更新 `ly-workflow` 到 `~/.clau
 
 ## utils/installer.ts 要点
 
-- `installWorkflows()`：安装 7 个 `/ly:*` 命令到 `~/.claude/commands/ly/`
+- `installWorkflows()`：安装 14 个 `/ly:*` 命令到 `~/.claude/commands/ly/`
 - Backend 只需 codex/claude，无 frontend/backend 双模型分派逻辑
 - `EXPECTED_BINARY_VERSION`：需与 `codeagent-wrapper/main.go` 的 `version` 保持一致
 

@@ -10,6 +10,10 @@
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
 
+### 2026-09-02 (v1.8.0) — 新增发布管线命令：release/changelog/publish
+- ✨ **新增 3 个 `/ly:*` 命令**（category: `release`，order 40-42，全量安装）：`/ly:release`（GitFlow 四场景发版——feature/release/hotfix/dev-offline + SemVer 自动推导版本号）、`/ly:changelog`（Keep a Changelog 格式生成 CHANGELOG.md，按 commit 前缀分组 Added/Fixed/Changed）、`/ly:publish`（npm 包发布四场景——bmc 私域 Nexus/GitHub Packages/npmjs+GitHub Release/CI 自动发布，前置检查→版本号推导→构建→发布→验证）；内容源自 liyang-gitflow/liyang-changelog/liyang-npm-publish skill v2.0.0，不新增 npm 依赖或 Go wrapper backend
+- 🔄 **命令总数 11 → 14**：`CommandCategory` 新增 `'release'`，`src/utils/installer-data.ts` 的 `CORE_CONFIGS` 注册 3 条 `cmd()`；测试断言与文档计数同步更新
+
 ### 2026-09-01 (v1.7.0) — `/ly:apply` 委托外部 Implementer agent + reviewer 收窄三选一
 - ✨ **新增 `routing.implementer` 可选实施后端**：`npx ly-workflow init` 在"选择审查模型"之后新增"选择实施后端"步骤（`codex`/`hermes`（默认）/`openclaw` 三选一，必选）；`/ly:apply` 不再由 Claude 自己实施，改为委托 `codeagent-wrapper --backend <routing.implementer>`（`ROLE_FILE: builder.md`）单次 agentic 调用完成 tasks——与审查关卡对称，Claude 只做判定（`OVERALL: PASS` 后走现有 commit 步骤，`FAIL`/调用失败原样呈报转人工，不重试不切回自己实施）；`routing.implementer` 与 `routing.reviewer` 相同时给出独立性下降提示（不阻断）。`npx ly-workflow update` 非交互路径下 implementer 缺失时静默补齐 `hermes`。
 - 🔄 **BREAKING：`routing.reviewer` 移除 `claude` 选项**，收窄为 `codex`（默认）/`hermes`/`openclaw`——Claude（当前交互会话）本身是总指挥，不该再被选为被调度的审查/实施 backend。存量 `claude` 配置：交互式 `init` 不再预选、强制重新选择；非交互 `update` 静默重置为 `codex` 并在汇总中提示。
@@ -113,7 +117,7 @@
 
 **ly-workflow** 是一套精简的 Claude Code 工作流：Claude 自己完成开发全流程，Codex 仅作为独立审查关卡介入。核心组成：
 
-1. **7 个 `/ly:*` 命令**：项目初始化 + OpenSpec 生命周期委托 + 双审查关卡
+1. **14 个 `/ly:*` 命令**：项目初始化 + OpenSpec 生命周期委托 + 双审查关卡 + GitFlow 发布管线
 2. **`codeagent-wrapper`**：Go 二进制，桥接 Codex/Claude CLI，供 review-plan/review-code 调用
 3. **Git 工具**：`commit`/`rollback`/`clean-branches`/`worktree`
 4. **质量关卡技能**：`verify-security`/`verify-quality`/`verify-change`/`verify-module`/`gen-docs`（继承自原 ccg-workflow，逻辑不变，安装命名空间随改名调整）
@@ -134,7 +138,7 @@ npx ly-workflow menu    # 交互式菜单
 
 ## 对外接口
 
-### Slash Commands（7 个）
+### Slash Commands（14 个）
 
 | 命令 | 用途 |
 |------|------|
@@ -145,6 +149,9 @@ npx ly-workflow menu    # 交互式菜单
 | `/ly:archive` | 委托 `opsx:archive` + 自动 commit |
 | `/ly:review-plan` | 审查对象为目标 change 的 `propose:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
 | `/ly:review-code` | 审查对象为目标 change 的最近 `apply:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
+| `/ly:release` | GitFlow 四场景发版（feature/release/hotfix/dev-offline），SemVer + Conventional Commits 自动推导版本号，用户确认后执行 |
+| `/ly:changelog` | Keep a Changelog 格式生成/更新 CHANGELOG.md，按 commit 前缀分组（Added/Fixed/Changed），无对应提交的分组自动省略 |
+| `/ly:publish` | npm 包发布四场景（bmc 私域 Nexus/GitHub Packages/npmjs+GitHub Release/CI 自动发布），前置检查→版本号推导→构建→发布→验证 |
 
 不变的 Git 工具：`/ly:commit` `/ly:rollback` `/ly:clean-branches`；`/ly:worktree` 只留 `add`/`list`/`remove`/`prune`/`migrate`（`switch` 子命令已随 v1.6.0 删除——隔离切换统一由 `/ly:propose` 创建方案前触发）。
 
@@ -170,7 +177,7 @@ npx ly-workflow menu    # 交互式菜单
 
 ```
 src/                      # TypeScript CLI 源码
-templates/commands/       # 7 个 slash command
+templates/commands/       # 14 个 slash command
 templates/prompts/{codex,claude}/  # 审查/协作角色提示词
 templates/skills/         # 质量关卡技能
 codeagent-wrapper/        # Go 二进制（codex + claude backend）

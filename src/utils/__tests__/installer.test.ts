@@ -27,9 +27,9 @@ const TEMPLATES_DIR = join(PACKAGE_ROOT, 'templates', 'commands')
 // A. Workflow registry consistency
 // ─────────────────────────────────────────────────────────────
 describe('workflow registry', () => {
-  it('getAllCommandIds returns the 11 core commands', () => {
+  it('getAllCommandIds returns the 14 core commands', () => {
     const ids = getAllCommandIds()
-    expect(ids.length).toBe(11)
+    expect(ids.length).toBe(14)
   })
 
   it('every command ID has a matching template file', () => {
@@ -81,6 +81,18 @@ describe('workflow registry', () => {
 
   it('getWorkflowById returns undefined for unknown id', () => {
     expect(getWorkflowById('nonexistent')).toBeUndefined()
+  })
+
+  it('release category commands have templates and are registered with category release', () => {
+    const releaseConfigs = getWorkflowConfigs().filter(w => w.category === 'release')
+    expect(releaseConfigs.map(w => w.id).sort()).toEqual(['changelog', 'publish', 'release'])
+
+    for (const cfg of releaseConfigs) {
+      for (const cmd of cfg.commands) {
+        const corePath = join(TEMPLATES_DIR, `${cmd}.md`)
+        expect(fs.existsSync(corePath), `template missing for release command: ${cmd}.md`).toBe(true)
+      }
+    }
   })
 })
 
