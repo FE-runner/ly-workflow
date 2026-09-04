@@ -1,6 +1,6 @@
-# Contributing to CCG
+# Contributing to ly-workflow
 
-Thanks for your interest in contributing to CCG! This guide will help you get started.
+Thanks for your interest in contributing to ly-workflow! This guide will help you get started.
 
 ## Development Setup
 

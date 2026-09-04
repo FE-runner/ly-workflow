@@ -1,6 +1,6 @@
 # ly-workflow
 
-> Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
+> 源自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow) 的二次开发重构，现为独立项目（Claude Code 两角色精简工作流）。
 
 **Last Updated**: 2026-09-04 (v1.7.4)
 

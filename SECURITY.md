@@ -34,7 +34,7 @@ The following are in scope:
 
 - `ly-workflow` npm package
 - `codeagent-wrapper` binary
-- CCG hook scripts (`~/.claude/hooks/ly/`)
+- LY hook scripts (`~/.claude/hooks/ly/`)
 - Template files that get installed to user environments
 
 The following are out of scope:
@@ -46,6 +46,6 @@ The following are out of scope:
 ## Security Design
 
 - **No secrets in templates**: API keys and tokens are injected at install time via environment variables, never hardcoded in template files.
-- **Hook isolation**: CCG hooks run in the user's own process context with no elevated privileges.
+- **Hook isolation**: LY hooks run in the user's own process context with no elevated privileges.
 - **Binary integrity**: `codeagent-wrapper` binaries are built via GitHub Actions CI and distributed through GitHub Releases + Cloudflare R2 mirror. No third-party build infrastructure.
 - **MCP sandboxing**: All MCP server configurations use `stdio` transport (no network listeners). MCP servers run as child processes of the AI agent.
