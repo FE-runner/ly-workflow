@@ -1,6 +1,6 @@
 # ly-workflow
 
-> 源自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow) 的二次开发重构，现为独立项目（Claude Code 两角色精简工作流）。
+> Claude Code 两角色精简工作流：Claude 自己完成聊天/分析/规划/实施，Codex 只在方案审查、代码审查两个节点做独立审查关卡。
 
 **Last Updated**: 2026-09-04 (v1.7.4)
 
