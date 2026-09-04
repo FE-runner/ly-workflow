@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ---
 
+## [1.7.5] - 2026-09-04
+
+### Changed
+- **品牌独立化（de-fork）**：README/CHANGELOG 头部/根 CLAUDE.md 头部不再提及上游项目——README 导语改为纯项目定位并删除 Credits 节，CHANGELOG 头部改为"覆盖独立化之后的全部版本"的中性溯源说明，根 CLAUDE.md 头部同样改为项目定位描述；`package.json` description 摘掉 "(forked from ccg-workflow)" 后缀（随本次发版在 npm 侧生效）。CHANGELOG 历史条目与 LICENSE 版权行按约定保留。
+- **漏网品牌残留清理**：`CONTRIBUTING.md`（标题/正文 CCG → ly-workflow）、`SECURITY.md`（"CCG hooks" → "LY hooks"，对齐实际路径 `~/.claude/hooks/ly/`）、`.github/ISSUE_TEMPLATE/bug_report.md`（模板名与版本示例 1.7.75 → 1.7.4）——v1.1.0/v1.4.2 两轮品牌清理遗漏的社区文件角落。
+- **LICENSE 双版权行**：保留原 `Copyright (c) 2025 fengshao1227`，下方新增 `Copyright (c) 2025 yang.li12`（MIT 派生项目标准做法）。
+
 ## [1.7.4] - 2026-09-04
 
 ### Added

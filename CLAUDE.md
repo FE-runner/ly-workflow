@@ -2,13 +2,16 @@
 
 > Claude Code 两角色精简工作流：Claude 自己完成聊天/分析/规划/实施，Codex 只在方案审查、代码审查两个节点做独立审查关卡。
 
-**Last Updated**: 2026-09-04 (v1.7.4)
+**Last Updated**: 2026-09-04 (v1.7.5)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-09-04 (v1.7.5) — 品牌独立化：对外文档不再提及上游项目
+- 🔄 **de-fork 品牌清理**：README（导语去溯源句 + 删 Credits 节）、CHANGELOG 头部（中性化改写）、根 CLAUDE.md 头部（项目定位描述）不再提及 ccg-workflow；`package.json` description 摘掉 fork 后缀；CONTRIBUTING/SECURITY/bug_report.md 漏网 CCG 残留清零；LICENSE 加自有版权行（双版权）。历史条目与 LICENSE 原版权行保留
 
 ### 2026-09-04 (v1.7.4) — /ly:propose 方案自审（闭环 + 全面性）
 - ✨ **新增方案自审步骤**：`/ly:propose` 在 `opsx:propose` 产物生成后、`propose:` commit 前由提出者自审——四项检查（正向/反向逻辑闭环、基线波及、通用业务维度过网）+ 逐项结论清单硬约束（四值结论，禁一句带过）；机械断链直接修，业务判断类 AskUserQuestion 问用户（全自动流水线下仍问，作为人工确认点）
