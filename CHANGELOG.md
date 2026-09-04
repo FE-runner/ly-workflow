@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ---
 
+## [1.7.4] - 2026-09-04
+
+### Added
+- **`/ly:propose` 方案自审步骤**：`opsx:propose` 产物生成后、`propose:` commit 前由方案提出者（当前会话 Claude）自审，补上"需求逻辑闭环 + 业务全面性"在方案定稿前的检查缺口——外部审查者无 propose 讨论上下文，查业务不全面只能撒网；提出者上下文最全且具备直接修改权，机械问题当场修、业务问题当场问。四项检查：正向闭环（每条 What Change → design 决策 → tasks 任务）、反向闭环（每个任务可溯源，孤儿任务处理）、基线波及（Modified Capabilities 逐条对照基线 Requirements）、通用业务维度过网（权限/失败路径/并发/兼容迁移，不适用必须写明理由）。
+- **发现二分处理**：机械断链（漏任务、范围未同步）直接改 artifact 不询问；业务判断类（"这个场景要不要支持"）列开放问题用 AskUserQuestion 问用户——**全自动流水线模式下仍然问**（作为流水线的人工确认点，与"需要人工介入"同级）；用户拒绝回答时停止编排转人工。
+- **防走过场硬约束**：自审必须产出逐项结论清单（通过 / 不适用+理由 / 已修复 / 待用户决策 四值结论），禁止"自审通过，无问题"一句带过，silent skip 视为未执行。
+- **spec**：`ly-propose-flow` 新增 2 个 Requirement（自审四项检查 + 逐项清单硬约束）+ 4 个 Scenario，MODIFIED"产物每步 commit"Requirement 同步自审时序。
+
+### Changed
+- **`propose:` commit 时序**：自审在快照比对定名之后、index 检查与 commit 之前执行，自审修复随 `propose: <change-name>` commit 一次干净落库（产物与自审修复同一待提交单元，review-plan 审查对象天然含自审结果）。
+- **职责分工固化**：闭环与全面性主责移到自审（上下文敏感），`/ly:review-plan`/`plan-reviewer.md`/审查-修复循环/`codeagent-wrapper` 全部不动（独立视角敏感，维持一致性 + 风险审查）。
+
 ## [1.7.3] - 2026-09-02
 
 ### Changed

@@ -1,6 +1,6 @@
 {
   "name": "ly-workflow",
-  "version": "1.7.3",
+  "version": "1.7.4",
   "description": "Claude Code + OpenSpec + Codex review gates — a lean two-role dev workflow (forked from ccg-workflow)",
   "type": "module",
   "packageManager": "pnpm@10.17.1",

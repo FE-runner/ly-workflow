@@ -2,13 +2,17 @@
 
 > Fork 自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow)（Claude + Codex + Gemini 多模型协作系统），重构为两角色精简工作流。
 
-**Last Updated**: 2026-09-02 (v1.7.3)
+**Last Updated**: 2026-09-04 (v1.7.4)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-09-04 (v1.7.4) — /ly:propose 方案自审（闭环 + 全面性）
+- ✨ **新增方案自审步骤**：`/ly:propose` 在 `opsx:propose` 产物生成后、`propose:` commit 前由提出者自审——四项检查（正向/反向逻辑闭环、基线波及、通用业务维度过网）+ 逐项结论清单硬约束（四值结论，禁一句带过）；机械断链直接修，业务判断类 AskUserQuestion 问用户（全自动流水线下仍问，作为人工确认点）
+- 🔄 **`propose:` commit 时序**：自审修复随 commit 一次干净落库；闭环与全面性主责移到自审，`/ly:review-plan` 外部审查职责不变（一致性 + 风险）
 
 ### 2026-09-02 (v1.7.3) — README 发布管线命令补齐
 - 📝 **README 同步**：命令表补 `/ly:release`/`/ly:changelog`/`/ly:publish`，`/ly:apply` 描述改为按 `routing.implementer` 路由，架构节补发布方式说明（仅文档，无代码变更）
