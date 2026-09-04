@@ -17,7 +17,7 @@ npx ly-workflow
 |------|------|
 | `/ly:init` | 生成 CLAUDE.md + 初始化 OpenSpec 目录结构 |
 | `/ly:explore` | 想清楚再动手（委托 `opsx:explore`） |
-| `/ly:propose` | 提出方案，生成 proposal/design/tasks（委托 `opsx:propose`） |
+| `/ly:propose` | 提出方案，生成 proposal/design/tasks（委托 `opsx:propose`），commit 前由提出者自审（逻辑闭环 + 业务全面性） |
 | `/ly:apply` | 按 `routing.implementer` 实施 tasks：`claude`（默认）= 当前会话本人实施；`codex`/`hermes`/`openclaw` = 委托 `codeagent-wrapper` 单次 agentic 调用 |
 | `/ly:review-plan` | Codex 审查当前方案的合理性、遗漏边界、风险点 |
 | `/ly:review-code` | Codex 审查代码变更，Critical/Warning/Info 分级输出 |

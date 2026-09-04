@@ -1,10 +1,10 @@
 ---
-description: '委托 opsx:propose 生成方案；创建方案前先问 isolation worktree 与全自动/手动（各只一次）；产物每步 commit；全自动 = 自动流水线到审完代码，手动 = 逐步确认'
+description: '委托 opsx:propose 生成方案；创建方案前先问 isolation worktree 与全自动/手动（各只一次）；产物生成后 commit 前执行方案自审（闭环+全面性），自审修复随 propose: commit 一次落库；全自动 = 自动流水线到审完代码，手动 = 逐步确认'
 ---
 
 # Propose
 
-收尾编排入口。创建方案前先问两件事（各只一次）：是否切到隔离 worktree（不在 worktree 内才问）、本次走全自动还是手动。产物生成后立即 commit（`propose: <change-name>`）；全自动路径在同一会话内自动跑 review-plan → apply → review-code 直到审完代码，手动路径逐步确认。
+收尾编排入口。创建方案前先问两件事（各只一次）：是否切到隔离 worktree（不在 worktree 内才问）、本次走全自动还是手动。产物生成后、commit 前由方案提出者执行一次方案自审（逻辑闭环 + 业务全面性，见步骤 5），自审修复随 `propose: <change-name>` commit 一次干净落库；全自动路径在同一会话内自动跑 review-plan → apply → review-code 直到审完代码，手动路径逐步确认。
 
 ## 步骤
 
@@ -52,7 +52,31 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
 
 调用前记录一次 `openspec list --json` 的候选 change 名集合（快照 A，若步骤 3 之前尚未记录则在委托前先记录）；委托完成后再查询一次（快照 B）。取快照 B 相对快照 A 新增的那一条作为本次实际生成的 change 名。**不依赖 `$ARGUMENTS`、不单纯依赖全局 `lastModified` 最新一条**——`opsx:propose` 会把用户输入的原始描述转成 kebab-case slug，两者不保证一致。若新增条目不唯一，或没有新增条目，**不猜测**，直接询问用户本次生成的 change 名，待确认后再继续。
 
-### 5. 暂存并立即 commit（每步 commit）
+### 5. 方案自审（commit 前，由方案提出者执行）
+
+在确定真实 change 名（步骤 4）之后、暂存并 commit（步骤 6）之前，由当前会话（方案提出者）对该 change 的全部 artifacts（`proposal.md`/`design.md`/`tasks.md`/全部 delta spec）执行一次**方案自审**。提出者刚完成方案生成、上下文最全，负责查"逻辑闭环"与"业务全面性"这两类依赖上下文的问题；独立视角的"一致性 + 风险"仍归 `/ly:review-plan` 的外部审查（职责分工，不重复）。
+
+**四项检查（逐项执行，粒度按条目对齐，不做段落级语义对齐）：**
+
+1. **正向闭环**：proposal 的每条 What Change 条目 SHALL 能对应到 design 的决策与 tasks 的任务（粒度：What Change 列表项 ↔ tasks checkbox 逐条映射）。design.md 缺失时容错跳过该段（What Change 直接对接 tasks），缺失本身不作为问题处理。
+2. **反向闭环**：tasks 的每个任务 SHALL 能溯源到至少一条 What Change 条目；不可溯源的孤儿任务属于拆解时私自扩的范围，SHALL 处理（删除或补全对应的 What Change/设计依据）。
+3. **基线波及**：对 proposal 声明的每个 Modified Capability，SHALL 逐条对照 `openspec/specs/<capability>/spec.md` 的现有 Requirements 检查本次改动是否波及（粒度：基线 Requirement 逐条）；被波及但方案只字未提的即为遗漏，SHALL 处理。New Capabilities 无基线可查，跳过该项。
+4. **通用业务维度过网**：权限、失败路径、并发、兼容/迁移等通用业务维度 SHALL 逐项过一遍（按维度逐项给结论）；判定"不适用"的维度 MUST 写明理由，SHALL NOT 静默跳过。
+
+**发现问题分两类处理：**
+
+- **机械断链**（漏任务、范围未同步、design 决策缺失等可直接修复的缺陷）：由提出者直接修改对应 artifact，SHALL NOT 就此类问题询问用户。
+- **业务判断类**（"这个场景要不要支持"等需要用户决策的开放问题）：SHALL 列为开放问题用 AskUserQuestion 询问用户，SHALL NOT 由提出者自行猜测决定。**全自动模式下同样询问**——该询问是自动流水线的人工确认点，与"需要人工介入"同级；用户回答后按回答更新对应 artifact 再继续。用户拒绝/取消回答 → 停止后续编排（不 commit、全自动流水线不启动），artifacts 留在工作区，报告结论清单与未决问题，转人工处理。
+
+**逐项结论清单（硬约束，防走过场）：**
+
+自审 MUST 产出可见的**逐项结论清单**，对四项检查的每一子项（每条 What Change 的闭环情况、每个 Modified Capability 的基线波及情况、每个通用维度）分别标注四值结论之一：**通过 / 不适用（含理由）/ 已修复（含改动说明）/ 待用户决策（含问题）**。SHALL NOT 以"自审通过，无问题"之类的一句总结代替逐项清单；未写理由的静默跳过视为未执行该项。存在"待用户决策"项时 SHALL 在清单中列出完整问题再询问。
+
+**自审修改后验证**：自审产生任何 artifact 修改（尤其 delta spec）后，SHALL 运行 `openspec validate --changes <change-name>` 确认结构合法，再进入步骤 6。
+
+### 6. 暂存并立即 commit（每步 commit）
+
+自审完成（含其修复）后执行。自审产生的 artifact 修复属于本次待提交内容——产物与自审修复是同一个待提交单元，随这次 commit 一次干净落库，不产生"commit + 未提交自审修复"的混合状态。
 
 1. 检查整个 Git index（`git diff --cached --name-only`）：若存在该 change 目录之外的已暂存内容，**停止**，报告"检测到该 change 目录外的已暂存内容，请先处理（unstage 或另行提交）后重试"，不执行 `git add` 也不 commit。
 2. index 干净后：`git add -- openspec/changes/<change-name>/`（该目录含 `.openspec.yaml` 元数据、proposal/design/tasks 与全部 delta spec，集群暂存，不用 `git add -A`）。
@@ -63,14 +87,14 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
 4. 用 `git show --name-only --format=` 校验这次 commit 的实际文件集合严格属于 `openspec/changes/<change-name>/` 目录（含 `.openspec.yaml`）。
 5. 若该目录下无可提交内容、`git commit` 失败，或校验发现文件集合超出该目录范围，**停止后续自动化步骤**，报告具体原因。
 
-`propose: <change-name>` commit 即 `/ly:review-plan` 的审查对象（见 `/ly:review-plan` 的审查范围判定：`git log --grep="^propose: <change-name>"` 取 HEAD 侧最近一期，`git show <commit>` + `git diff HEAD` + 未跟踪清单）。
+`propose: <change-name>` commit（含自审修复）即 `/ly:review-plan` 的审查对象（见 `/ly:review-plan` 的审查范围判定：`git log --grep="^propose: <change-name>"` 取 HEAD 侧最近一期，`git show <commit>` + `git diff HEAD` + 未跟踪清单）。
 
-### 6. 按第 2 步选择分支
+### 7. 按第 2 步选择分支
 
-- **选"全自动"** → 进入步骤 7（自动流水线）。
-- **选"手动"** → 进入步骤 8（逐步确认）。
+- **选"全自动"** → 进入步骤 8（自动流水线）。
+- **选"手动"** → 进入步骤 9（逐步确认）。
 
-### 7. 全自动：自动流水线直到审完代码
+### 8. 全自动：自动流水线直到审完代码
 
 **全程无 worktree 询问、无 `/ly:worktree switch` 调用、不自动 archive。**
 
@@ -83,7 +107,7 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
    - 其余任一种终止 → **停止流水线**，复用该循环已产出的终止报告报告终止原因，结束。
 4. 流水线执行过程中任一环节 `git commit` 失败：如实报告 Git 原始错误，停止流水线。
 
-### 8. 手动：逐步确认
+### 9. 手动：逐步确认
 
 1. `propose: <change-name>` commit 完成后，询问：
    ```

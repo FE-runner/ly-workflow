@@ -153,7 +153,7 @@ npx ly-workflow menu    # 交互式菜单
 |------|------|
 | `/ly:init` | 生成 CLAUDE.md（原生 `init` 技能）+ `openspec init` + 自动 commit |
 | `/ly:explore` | 委托 `opsx:explore` |
-| `/ly:propose` | 创建方案前问一次 worktree（不在 worktree 内才问，从当前分支 HEAD 切）+ 问"全自动/手动" → 委托 `opsx:propose` → 立即 commit `propose: <change>`；全自动 = review-plan → apply → review-code 自动化流水线；手动 = 逐步确认 |
+| `/ly:propose` | 创建方案前问一次 worktree（不在 worktree 内才问，从当前分支 HEAD 切）+ 问"全自动/手动" → 委托 `opsx:propose` → **方案自审**（commit 前：正向/反向逻辑闭环 + 基线波及 + 通用业务维度过网，逐项结论清单硬约束；机械断链直接修、业务判断类问用户——全自动模式下仍问）→ commit `propose: <change>`（自审修复一并落库）；全自动 = review-plan → apply → review-code 自动化流水线；手动 = 逐步确认 |
 | `/ly:apply` | 读取 `routing.implementer`（`claude`（默认）/`codex`/`hermes`/`openclaw`）渲染：claude=当前会话本人读 tasks.md 逐任务实施+验证+勾 checkbox→commit；非 claude=委托 `codeagent-wrapper` + `builder.md` 单次 agentic 调用实施 tasks。全部任务完成后立即 commit `apply: <change-name>`；未全部完成原样呈报转人工（不重试不兜底）（无隔离检测、无 worktree 询问） |
 | `/ly:archive` | 委托 `opsx:archive` + 自动 commit |
 | `/ly:review-plan` | 审查对象为目标 change 的 `propose:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
@@ -174,7 +174,7 @@ npx ly-workflow menu    # 交互式菜单
 
 ## 关键设计决策
 
-1. **`propose` 是编排入口，`apply`/`archive` 现在也各自带一段自动 commit 逻辑，`explore` 仍是纯薄壳**：`propose.md` 包含创建方案前的 worktree 询问（不在 worktree 内才问，从当前分支 HEAD 用 `git worktree add` 切出）、全自动/手动询问、每步 commit、全自动流水线（review-plan → apply → review-code）等编排逻辑；`apply.md` 只负责在工作区实施 + 立即 commit，`archive.md` 在委托 opsx 技能之后提交文件变动，`explore.md` 只做参数转发+一句转向提示。是否要加编排逻辑按需判断即可，不受任何"必须是薄壳"的原则约束——原有的"委托而非重新封装"原则已废止（2026-08-08）。
+1. **`propose` 是编排入口，`apply`/`archive` 现在也各自带一段自动 commit 逻辑，`explore` 仍是纯薄壳**：`propose.md` 包含创建方案前的 worktree 询问（不在 worktree 内才问，从当前分支 HEAD 用 `git worktree add` 切出）、全自动/手动询问、commit 前的方案自审（提出者查逻辑闭环与业务全面性，机械断链直接修、业务判断类问用户）、每步 commit、全自动流水线（review-plan → apply → review-code）等编排逻辑；`apply.md` 只负责在工作区实施 + 立即 commit，`archive.md` 在委托 opsx 技能之后提交文件变动，`explore.md` 只做参数转发+一句转向提示。是否要加编排逻辑按需判断即可，不受任何"必须是薄壳"的原则约束——原有的"委托而非重新封装"原则已废止（2026-08-08）。
 2. **审查走 codeagent-wrapper 而非直连 Codex API**：复用已有的 session 管理、进度回调、超时重试。
 3. **Go wrapper 只删 Backend 层**：`Backend` interface 保持不变，删除具体实现（Gemini/Grok/Antigravity）不影响执行引擎（并发调度/日志/SSE）。
 4. **LICENSE + git 历史不动**：文档整体重写，但版权声明和提交历史保留可追溯性。
