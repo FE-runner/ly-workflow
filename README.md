@@ -1,6 +1,6 @@
 # ly-workflow
 
-> 源自 [ccg-workflow](https://github.com/fengshao1227/ccg-workflow) 的二次开发重构，现为独立项目：Claude Code 自己完成聊天/分析/规划/实施，Codex 只在两个节点做审查关卡——方案审查、代码审查。最大化复用 OpenSpec 原生工作流。
+> Claude Code 自己完成聊天/分析/规划/实施，Codex 只在两个节点做审查关卡——方案审查、代码审查。最大化复用 OpenSpec 原生工作流。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node](https://img.shields.io/badge/Node.js-%3E%3D20-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -46,10 +46,6 @@ npx ly-workflow
 - **生命周期**：直接委托 OpenSpec 原生技能（`opsx:*`），不重新封装
 
 详见 [CLAUDE.md](./CLAUDE.md)。
-
-## Credits
-
-Based on [ccg-workflow](https://github.com/fengshao1227/ccg-workflow) — Claude + Codex + Gemini 多模型协作系统。
 
 ## License
 

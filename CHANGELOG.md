@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-> Forked from [ccg-workflow](https://github.com/fengshao1227/ccg-workflow) at v3.2.3. History before this point lives in that project's own CHANGELOG.
+> 本文件覆盖 ly-workflow 独立化之后的全部版本（1.0.0 起）；该节点之前的变更历史属于上游项目，不在本文件记录范围内。
 
 ---
 ---
