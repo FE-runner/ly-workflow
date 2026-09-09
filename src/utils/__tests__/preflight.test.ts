@@ -128,11 +128,28 @@ describe('checkExternalDeps', () => {
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     cliState.installed = true
+    // CI runners set CI=1, which makes checkExternalDeps take the
+    // non-interactive branch — isolate it so install-flow tests are
+    // deterministic on CI as well as locally.
+    delete process.env.CI
   })
 
   afterEach(() => {
     delete process.env.CLAUDE_CONFIG_DIR
+    delete process.env.CI
     vi.restoreAllMocks()
+  })
+
+  it('CI env var: skips install ask and prints unavailable list', async () => {
+    mockExec()
+    cliState.installed = false
+    existsSyncMock.mockReturnValue(false)
+    process.env.CI = '1'
+    await withTTY(true, async () => {
+      await checkExternalDeps()
+    })
+    expect(promptMock).not.toHaveBeenCalled()
+    expect(logSpy).toHaveBeenCalled()
   })
 
   it('silent pass when CLI installed and skills present', async () => {
