@@ -34,14 +34,14 @@
 `cli-setup.ts` 三个 action 回调里、现有 `initI18n` 完成后调用 `checkExternalDeps()`——保证提示文案用用户选定的语言。默认动作与 menu 本就调 `showMainMenu()`，检查放在其前一行；init 放在 `init(options)` 前。不放在 `setupCommands()` 顶部全局执行——`doctor`/`diagnose-mcp` 等子命令不该触发检查（spec 的 SHALL NOT 范围）。
 
 ### 决策 3：CLI 缺失的安装询问用现有 inquirer confirm 惯例
-安装器已有 inquirer 依赖与确认询问模式（init 向导），复用同款 confirm。`npm install -g` 经子进程执行并透传输出，失败捕获后按"拒绝"口径继续（报告原始错误）——两分支最终都返回主流程，编排入口不抛异常中断。
+安装器已有 inquirer 依赖与确认询问模式（init 向导），复用同款 confirm。`npm install -g` 经子进程执行并透传输出，失败捕获后按"拒绝"口径继续（报告原始错误）——两分支最终都返回主流程，编排入口不抛异常中断。**非 TTY 环境（CI、管道执行）下 inquirer confirm 无法交互：跳过询问、按"拒绝"口径输出清单提示后继续，不挂起**（spec 已有对应 Scenario）。
 
 ### 决策 4：opsx 技能缺失的提示措辞区分两级失败态
 CLI 缺失 = "没装包"（可就地装）；技能缺失 = "装了包没初始化"（引导 /ly:init）。两者文案必须不同——否则用户装了包还看到同一条提示会困惑。技能缺失态 SHALL NOT 询问（无事可问，只剩引导）。
 
 ## Risks / Trade-offs
 
-- **[opsx 技能落盘路径可能随 openspec 版本变化]**（`~/.claude/commands/opsx/` 是当前 openspec 1.7.x 的产物位置）→ 检测函数把路径常量收口在一处；若未来 openspec 改了安装位置，只改一个常量
+- **[opsx 技能落盘路径可能随 openspec 版本变化]**（`~/.claude/commands/opsx/` 是当前 openspec 1.7.x 的产物位置）→ 检测函数把路径常量收口在一处，且路径基准尊重 `CLAUDE_CONFIG_DIR` 环境变量（缺省 `~/.claude`）——避免重定向配置目录的用户被假阴性；若未来 openspec 改了安装位置，只改一个常量
 - **[子进程探测在启动路径上增加一次命令执行]**（无 openspec 环境下 `which` 级失败很快；有 openspec 环境 ~几十 ms）→ 可接受；不做缓存——CLI 是一次性短进程，缓存无意义
 - **[npm install -g 可能需要额外权限]**（nvm 环境通常无感，系统 node 可能 EACCES）→ 失败不阻断、如实报告，用户可自行处理后再跑
 
@@ -51,4 +51,4 @@ CLI 缺失 = "没装包"（可就地装）；技能缺失 = "装了包没初始�
 
 ## Open Questions
 
-（无——探索阶段已收敛三方向 A/B/C 的取舍，本方案即 A+B 组合，C（/ly:propose 入口自检）明确不做。）
+（无——探索阶段已收敛三方向 A/B/C 的取舍，本方案即 A+B 组合，C（/ly:propose 入口自检）明确不做。版本号前置条件（1.8.0 未发布）已写入 tasks 4.1 的显式判定规则，不再是开放问题。）

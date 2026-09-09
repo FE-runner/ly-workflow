@@ -16,11 +16,15 @@
 - **THEN** 不出现任何 openspec 依赖检查行为或相关提示
 
 ### Requirement: openspec CLI 缺失时询问是否就地安装
-前置检查发现 openspec CLI 不存在时，SHALL 提示该依赖缺失并询问用户是否就地执行 `npm install -g @fission-ai/openspec@latest`。用户同意 → 执行安装，安装失败 SHALL 如实报告错误并继续安装器主流程（SHALL NOT 中断退出）；用户拒绝 → SHALL 明确列出依赖 openspec 的命令清单（`/ly:init` `/ly:propose` `/ly:apply` `/ly:review-plan` `/ly:review-code` `/ly:archive`）不可用，然后继续安装器主流程。两种情况下 ly-workflow 自身的安装 SHALL NOT 被阻断（不依赖 openspec 的命令——Git 工具链与质量关卡——照常可用）。
+前置检查发现 openspec CLI 不存在时，SHALL 提示该依赖缺失并询问用户是否就地执行 `npm install -g @fission-ai/openspec@latest`。用户同意 → 执行安装；安装完成后 SHALL 复用技能检测函数二次判定：opsx 技能已存在（CLI 缺失但技能目录残留的场景）则提示"openspec 已可用"，否则提示"运行 /ly:init 完成 openspec init 后 OpenSpec 生命周期命令可用"。安装失败 SHALL 如实报告错误并继续安装器主流程（SHALL NOT 中断退出）。用户拒绝 → SHALL 明确列出直接依赖 openspec CLI/opsx 技能、缺失时不可用的命令清单（`/ly:init` `/ly:explore` `/ly:propose` `/ly:review-plan` `/ly:archive`），并说明 `/ly:apply`/`/ly:review-code` 仅依赖项目内 change 目录结构、不受全局 CLI 缺失直接影响，以及 Git 工具链与质量关卡照常可用，然后继续安装器主流程。两种情况下 ly-workflow 自身的安装 SHALL NOT 被阻断。
 
-#### Scenario: 用户同意就地安装且安装成功
+#### Scenario: 用户同意就地安装且安装成功（含技能目录残留边界）
 - **WHEN** 检查发现 openspec CLI 缺失，用户同意就地安装，`npm install -g @fission-ai/openspec@latest` 成功
-- **THEN** 提示"已安装 openspec，运行 /ly:init 完成 openspec init 后 OpenSpec 生命周期命令可用"，安装器主流程继续
+- **THEN** 复用技能检测函数二次判定：opsx 技能已存在（曾装过 openspec 后卸载 CLI 的残留场景）则提示"openspec 已可用"；否则提示"运行 /ly:init 完成 openspec init 后 OpenSpec 生命周期命令可用"，安装器主流程继续
+
+#### Scenario: 非 TTY 环境跳过询问按拒绝口径继续
+- **WHEN** 检查发现 openspec CLI 缺失，但当前运行环境非交互终端（CI、管道执行），无法进行确认询问
+- **THEN** 跳过安装询问，按"用户拒绝"同等口径输出不可用清单提示后继续安装器主流程，SHALL NOT 挂起等待输入
 
 #### Scenario: 用户拒绝安装
 - **WHEN** 检查发现 openspec CLI 缺失，用户拒绝就地安装
