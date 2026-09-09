@@ -112,7 +112,7 @@ export async function setupCommands(cli: CAC): Promise<void> {
       if (options.lang) {
         await initI18n(options.lang)
       }
-      await checkExternalDeps()
+      await checkExternalDeps({ skipPrompt: options.skipPrompt })
       await init(options)
     })
 

@@ -11,7 +11,7 @@
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
 
 ### 2026-09-09 (v1.8.0) — /ly:propose 会话不断链：切 worktree 后同会话续跑
-- ✨ **安装器 preflight 检查 openspec 依赖**：`npx ly-workflow`/`ly init`/`ly menu` 入口新增 `src/utils/preflight.ts` 共享前置检查（CLI 缺失→询问就地安装/拒绝列清单/失败不阻断；技能未初始化→非阻断提示跑 /ly:init；就绪静默）；`ly doctor`/`ly status` 补 OpenSpec CLI/skills 两项体检；opsx 路径尊重 `CLAUDE_CONFIG_DIR`
+- ✨ **安装器 preflight 检查 openspec 依赖**：`npx ly-workflow` 默认动作（裸 `ly`，即菜单）与 `ly init` 入口新增 `src/utils/preflight.ts` 共享前置检查（CLI 缺失→询问就地安装/拒绝列清单/失败不阻断；技能未初始化→非阻断提示跑 /ly:init；就绪静默）；`ly doctor`/`ly status` 补 OpenSpec CLI/skills 两项体检；opsx 路径尊重 `CLAUDE_CONFIG_DIR`
 - ✨ **切隔离 worktree 后不再结束会话**：baseline 通过后当前会话直接 cd 进新 worktree（cd 后立即校验工作目录，失败即停止编排、不静默失败），在同一会话内继续"全自动/手动"询问 → opsx:propose → 方案自审 → commit → 流水线——探索阶段积累的上下文零丢失；续接命令降级为会话异常死亡时的兜底恢复手段；baseline 失败分支改为"仍继续（同会话进入）/ 放弃（保留 worktree + 兜底命令）"
 - 🔄 **文档与 spec 同步**：`propose.md` 步骤 1.5-1.7 重写 + cwd 纪律硬约束；根/templates CLAUDE.md 与 README 的 `/ly:propose` 描述更新；delta spec 修改 `worktree-create-before-propose` 与 `ly-propose-flow` 两个 capability；版本号三处同步 bump 1.7.5 → 1.8.0
 

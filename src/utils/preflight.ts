@@ -24,7 +24,10 @@ export interface OpenspecCliStatus {
 /** Commands that directly require the openspec CLI / opsx skills. */
 const DEPENDENT_COMMANDS = ['/ly:init', '/ly:explore', '/ly:propose', '/ly:review-plan', '/ly:archive']
 
-const INSTALL_CMD = 'npm install -g @fission-ai/openspec@latest'
+const INSTALL_CMD = ['npm', 'install', '-g', '@fission-ai/openspec@latest']
+
+/** Windows needs shell:true to resolve npm-generated .cmd shims. */
+const SHELL_OPT = process.platform === 'win32' ? { shell: true } : {}
 
 /** opsx skills directory — honors CLAUDE_CONFIG_DIR, defaults to ~/.claude. */
 export function getOpsxSkillsDir(): string {
@@ -35,9 +38,17 @@ export function getOpsxSkillsDir(): string {
 /** Detect the global openspec CLI via `openspec --version`. */
 export function detectOpenspecCli(): Promise<OpenspecCliStatus> {
   return new Promise((resolve) => {
-    execFile('openspec', ['--version'], { timeout: 5000 }, (err, stdout) => {
-      if (err) resolve({ installed: false })
-      else resolve({ installed: true, version: stdout.toString().trim() || 'unknown' })
+    execFile('openspec', ['--version'], { timeout: 5000, ...SHELL_OPT }, (err, stdout) => {
+      if (err) {
+        // Installed but unhealthy (e.g. hung execution) — do not trigger a reinstall.
+        if ('killed' in err && err.killed || (err as NodeJS.ErrnoException).code === 'ETIMEDOUT') {
+          resolve({ installed: true, version: 'unknown' })
+          return
+        }
+        resolve({ installed: false })
+        return
+      }
+      resolve({ installed: true, version: stdout.toString().trim() || 'unknown' })
     })
   })
 }
@@ -47,10 +58,6 @@ export function detectOpsxSkills(): boolean {
   return existsSync(getOpsxSkillsDir())
 }
 
-function isNonTTY(): boolean {
-  return !process.stdin.isTTY || !process.stdout.isTTY
-}
-
 function printUnavailable(): void {
   console.log(ansis.yellow(`  ${i18n.t('common:preflight.unavailableList', { list: DEPENDENT_COMMANDS.join(' ') })}`))
   console.log(ansis.gray(`  ${i18n.t('common:preflight.unaffectedNote')}`))
@@ -58,18 +65,22 @@ function printUnavailable(): void {
 
 async function runNpmInstall(): Promise<boolean> {
   return new Promise((resolve) => {
-    const [cmd, ...args] = INSTALL_CMD.split(' ')
-    const child = spawn(cmd, args, { stdio: 'inherit' })
+    const [cmd, ...args] = INSTALL_CMD
+    const child = spawn(cmd, args, { stdio: 'inherit', ...SHELL_OPT })
     child.on('error', () => resolve(false))
     child.on('close', code => resolve(code === 0))
   })
+}
+
+function isNonInteractive(skipPrompt?: boolean): boolean {
+  return Boolean(skipPrompt || process.env.CI || !process.stdin.isTTY || !process.stdout.isTTY)
 }
 
 /**
  * Orchestrated preflight entry for installer flows (default action / init / menu).
  * Never throws — installer main flow must proceed regardless of check outcomes.
  */
-export async function checkExternalDeps(): Promise<void> {
+export async function checkExternalDeps(options?: { skipPrompt?: boolean }): Promise<void> {
   try {
     const cli = await detectOpenspecCli()
 
@@ -82,7 +93,7 @@ export async function checkExternalDeps(): Promise<void> {
 
     console.log(ansis.yellow(`⚠ ${i18n.t('common:preflight.cliMissing')}`))
 
-    if (isNonTTY()) {
+    if (isNonInteractive(options?.skipPrompt)) {
       printUnavailable()
       return
     }
@@ -108,6 +119,13 @@ export async function checkExternalDeps(): Promise<void> {
 
     // Re-check skills after install: a stale opsx dir may already exist
     // (openspec CLI was previously installed then removed).
+    // Re-check the CLI too: npm install may succeed while the global bin
+    // prefix is not on the current PATH (nvm/brew prefix mismatches).
+    const recheck = await detectOpenspecCli()
+    if (!recheck.installed) {
+      console.log(ansis.yellow(`⚠ ${i18n.t('common:preflight.installNotInPath')}`))
+      return
+    }
     if (detectOpsxSkills()) {
       console.log(ansis.green(`✓ ${i18n.t('common:preflight.installSuccessWithSkills')}`))
     }

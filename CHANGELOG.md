@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.0] - 2026-09-09
 
 ### Added
-- **安装器 preflight 检查 openspec 依赖**：`npx ly-workflow` 默认动作与 `ly init`/`ly menu` 入口新增共享前置检查（`src/utils/preflight.ts`）——openspec CLI 缺失时询问是否就地 `npm install -g @fission-ai/openspec@latest`（非 TTY 跳过询问按拒绝口径继续；安装失败如实报告不阻断；拒绝则列出直接依赖 openspec 的命令清单），CLI 在但 opsx 技能未初始化时非阻断提示"完成后运行 /ly:init"；全就绪静默通过；`ly doctor`/`ly status` 补 OpenSpec CLI / OpenSpec skills 两项体检（同一检测函数，判定一致）。
+- **安装器 preflight 检查 openspec 依赖**：`npx ly-workflow` 默认动作（裸 `ly`，即菜单）与 `ly init` 入口新增共享前置检查（`src/utils/preflight.ts`）——openspec CLI 缺失时询问是否就地 `npm install -g @fission-ai/openspec@latest`（非 TTY 跳过询问按拒绝口径继续；安装失败如实报告不阻断；拒绝则列出直接依赖 openspec 的命令清单），CLI 在但 opsx 技能未初始化时非阻断提示"完成后运行 /ly:init"；全就绪静默通过；`ly doctor`/`ly status` 补 OpenSpec CLI / OpenSpec skills 两项体检（同一检测函数，判定一致）。
 
 ### Changed
 - **`/ly:propose` 会话不断链**：选择切隔离 worktree 后不再打印续接命令并结束会话，改为当前会话直接 cd 进新 worktree（cd 后立即校验工作目录，失败即停止编排、不静默失败），在同一会话内继续"全自动/手动"询问 → 方案生成 → 自审 → commit → 审查/实施流水线——探索阶段积累的上下文全程零丢失；续接命令保留但降级为会话异常死亡（崩溃、终端关闭）时的兜底恢复手段；baseline 失败分支语义同步调整为"仍继续（同会话进入）/ 放弃（保留 worktree 与分支 + 打印兜底命令）"。

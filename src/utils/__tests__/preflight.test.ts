@@ -20,28 +20,19 @@ vi.mock('inquirer', () => ({
 
 import { checkExternalDeps, detectOpenspecCli, detectOpsxSkills, getOpsxSkillsDir } from '../preflight'
 
-function execSucceeds(output = '1.7.0\n') {
-  execFileMock.mockImplementation((cmd: string, _args: any, _opts: any, cb: (err: Error | null, out: string) => void) => {
-    if (cmd === 'openspec') cb(null, output)
-    else cb(null, '')
+/** Mutable CLI presence read by the execFile mock — install success can flip it. */
+const cliState = { installed: true }
+
+function mockExec() {
+  execFileMock.mockImplementation((cmd: string, _args: any, _opts: any, cb: (err: any, out: string) => void) => {
+    if (cmd !== 'openspec') { cb(null, ''); return }
+    if (!cliState.installed) { cb(new Error('not found'), ''); return }
+    cb(null, '1.7.0\n')
   })
 }
 
-function execFailsFor(cmd: string) {
-  execFileMock.mockImplementation((c: string, _args: any, _opts: any, cb: (err: Error | null, out: string) => void) => {
-    if (c === cmd) cb(new Error('not found'), '')
-    else cb(null, '')
-  })
-}
-
-function failCli() {
-  execFileMock.mockImplementation((cmd: string, _args: any, _opts: any, cb: (err: Error | null, out: string) => void) => {
-    if (cmd === 'openspec') cb(new Error('not found'), '')
-    else cb(null, '')
-  })
-}
-
-function npmInstallResult(exitCode: number | 'spawn-error') {
+/** Simulate npm install outcome; onSpawn runs before the close/error event. */
+function npmInstallResult(exitCode: number | 'spawn-error', onSpawn?: () => void) {
   spawnMock.mockImplementation(() => {
     const listeners: Record<string, any[]> = {}
     const on = (event: string, cb: any) => {
@@ -50,6 +41,7 @@ function npmInstallResult(exitCode: number | 'spawn-error') {
     }
     const emit = (event: string, arg?: any) => (listeners[event] || []).forEach(cb => cb(arg))
     queueMicrotask(() => {
+      onSpawn?.()
       if (exitCode === 'spawn-error') emit('error', new Error('spawn ENOENT'))
       else emit('close', exitCode)
     })
@@ -57,16 +49,21 @@ function npmInstallResult(exitCode: number | 'spawn-error') {
   })
 }
 
-/** Force isTTY value on stdin/stdout for non-TTY simulation. */
-function withTTY(value: boolean, fn: () => Promise<void>) {
+/** Force isTTY value on stdin/stdout; restores (or deletes) original state. */
+async function withTTY(value: boolean, fn: () => Promise<void>) {
   const stdin = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
   const stdout = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
   Object.defineProperty(process.stdin, 'isTTY', { configurable: true, value })
   Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value })
-  return fn().finally(() => {
-    if (stdin) Object.defineProperty(process.stdin, 'isTTY', stdin)
-    if (stdout) Object.defineProperty(process.stdout, 'isTTY', stdout)
-  })
+  try {
+    await fn()
+  }
+  finally {
+    for (const [target, desc] of [[process.stdin, stdin], [process.stdout, stdout]] as const) {
+      if (desc) Object.defineProperty(target, 'isTTY', desc)
+      else delete (target as any).isTTY
+    }
+  }
 }
 
 describe('getOpsxSkillsDir', () => {
@@ -90,13 +87,22 @@ describe('detectOpenspecCli', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it('returns installed with trimmed version on success', async () => {
-    execSucceeds('1.7.0\n')
+    mockExec()
+    cliState.installed = true
     expect(await detectOpenspecCli()).toEqual({ installed: true, version: '1.7.0' })
   })
 
   it('returns not installed on exec error', async () => {
-    execFailsFor('openspec')
+    mockExec()
+    cliState.installed = false
     expect(await detectOpenspecCli()).toEqual({ installed: false })
+  })
+
+  it('treats timeout (killed) as installed-but-unhealthy, not missing', async () => {
+    execFileMock.mockImplementation((_cmd: string, _a: any, _o: any, cb: any) => {
+      cb(Object.assign(new Error('spawn timeout'), { killed: true }), '')
+    })
+    expect(await detectOpenspecCli()).toEqual({ installed: true, version: 'unknown' })
   })
 })
 
@@ -121,6 +127,7 @@ describe('checkExternalDeps', () => {
   beforeEach(() => {
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    cliState.installed = true
   })
 
   afterEach(() => {
@@ -129,7 +136,7 @@ describe('checkExternalDeps', () => {
   })
 
   it('silent pass when CLI installed and skills present', async () => {
-    execSucceeds()
+    mockExec()
     existsSyncMock.mockReturnValue(true)
     await checkExternalDeps()
     expect(logSpy).not.toHaveBeenCalled()
@@ -137,15 +144,27 @@ describe('checkExternalDeps', () => {
   })
 
   it('warns once when CLI installed but skills missing', async () => {
-    execSucceeds()
+    mockExec()
     existsSyncMock.mockReturnValue(false)
     await checkExternalDeps()
     expect(logSpy).toHaveBeenCalledTimes(1)
     expect(promptMock).not.toHaveBeenCalled()
   })
 
+  it('skipPrompt option: skips install ask and prints unavailable list', async () => {
+    mockExec()
+    cliState.installed = false
+    existsSyncMock.mockReturnValue(false)
+    await withTTY(true, async () => {
+      await checkExternalDeps({ skipPrompt: true })
+    })
+    expect(promptMock).not.toHaveBeenCalled()
+    expect(logSpy).toHaveBeenCalled()
+  })
+
   it('non-TTY: skips install ask and prints unavailable list', async () => {
-    execFailsFor('openspec')
+    mockExec()
+    cliState.installed = false
     existsSyncMock.mockReturnValue(false)
     await withTTY(false, async () => {
       await checkExternalDeps()
@@ -155,22 +174,39 @@ describe('checkExternalDeps', () => {
   })
 
   it('declined install: prints unavailable list, no npm call', async () => {
-    execFailsFor('openspec')
+    mockExec()
+    cliState.installed = false
     existsSyncMock.mockReturnValue(false)
     promptMock.mockResolvedValue({ confirmed: false })
     await withTTY(true, async () => {
       await checkExternalDeps()
     })
     expect(promptMock).toHaveBeenCalledTimes(1)
-    expect(execFileMock.mock.calls.some((c: any[]) => c[0] === 'npm')).toBe(false)
+    expect(spawnMock).not.toHaveBeenCalled()
     expect(logSpy).toHaveBeenCalled()
   })
 
-  it('successful install: spawn called, message depends on skills state', async () => {
-    failCli()
-    promptMock.mockResolvedValue({ confirmed: true })
+  it('successful install: spawn npm with arg array, CLI recheck passes', async () => {
+    mockExec()
+    cliState.installed = false
     existsSyncMock.mockReturnValue(true)
-    npmInstallResult(0)
+    promptMock.mockResolvedValue({ confirmed: true })
+    npmInstallResult(0, () => { cliState.installed = true })
+    await withTTY(true, async () => {
+      await checkExternalDeps()
+    })
+    const spawnArgs = spawnMock.mock.calls[0] as any[]
+    expect(spawnArgs[0]).toBe('npm')
+    expect(Array.isArray(spawnArgs[1])).toBe(true)
+    expect(logSpy).toHaveBeenCalled()
+  })
+
+  it('install succeeds but CLI not on PATH: prints PATH guidance', async () => {
+    mockExec()
+    cliState.installed = false
+    existsSyncMock.mockReturnValue(true)
+    promptMock.mockResolvedValue({ confirmed: true })
+    npmInstallResult(0) // CLI recheck still fails — npm bin not on PATH
     await withTTY(true, async () => {
       await checkExternalDeps()
     })
@@ -179,13 +215,36 @@ describe('checkExternalDeps', () => {
   })
 
   it('failed npm install: reports error and continues (never throws)', async () => {
-    failCli()
-    promptMock.mockResolvedValue({ confirmed: true })
+    mockExec()
+    cliState.installed = false
     existsSyncMock.mockReturnValue(false)
+    promptMock.mockResolvedValue({ confirmed: true })
     npmInstallResult(1)
     await withTTY(true, async () => {
       await expect(checkExternalDeps()).resolves.toBeUndefined()
     })
     expect(errSpy).toHaveBeenCalled()
+  })
+
+  it('npm spawn error (ENOENT): reports error and continues (never throws)', async () => {
+    mockExec()
+    cliState.installed = false
+    existsSyncMock.mockReturnValue(false)
+    promptMock.mockResolvedValue({ confirmed: true })
+    npmInstallResult('spawn-error')
+    await withTTY(true, async () => {
+      await expect(checkExternalDeps()).resolves.toBeUndefined()
+    })
+    expect(errSpy).toHaveBeenCalled()
+  })
+
+  it('inquirer prompt rejection: swallowed by top-level catch (never throws)', async () => {
+    mockExec()
+    cliState.installed = false
+    existsSyncMock.mockReturnValue(false)
+    promptMock.mockRejectedValue(new Error('User force closed the prompt'))
+    await withTTY(true, async () => {
+      await expect(checkExternalDeps()).resolves.toBeUndefined()
+    })
   })
 })
