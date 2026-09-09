@@ -2,7 +2,7 @@
 
 Provides three release pipeline slash commands that automate version bumping, changelog generation, and npm package publishing — installed alongside other core ly-workflow commands.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Slash commands for release/publish workflows
 
