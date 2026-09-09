@@ -41,7 +41,7 @@ cd 进 worktree 后，最大的操作性风险是编排过程中某步操作误�
 ## Risks / Trade-offs
 
 - **[会话"身份"仍在主仓库：项目级上下文（hooks、权限、memory 目录）按启动目录绑定]** → worktree 从 HEAD 切出，CLAUDE.md/`.claude/` 配置与主仓库逐字节一致，实际行为无差异；memory 本来就按逻辑项目沉淀，worktree 开发也该带上
-- **[compaction 后 Bash cwd 是否保留]** → cwd 是 shell 进程状态，compaction 只压上下文不重启进程，cwd 保留；极端情况下若 cwd 意外重置，下一步 git 命令会作用于错误目录——由决策 4 的显式规约兜底（每段编排开始时可用 `pwd` 校验，成本可忽略）
+- **[compaction 后 Bash cwd 是否保留]** → cwd 是 shell 进程状态，compaction 只压上下文不重启进程，cwd 保留；极端情况下若 cwd 意外重置，下一步 git 命令会作用于错误目录——已由 spec 硬约束兜底（cd 后立即校验 `pwd` / `git rev-parse --git-dir`，失败即停止编排并报告，SHALL NOT 静默失败后继续，见 delta spec 对应 Scenario）
 - **[用户误以为切了 worktree 就该"退出等新会话"（旧习惯）]** → 编排在 cd 后明确打印"已进入隔离 worktree，本会话继续"的提示；兜底命令同时在场，两种心智都有出口
 - **[续接命令打印时 change 名还不知道]** → 兜底命令沿用现状措辞"继续 /ly:propose <同一需求>"（需求描述占位），不依赖 change 名，与现状一致
 

@@ -22,7 +22,7 @@
 
 ## Impact
 
-- `templates/commands/propose.md`：步骤 1.5/1.6/1.7 重写（baseline 失败分支 + 续接命令降级 + 会话续跑），新增"自此刻起所有操作以 worktree 为工作目录"的显式声明
-- 文档同步：根 `CLAUDE.md`（对外接口表 `/ly:propose` 行 + 关键设计决策 1）、`templates/CLAUDE.md`（propose.md 行描述）、`README.md`（`/ly:propose` 命令描述，若有对应表述）
+- `templates/commands/propose.md`：步骤 1.5/1.6/1.7 重写（baseline 失败分支 + 续接命令降级 + 会话续跑 + cd 后工作目录校验失败即停），新增"自此刻起所有操作以 worktree 为工作目录"的显式声明
+- 文档同步：根 `CLAUDE.md`（对外接口表 `/ly:propose` 行 + 关键设计决策 1 + 变更记录条目）、`CHANGELOG.md`（新增条目，遵循现有日期/版本格式）、`templates/CLAUDE.md`（propose.md 行描述，核对并按需补充）、`README.md`（`/ly:propose` 命令描述，核对并按需补充）
 - 不涉及：`src/` 代码、`codeagent-wrapper`、其他命令模板（`/ly:apply`/`/ly:worktree` 不受影响）
 - 用户可感知行为变化：选切 worktree 后终端不再"结束等待新会话"，而是同会话继续问全自动/手动并跑完整条流水线——探索上下文全程零丢失

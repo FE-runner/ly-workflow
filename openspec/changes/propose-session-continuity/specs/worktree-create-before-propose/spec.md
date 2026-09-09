@@ -7,7 +7,7 @@
 
 切换后 SHALL 复用 `/ly:worktree add` 的后续流程：自动复制环境文件、运行一次项目 baseline 验证（复用 worktree.md 的 baseline 规则）。
 
-**baseline 验证通过后，当前会话 SHALL 立即以绝对路径 `cd` 进入新 worktree（Bash 工作目录在会话内持久生效），并在同一会话内继续执行 propose 编排的后续步骤（"全自动/手动"询问 → `opsx:propose` → 方案自审 → commit → 按所选路径收尾）。** 自 cd 进 worktree 之时起，本次 propose 编排的所有 Git 操作、openspec 命令与文件读写 SHALL 以 worktree 为工作目录（文件操作用 worktree 绝对路径），SHALL NOT 回到主仓库路径执行本次 change 的任何产物操作。SHALL 在进入 worktree 的同时打印一次续接命令（`cd <worktree绝对路径> && claude "继续 在隔离 worktree 中 /ly:propose <同一需求>"`，绝对路径 + shell 安全转义）——该命令 SHALL NOT 是正常路径的必经交接步骤，而是**会话异常死亡（崩溃、终端意外关闭等）时的降级兜底**：正常路径下当前会话直接续跑，用户无需使用该命令。
+**baseline 验证通过后，当前会话 SHALL 立即以绝对路径 `cd` 进入新 worktree（Bash 工作目录在会话内持久生效），并在同一会话内继续执行 propose 编排的后续步骤（"全自动/手动"询问 → `opsx:propose` → 方案自审 → commit → 按所选路径收尾）。** cd 后 SHALL 立即校验当前工作目录确为该 worktree（`pwd` 与 worktree 绝对路径比对，或 `git rev-parse --git-dir` 确认位于 worktree 内）；cd 失败或校验不通过时，SHALL 停止编排、报告原因，SHALL NOT 执行后续任何 git/openspec/文件操作（SHALL NOT 静默失败后继续）。自 cd 校验通过之时起，本次 propose 编排的所有 Git 操作、openspec 命令与文件读写 SHALL 以 worktree 为工作目录（文件操作用 worktree 绝对路径），SHALL NOT 回到主仓库路径执行本次 change 的任何产物操作。SHALL 在进入 worktree 的同时打印一次续接命令（`cd <worktree绝对路径> && claude "继续 在隔离 worktree 中 /ly:propose <同一需求>"`，绝对路径 + shell 安全转义）——该命令 SHALL NOT 是正常路径的必经交接步骤，而是**会话异常死亡（崩溃、终端意外关闭等）时的降级兜底**：正常路径下当前会话直接续跑，用户无需使用该命令。
 
 baseline 失败时，SHALL 报告失败摘要并询问用户：选择"仍继续"→ 同会话 cd 进 worktree 继续（失败摘要 SHALL 作为已知风险带入后续流程）；选择"放弃"→ SHALL 保留已创建的 worktree 与分支（SHALL NOT 自动清理），打印携带失败摘要的兜底续接命令，会话结束，change 尚未生成。
 
@@ -16,6 +16,10 @@ baseline 失败时，SHALL 报告失败摘要并询问用户：选择"仍继续"
 #### Scenario: 裸工作区发起 propose，选择切换后会话续跑
 - **WHEN** 用户在主工作区（非 worktree）执行 `/ly:propose "fix-login"`，询问 worktree 后选择"是"，baseline 验证通过
 - **THEN** 命令以 `git worktree add -b fix-login ~/.ly/worktrees/<项目名>/fix-login <当前分支HEAD>` 切出 worktree、复制环境文件、通过 baseline 后打印兜底续接命令，**当前会话 cd 进该 worktree 并在同一会话内继续**"全自动/手动"询问及后续编排；`opsx:propose` 在本次会话内被调用，change 生成并 commit 在 worktree 分支上
+
+#### Scenario: cd 失败或校验不通过时停止编排
+- **WHEN** 切换 worktree 后执行 `cd <worktree绝对路径>` 失败，或 cd 后校验（`pwd` / `git rev-parse --git-dir`）发现当前工作目录并非该 worktree
+- **THEN** 命令停止编排、报告原因，不执行后续任何 git/openspec/文件操作，不静默失败后继续
 
 #### Scenario: 兜底续接命令仅在会话异常死亡时使用
 - **WHEN** 切换 worktree 后当前会话因崩溃或终端关闭意外终止，用户重新打开终端
