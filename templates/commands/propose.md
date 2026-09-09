@@ -32,8 +32,8 @@ description: '委托 opsx:propose 生成方案；创建方案前先问 isolation
        cd ~/.ly/worktrees/<项目名>/<开发分支名> && claude "继续 在隔离 worktree 中 /ly:propose <同一需求>"
        ```
     7. **同一会话续跑（不结束会话）**——当前会话直接 `cd` 进新 worktree 并继续本编排（worktree 先于 change 创建的时序不变，change 尚未生成）：
-       1. 以绝对路径 `cd ~/.ly/worktrees/<项目名>/<开发分支名>` 切换工作目录（Bash 工作目录在会话内持久生效）。
-       2. **立即校验**当前工作目录确为该 worktree：`pwd` 与 worktree 绝对路径比对，或 `git rev-parse --git-dir` 确认位于 worktree 内。**cd 失败或校验不通过 → 停止编排、报告原因，不执行后续任何 git/openspec/文件操作（不静默失败后继续）**。
+       1. 以绝对路径 `cd "$HOME/.ly/worktrees/<项目名>/<开发分支名>"` 切换工作目录（Bash 工作目录在会话内持久生效）。
+       2. **立即校验**当前工作目录确为该 worktree：`pwd` 与 worktree 绝对路径比对，或 `git rev-parse --show-toplevel` 归一化后等于该 worktree 绝对路径（SHALL NOT 仅以 `git rev-parse --git-dir` 成功作为判据——它在任意 git 仓库内都会成功，无法证明位于该 worktree）。**cd 失败或校验不通过 → 停止编排、报告原因，不执行后续任何 git/openspec/文件操作（不静默失败后继续）**。
        3. 校验通过后提示"已进入隔离 worktree `<路径>`，本会话继续"，继续步骤 2。
        4. **cwd 纪律**：自校验通过之时起，本次编排所有 Git 操作、openspec 命令与文件读写以 worktree 为工作目录（文件操作用 worktree 绝对路径），不回到主仓库路径执行本次 change 的任何产物操作。
        5. worktree 目录/分支锁定为 `<开发分支名>`，后续不因 change 名不同而对 worktree/分支重命名。
