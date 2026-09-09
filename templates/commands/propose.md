@@ -26,12 +26,17 @@ description: '委托 opsx:propose 生成方案；创建方案前先问 isolation
        ```
        （`<项目名>` 以 `git rev-parse --git-common-dir` 反推主仓库目录名；多级分支名按 `/` 展开路径，仍保持无来源前缀的单层语义。）
     4. 自动复制环境文件（`.env` 等，复用 `/ly:worktree add` 规则），跑一次项目 baseline 验证。
-    5. **baseline 失败** → 默认不打印续接命令，报告失败摘要并询问是否仍继续；仅当用户明确选择继续才打印携带失败摘要的续接命令。
-    6. 打印续接命令（绝对路径 + shell 安全转义），提示在新 worktree 中再次调用 `/ly:propose`（同一需求）以生成方案：
+    5. **baseline 失败** → 报告失败摘要并询问用户"仍继续 / 放弃"：**仍继续** → 同会话 cd 进 worktree 继续编排（失败摘要作为已知风险带入后续流程，按本步 6/7 执行）；**放弃** → 保留已创建的 worktree 与分支（不自动清理，需要时用 `/ly:worktree remove` 显式删除），打印携带失败摘要的兜底续接命令（同 6 的格式），会话结束，change 尚未生成。
+    6. 打印**兜底续接命令**（绝对路径 + shell 安全转义）——正常路径不使用，仅当本会话意外死亡（崩溃、终端关闭等）时，用于在新 worktree 中恢复：
        ```
        cd ~/.ly/worktrees/<项目名>/<开发分支名> && claude "继续 在隔离 worktree 中 /ly:propose <同一需求>"
        ```
-    7. **本次会话结束**——不调用 `opsx:propose`，change 尚未生成（worktree 先于 change 创建）。worktree 目录/分支锁定为 `<开发分支名>`，后续不因 change 名不同而对 worktree/分支重命名。
+    7. **同一会话续跑（不结束会话）**——当前会话直接 `cd` 进新 worktree 并继续本编排（worktree 先于 change 创建的时序不变，change 尚未生成）：
+       1. 以绝对路径 `cd ~/.ly/worktrees/<项目名>/<开发分支名>` 切换工作目录（Bash 工作目录在会话内持久生效）。
+       2. **立即校验**当前工作目录确为该 worktree：`pwd` 与 worktree 绝对路径比对，或 `git rev-parse --git-dir` 确认位于 worktree 内。**cd 失败或校验不通过 → 停止编排、报告原因，不执行后续任何 git/openspec/文件操作（不静默失败后继续）**。
+       3. 校验通过后提示"已进入隔离 worktree `<路径>`，本会话继续"，继续步骤 2。
+       4. **cwd 纪律**：自校验通过之时起，本次编排所有 Git 操作、openspec 命令与文件读写以 worktree 为工作目录（文件操作用 worktree 绝对路径），不回到主仓库路径执行本次 change 的任何产物操作。
+       5. worktree 目录/分支锁定为 `<开发分支名>`，后续不因 change 名不同而对 worktree/分支重命名。
   - **否（留在当前工作区）** → 不创建 worktree，进入步骤 2。
 
 ### 2. 询问全自动/手动（创建方案前，全局只问一次）

@@ -2,13 +2,17 @@
 
 > Claude Code 两角色精简工作流：Claude 自己完成聊天/分析/规划/实施，Codex 只在方案审查、代码审查两个节点做独立审查关卡。
 
-**Last Updated**: 2026-09-04 (v1.7.5)
+**Last Updated**: 2026-09-09 (v1.8.0)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-09-09 (v1.8.0) — /ly:propose 会话不断链：切 worktree 后同会话续跑
+- ✨ **切隔离 worktree 后不再结束会话**：baseline 通过后当前会话直接 cd 进新 worktree（cd 后立即校验工作目录，失败即停止编排、不静默失败），在同一会话内继续"全自动/手动"询问 → opsx:propose → 方案自审 → commit → 流水线——探索阶段积累的上下文零丢失；续接命令降级为会话异常死亡时的兜底恢复手段；baseline 失败分支改为"仍继续（同会话进入）/ 放弃（保留 worktree + 兜底命令）"
+- 🔄 **文档与 spec 同步**：`propose.md` 步骤 1.5-1.7 重写 + cwd 纪律硬约束；根/templates CLAUDE.md 与 README 的 `/ly:propose` 描述更新；delta spec 修改 `worktree-create-before-propose` 与 `ly-propose-flow` 两个 capability；版本号三处同步 bump 1.7.5 → 1.8.0
 
 ### 2026-09-04 (v1.7.5) — 品牌独立化：对外文档不再提及上游项目
 - 🔄 **de-fork 品牌清理**：README（导语去溯源句 + 删 Credits 节）、CHANGELOG 头部（中性化改写）、根 CLAUDE.md 头部（项目定位描述）不再提及 ccg-workflow；`package.json` description 摘掉 fork 后缀；CONTRIBUTING/SECURITY/bug_report.md 漏网 CCG 残留清零；LICENSE 加自有版权行（双版权）。历史条目与 LICENSE 原版权行保留
@@ -160,7 +164,7 @@ npx ly-workflow menu    # 交互式菜单
 |------|------|
 | `/ly:init` | 生成 CLAUDE.md（原生 `init` 技能）+ `openspec init` + 自动 commit |
 | `/ly:explore` | 委托 `opsx:explore` |
-| `/ly:propose` | 创建方案前问一次 worktree（不在 worktree 内才问，从当前分支 HEAD 切）+ 问"全自动/手动" → 委托 `opsx:propose` → **方案自审**（commit 前：正向/反向逻辑闭环 + 基线波及 + 通用业务维度过网，逐项结论清单硬约束；机械断链直接修、业务判断类问用户——全自动模式下仍问）→ commit `propose: <change>`（自审修复一并落库）；全自动 = review-plan → apply → review-code 自动化流水线；手动 = 逐步确认 |
+| `/ly:propose` | 创建方案前问一次 worktree（不在 worktree 内才问，从当前分支 HEAD 切，切后**同会话 cd 进 worktree 续跑**、续接命令为异常兜底）+ 问"全自动/手动" → 委托 `opsx:propose` → **方案自审**（commit 前：正向/反向逻辑闭环 + 基线波及 + 通用业务维度过网，逐项结论清单硬约束；机械断链直接修、业务判断类问用户——全自动模式下仍问）→ commit `propose: <change>`（自审修复一并落库）；全自动 = review-plan → apply → review-code 自动化流水线；手动 = 逐步确认 |
 | `/ly:apply` | 读取 `routing.implementer`（`claude`（默认）/`codex`/`hermes`/`openclaw`）渲染：claude=当前会话本人读 tasks.md 逐任务实施+验证+勾 checkbox→commit；非 claude=委托 `codeagent-wrapper` + `builder.md` 单次 agentic 调用实施 tasks。全部任务完成后立即 commit `apply: <change-name>`；未全部完成原样呈报转人工（不重试不兜底）（无隔离检测、无 worktree 询问） |
 | `/ly:archive` | 委托 `opsx:archive` + 自动 commit |
 | `/ly:review-plan` | 审查对象为目标 change 的 `propose:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
@@ -181,7 +185,7 @@ npx ly-workflow menu    # 交互式菜单
 
 ## 关键设计决策
 
-1. **`propose` 是编排入口，`apply`/`archive` 现在也各自带一段自动 commit 逻辑，`explore` 仍是纯薄壳**：`propose.md` 包含创建方案前的 worktree 询问（不在 worktree 内才问，从当前分支 HEAD 用 `git worktree add` 切出）、全自动/手动询问、commit 前的方案自审（提出者查逻辑闭环与业务全面性，机械断链直接修、业务判断类问用户）、每步 commit、全自动流水线（review-plan → apply → review-code）等编排逻辑；`apply.md` 只负责在工作区实施 + 立即 commit，`archive.md` 在委托 opsx 技能之后提交文件变动，`explore.md` 只做参数转发+一句转向提示。是否要加编排逻辑按需判断即可，不受任何"必须是薄壳"的原则约束——原有的"委托而非重新封装"原则已废止（2026-08-08）。
+1. **`propose` 是编排入口，`apply`/`archive` 现在也各自带一段自动 commit 逻辑，`explore` 仍是纯薄壳**：`propose.md` 包含创建方案前的 worktree 询问（不在 worktree 内才问，从当前分支 HEAD 用 `git worktree add` 切出；切后同会话 cd 进 worktree 续跑——会话不断链，cd 后校验失败即停，续接命令降级为异常兜底）、全自动/手动询问、commit 前的方案自审（提出者查逻辑闭环与业务全面性，机械断链直接修、业务判断类问用户）、每步 commit、全自动流水线（review-plan → apply → review-code）等编排逻辑；`apply.md` 只负责在工作区实施 + 立即 commit，`archive.md` 在委托 opsx 技能之后提交文件变动，`explore.md` 只做参数转发+一句转向提示。是否要加编排逻辑按需判断即可，不受任何"必须是薄壳"的原则约束——原有的"委托而非重新封装"原则已废止（2026-08-08）。
 2. **审查走 codeagent-wrapper 而非直连 Codex API**：复用已有的 session 管理、进度回调、超时重试。
 3. **Go wrapper 只删 Backend 层**：`Backend` interface 保持不变，删除具体实现（Gemini/Grok/Antigravity）不影响执行引擎（并发调度/日志/SSE）。
 4. **LICENSE + git 历史不动**：文档整体重写，但版权声明和提交历史保留可追溯性。
