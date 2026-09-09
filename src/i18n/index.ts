@@ -7,6 +7,16 @@ const zhCN = {
   common: {
     yes: '是',
     no: '否',
+    preflight: {
+      cliMissing: '未检测到 openspec CLI——OpenSpec 生命周期命令依赖它（@fission-ai/openspec）',
+      installAsk: '是否现在全局安装 openspec？(npm install -g @fission-ai/openspec@latest)',
+      installSuccessWithSkills: 'openspec 已安装，OpenSpec 命令技能已就绪，全部 /ly:* 命令可用',
+      installSuccessNeedInit: 'openspec 已安装；运行 /ly:init 完成 openspec init 后，OpenSpec 生命周期命令可用',
+      installFailed: 'openspec 安装失败，可稍后手动安装：npm install -g @fission-ai/openspec@latest',
+      unavailableList: '以下命令依赖 openspec，当前不可用：{{list}}',
+      unaffectedNote: '/ly:apply、/ly:review-code 仅依赖项目内 change 目录结构；Git 工具链与质量关卡技能不受影响',
+      skillsMissing: '检测到 openspec CLI 已安装，但 OpenSpec 命令技能未初始化——完成后运行 /ly:init 初始化',
+    },
     confirm: '确认',
     cancel: '取消',
     back: '返回',
@@ -505,6 +515,16 @@ const en: typeof zhCN = {
   common: {
     yes: 'Yes',
     no: 'No',
+    preflight: {
+      cliMissing: 'openspec CLI not found — OpenSpec lifecycle commands depend on it (@fission-ai/openspec)',
+      installAsk: 'Install openspec globally now? (npm install -g @fission-ai/openspec@latest)',
+      installSuccessWithSkills: 'openspec installed and OpenSpec command skills ready — all /ly:* commands available',
+      installSuccessNeedInit: 'openspec installed; run /ly:init to complete openspec init before using OpenSpec lifecycle commands',
+      installFailed: 'openspec installation failed — you can install it later: npm install -g @fission-ai/openspec@latest',
+      unavailableList: 'These commands depend on openspec and are currently unavailable: {{list}}',
+      unaffectedNote: '/ly:apply and /ly:review-code only need the in-project change directory; Git tools and quality-gate skills are unaffected',
+      skillsMissing: 'openspec CLI is installed but OpenSpec command skills are not initialized — run /ly:init to initialize',
+    },
     confirm: 'Confirm',
     cancel: 'Cancel',
     back: 'Back',

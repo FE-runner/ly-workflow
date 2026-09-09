@@ -3,6 +3,7 @@ import fs from 'fs-extra'
 import { homedir } from 'node:os'
 import { join } from 'pathe'
 import { readLyConfig } from '../utils/config'
+import { detectOpenspecCli, detectOpsxSkills } from '../utils/preflight'
 import { version as packageVersion } from '../../package.json'
 
 const OK = ansis.green('✓')
@@ -147,6 +148,22 @@ export async function doctor(): Promise<void> {
     detail: hasCodexMode ? 'Installed' : 'Not installed (optional)',
   })
 
+  // 11. OpenSpec CLI
+  const openspecCli = await detectOpenspecCli()
+  checks.push({
+    label: 'OpenSpec CLI',
+    status: openspecCli.installed ? OK : WARN,
+    detail: openspecCli.installed ? `v${openspecCli.version}` : 'Not found (npm install -g @fission-ai/openspec)',
+  })
+
+  // 12. OpenSpec skills (opsx)
+  const hasOpsxSkills = detectOpsxSkills()
+  checks.push({
+    label: 'OpenSpec skills',
+    status: hasOpsxSkills ? OK : WARN,
+    detail: hasOpsxSkills ? 'Initialized' : 'Not initialized (run /ly:init)',
+  })
+
   // Output
   console.log()
   console.log(ansis.cyan.bold(`  ly-workflow Doctor v${packageVersion}`))
@@ -226,6 +243,10 @@ export async function status(): Promise<void> {
   // Codex mode
   const codexMode = await fileExists(join(homedir(), '.codex', 'AGENTS.md'))
 
+  // OpenSpec dependency (same detectors as installer preflight)
+  const openspecCli = await detectOpenspecCli()
+  const openspecSkills = detectOpsxSkills()
+
   // Output
   console.log()
   console.log(ansis.cyan.bold('  ly-workflow Status'))
@@ -237,6 +258,8 @@ export async function status(): Promise<void> {
   console.log(`  ${ansis.bold('Reviewer')}       ${reviewer}`)
   console.log(`  ${ansis.bold('MCP')}            ${mcpServers.length > 0 ? mcpServers.join(', ') : ansis.gray('none')}`)
   console.log(`  ${ansis.bold('Codex mode')}     ${codexMode ? 'installed' : ansis.gray('not installed')}`)
+  console.log(`  ${ansis.bold('OpenSpec CLI')}   ${openspecCli.installed ? `v${openspecCli.version}` : ansis.yellow('not installed')}`)
+  console.log(`  ${ansis.bold('OpenSpec skills')}${openspecSkills ? ' initialized' : ansis.yellow(' not initialized (run /ly:init)')}`)
   console.log(`  ${ansis.bold('Active tasks')}   ${activeTasks > 0 ? ansis.yellow(String(activeTasks)) : '0'}`)
   console.log()
 }

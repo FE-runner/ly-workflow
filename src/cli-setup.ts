@@ -11,6 +11,7 @@ import { init } from './commands/init'
 import { showMainMenu } from './commands/menu'
 import { i18n, initI18n } from './i18n'
 import { readLyConfig } from './utils/config'
+import { checkExternalDeps } from './utils/preflight'
 import { installCodexMode, uninstallCodexMode, uninstallWorkflows } from './utils/installer'
 
 function customizeHelp(sections: any[]): any[] {
@@ -91,6 +92,7 @@ export async function setupCommands(cli: CAC): Promise<void> {
       if (options.lang) {
         await initI18n(options.lang)
       }
+      await checkExternalDeps()
       await showMainMenu()
     })
 
@@ -110,6 +112,7 @@ export async function setupCommands(cli: CAC): Promise<void> {
       if (options.lang) {
         await initI18n(options.lang)
       }
+      await checkExternalDeps()
       await init(options)
     })
 
