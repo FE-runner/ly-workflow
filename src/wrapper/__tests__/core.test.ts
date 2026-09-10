@@ -6,7 +6,7 @@ import {
   buildBackendArgs, createOutputStreamParser, injectRoleFile, parseArgs,
   resolveTimeoutSeconds, shouldUseStdin, TIMEOUT_EXIT_CODE,
 } from '../core'
-import type { WrapperConfig } from '../core'
+import type { StructuredEvent, WrapperConfig } from '../core'
 
 function cfg(overrides: Partial<WrapperConfig> = {}): WrapperConfig {
   return {
@@ -216,6 +216,24 @@ describe('createOutputStreamParser', () => {
     p.push(JSON.stringify({ type: 'item.completed', item: { type: 'command_execution', command: 'git diff', exit_code: 0 } }))
     expect(events.some(e => e.startsWith('[PROGRESS] session_started'))).toBe(true)
     expect(events.some(e => e.startsWith('[PROGRESS] cmd_done'))).toBe(true)
+  })
+
+  it('结构化 onEvent 回调：完整 content 不截断、content_type 正确', () => {
+    const events: StructuredEvent[] = []
+    const p = createOutputStreamParser({ onEvent: e => events.push(e) })
+    p.push(JSON.stringify({ type: 'thread.started', thread_id: 't1' }))
+    p.push(JSON.stringify({ type: 'item.completed', item: { type: 'reasoning', text: 'x'.repeat(300) } }))
+    p.push(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: '结'.repeat(200) } }))
+    p.push(JSON.stringify({ type: 'turn.completed' }))
+    const reasoning = events.find(e => e.name === 'reasoning')
+    expect(reasoning?.content?.length).toBe(300) // 结构化载荷不截断
+    expect(reasoning?.contentType).toBe('reasoning')
+    expect(reasoning?.sessionId).toBe('t1')
+    const msg = events.find(e => e.name === 'message')
+    expect(msg?.contentType).toBe('message')
+    expect(msg?.content?.length).toBe(200)
+    expect(events.some(e => e.name === 'turn_completed')).toBe(true)
+    // 终端展示行仍截断（并存语义）：默认无 onProgress 时不产出
   })
 })
 

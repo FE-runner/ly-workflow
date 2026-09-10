@@ -190,6 +190,7 @@ export async function showMainMenu(): Promise<void> {
         item('2', i18n.t('menu:options.update'), isZh ? '更新到最新版本' : 'Update to latest version'),
         item('3', i18n.t('menu:options.configApi'), isZh ? '自定义 API 端点' : 'Custom API endpoint'),
         item('4', i18n.t('menu:options.configModel'), isZh ? '切换审查模型 (Codex/Claude)' : 'Switch reviewer model (Codex/Claude)'),
+        item('D', isZh ? '显示设置' : 'Display Settings', isZh ? '审查进度展示方式（终端/Web UI）' : 'Review progress display (terminal/Web UI)'),
 
         groupSep(isZh ? '其他工具' : 'Tools'),
         item('T', i18n.t('menu:options.tools'), 'ccusage, CCometixLine'),
@@ -214,6 +215,10 @@ export async function showMainMenu(): Promise<void> {
       case '3':
         await configApi()
         break
+      case 'D':
+        await configDisplayMode(config)
+        break
+
       case '4':
         await configModelRouting()
         break
@@ -301,6 +306,28 @@ function showHelp(): void {
 /**
  * Synchronous config read for non-async contexts (help display)
  */
+/** 显示设置：审查进度展示方式（liteMode）——Web UI（默认）/ 终端进度（lite） */
+async function configDisplayMode(config: any): Promise<void> {
+  const isZh = i18n.t('menu:title') !== undefined
+  const current = config?.performance?.liteMode === true ? 'lite' : 'webui'
+  const { mode } = await inquirer.prompt([{
+    type: 'list',
+    name: 'mode',
+    message: isZh ? '审查进度展示方式' : 'Review progress display',
+    choices: [
+      { name: isZh ? `● Web UI（浏览器实时预览）${current === 'webui' ? ' ← 当前' : ''}` : `● Web UI (live preview)${current === 'webui' ? ' ← current' : ''}`, value: 'webui' },
+      { name: isZh ? `● 终端进度（轻量）${current === 'lite' ? ' ← 当前' : ''}` : `● Terminal progress (lite)${current === 'lite' ? ' ← current' : ''}`, value: 'lite' },
+    ],
+    default: current,
+  }])
+  const fresh: any = await readLyConfig()
+  fresh.performance = fresh.performance ?? {}
+  fresh.performance.liteMode = mode === 'lite'
+  await writeLyConfig(fresh)
+  console.log(`  ${ansis.green('✓')} ${isZh ? '已更新' : 'Updated'}: liteMode = ${fresh.performance.liteMode}`)
+  console.log()
+}
+
 function readLyConfigSync(): any {
   try {
     const configPath = join(homedir(), '.claude', '.ly', 'config.toml')

@@ -149,7 +149,7 @@
 **ly-workflow** 是一套精简的 Claude Code 工作流：Claude 自己完成开发全流程，Codex 仅作为独立审查关卡介入。核心组成：
 
 1. **14 个 `/ly:*` 命令**：项目初始化（安装器入口含 openspec 依赖 preflight 检查）+ OpenSpec 生命周期委托 + 双审查关卡 + GitFlow 发布管线
-2. **`ly-wrapper`**：TS 单文件脚本（`src/ly-wrapper.ts` + `src/wrapper/core.ts`，随 npm 包分发到 `~/.claude/bin/ly-wrapper`），桥接 Codex/Claude/Hermes/OpenClaw CLI，供 review-plan/review-code/apply 调用
+2. **`ly-wrapper`**：TS 单文件脚本（`src/ly-wrapper.ts` + `src/wrapper/{core,web-ui}.ts`，随 npm 包分发到 `~/.claude/bin/ly-wrapper`），桥接 Codex/Claude/Hermes/OpenClaw CLI，供 review-plan/review-code/apply 调用；非 lite 模式下启动本地 SSE 审查进度 Web UI（随机端口、自动开浏览器、会话结束即关）
 3. **Git 工具**：`commit`/`rollback`/`clean-branches`/`worktree`
 4. **遗产清理**：`legacy-cleanup.ts` 在 update/uninstall 时回收 v2.0 瘦身前历史安装的上游资产（domains/hooks/output-styles/MCP 注册/Codex Mode/旧 Go 二进制）
 

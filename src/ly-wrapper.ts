@@ -13,6 +13,7 @@ import {
   backendCommand, buildBackendArgs, createOutputStreamParser, injectRoleFile,
   loadMinimalEnvSettings, parseArgs, resolveTimeoutSeconds, shouldUseStdin, TIMEOUT_EXIT_CODE,
 } from './wrapper/core'
+import { startProgressServer, type ProgressEvent } from './wrapper/web-ui'
 
 const LY_WRAPPER_VERSION = '2.0.0'
 
@@ -44,6 +45,15 @@ async function main(): Promise<number> {
   if (parsed.error || !parsed.config) fail(parsed.error ?? 'task required')
 
   const cfg = parsed.config
+
+  // lite 门控（双通道，对齐 Go 版）：--lite/-L 标志 或 CODEAGENT_LITE_MODE=true 环境变量
+  const lite = !!cfg.lite || process.env.CODEAGENT_LITE_MODE === 'true'
+
+  // 非 lite 时启动进度 Web UI；启动失败降级为纯终端进度，SHALL NOT 影响审查主流程
+  const ui = lite ? null : await startProgressServer(cfg.backend)
+  if (ui) {
+    process.stderr.write(`[ly-wrapper] Web UI: ${ui.url}\n  (关闭方式: --lite 标志 / CODEAGENT_LITE_MODE=true 环境变量 / init 改配置)\n`)
+  }
 
   let finalTask: string
   if (cfg.explicitStdin) {
@@ -93,10 +103,23 @@ async function main(): Promise<number> {
   }, timeoutSeconds * 1000)
   timer.unref?.()
 
-  // 流式解析 stdout：实时产生进度行（--progress 时转发），结束后取最终 message/session
+  // 流式解析 stdout：实时产生进度行（--progress 时转发）+ 结构化事件（Web UI 订阅），结束后取最终 message/session
   const parser = createOutputStreamParser({
     onProgress: (line) => {
       if (cfg.progress) process.stdout.write(`${line}\n`)
+    },
+    onEvent: (event) => {
+      if (!ui) return
+      const payload: ProgressEvent = {
+        event: event.name,
+        session_id: event.sessionId,
+        backend: cfg.backend,
+        content: event.contentType ? event.content : undefined,
+        content_type: event.contentType,
+        cmd: event.cmd,
+        exit: event.exit,
+      }
+      ui.broadcast(payload)
     },
   })
   const rl = createInterface({ input: child.stdout })
@@ -112,6 +135,15 @@ async function main(): Promise<number> {
 
   clearTimeout(timer)
   rl.close()
+
+  // 结束信号：broadcast done（含最终报告），随后关闭 SSE 服务——任何退出路径都不残留后台服务
+  if (ui) {
+    const finalResult = parser.result()
+    if (finalResult.message) {
+      ui.broadcast({ event: 'done', session_id: finalResult.sessionId, backend: cfg.backend, content: finalResult.message, content_type: 'message', done: true })
+    }
+    ui.close()
+  }
 
   if (timedOut) return TIMEOUT_EXIT_CODE
   if (exitCode !== 0) {

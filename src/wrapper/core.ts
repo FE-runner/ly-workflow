@@ -2,7 +2,7 @@
  * ly-wrapper core — TS 移植自 Go 版 codeagent-wrapper 的单任务路径。
  *
  * 对照基线（Go 版行为，实施前从 codeagent-wrapper/ 源码提取）：
- * - CLI: [--backend <v>|--backend=<v>] [--progress] [--lite|-L(接受不生效)]
+XX
  *        [--skip-permissions(接受不生效)] (resume <session_id>)? (<task|->)? (<workdir>)?
  * - `-` 表示任务从 stdin 读入；ROLE_FILE: <path> 行原地替换为文件内容（~ 展开，读取失败保留原行）
  * - stdin 模式判定：显式 `-` 或任务含特殊字符(\n \ " ' ` $)或长度>800
@@ -37,6 +37,7 @@ export interface WrapperConfig {
   explicitStdin: boolean
   workDir: string
   progress: boolean
+  lite?: boolean
 }
 
 export interface ParseArgsResult {
@@ -52,11 +53,16 @@ export function parseArgs(argv: string[]): ParseArgsResult {
 
   let backend = 'codex'
   let progress = false
+  let lite = false
   const filtered: string[] = []
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
-    if (arg === '--lite' || arg === '-L' || arg === '--skip-permissions' || arg === '--dangerously-skip-permissions') {
+    if (arg === '--lite' || arg === '-L') {
+      lite = true
+      continue
+    }
+    if (arg === '--skip-permissions' || arg === '--dangerously-skip-permissions') {
       continue // 接受但不影响单任务行为（与 Go 版一致）
     }
     if (arg === '--progress') {
@@ -81,7 +87,7 @@ export function parseArgs(argv: string[]): ParseArgsResult {
 
   const config: WrapperConfig = {
     backend, mode: 'new', sessionId: '', task: '', explicitStdin: false,
-    workDir: '.', progress,
+    workDir: '.', progress, lite,
   }
 
   if (filtered[0] === 'resume') {
@@ -213,7 +219,19 @@ export interface OutputStreamParser {
 
 type EmitFn = (event: string, fields?: Record<string, string>) => void
 
-function processLine(state: ParseState, rawLine: string, emit: EmitFn): void {
+/** 结构化进度事件（供 Web UI 等消费者；content 传完整内容，不做终端展示用的截断） */
+export interface StructuredEvent {
+  name: string
+  sessionId?: string
+  contentType?: string // "reasoning" | "message" | "command"
+  content?: string
+  cmd?: string
+  exit?: string
+}
+
+type StructuredEmitFn = (event: StructuredEvent) => void
+
+function processLine(state: ParseState, rawLine: string, emit: EmitFn, emitStructured: StructuredEmitFn): void {
   const line = rawLine.trim()
   if (!line) return
 
@@ -248,10 +266,14 @@ function processLine(state: ParseState, rawLine: string, emit: EmitFn): void {
     if (event.type === 'thread.started' && event.thread_id) {
       state.sessionId = event.thread_id
       emit('session_started', { id: event.thread_id })
+      emitStructured({ name: 'session_started', sessionId: event.thread_id })
     } else if (event.type === 'turn.started') {
       emit('turn_started')
+      emitStructured({ name: 'turn_started', sessionId: state.sessionId })
     } else if (event.type === 'thread.completed' || event.type === 'turn.completed') {
-      emit(event.type === 'thread.completed' ? 'session_completed' : 'turn_completed')
+      const name = event.type === 'thread.completed' ? 'session_completed' : 'turn_completed'
+      emit(name)
+      emitStructured({ name, sessionId: state.sessionId })
     } else if (event.type === 'item.completed' && item) {
       if (itemType === 'agent_message' || itemType === 'reasoning') {
         const text = typeof item.text === 'string' ? item.text : JSON.stringify(item.text ?? '')
@@ -259,15 +281,19 @@ function processLine(state: ParseState, rawLine: string, emit: EmitFn): void {
           if (itemType === 'agent_message') {
             state.codexMessage = text
             emit('message', { text: JSON.stringify(text.slice(0, 120)) })
+            emitStructured({ name: 'message', sessionId: state.sessionId, contentType: 'message', content: text })
           } else {
             emit('reasoning', { text: JSON.stringify(text.slice(0, 120)) })
+            emitStructured({ name: 'reasoning', sessionId: state.sessionId, contentType: 'reasoning', content: text })
           }
         }
       } else if (itemType === 'command_execution') {
+        const exit = item.exit_code != null ? String(item.exit_code) : undefined
         emit('cmd_done', {
           cmd: JSON.stringify((item.command ?? '').slice(0, 120)),
-          ...(item.exit_code != null ? { exit: String(item.exit_code) } : {}),
+          ...(exit ? { exit } : {}),
         })
+        emitStructured({ name: 'cmd_done', sessionId: state.sessionId, contentType: 'command', cmd: (item.command ?? '').slice(0, 200), exit })
       }
     }
     return
@@ -310,16 +336,23 @@ function finalize(state: ParseState): ParseResult {
 /**
  * 增量式输出流解析器：逐行 push，实时产生进度回调；结束后 result() 取最终 message 与 session id。
  */
-export function createOutputStreamParser(opts: { onProgress?: (line: string) => void } = {}): OutputStreamParser {
+export function createOutputStreamParser(opts: {
+  onProgress?: (line: string) => void
+  onEvent?: (event: StructuredEvent) => void
+} = {}): OutputStreamParser {
   const state: ParseState = { codexMessage: '', claudeMessage: '', plainText: [], blobLines: [], sessionId: '' }
   const emit: EmitFn = (event, fields = {}) => {
     if (!opts.onProgress) return
     const parts = Object.entries(fields).map(([k, v]) => `${k}=${v}`)
     opts.onProgress(`[PROGRESS] ${event}${parts.length ? ' ' + parts.join(' ') : ''}`)
   }
+  const emitStructured: StructuredEmitFn = (event) => {
+    if (!opts.onEvent) return
+    opts.onEvent(event)
+  }
   return {
     push(line: string) {
-      processLine(state, line, emit)
+      processLine(state, line, emit, emitStructured)
     },
     result() {
       return finalize(state)
