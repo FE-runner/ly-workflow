@@ -59,7 +59,7 @@ const CORE_CONFIGS: WorkflowConfig[] = [
   cmd('review-code', 31, 'review', '代码审查', 'Review Code', '读取 git diff，Codex 审查代码变更，分级输出 Critical/Warning/Info', 'Reads git diff, Codex reviews code changes with severity grading'),
 
   // ── Release pipeline ───────────────────────────────────
-  cmd('release', 40, 'release', 'GitFlow 发版', 'GitFlow Release', 'GitFlow 四场景发版流程，SemVer 自动推导版本号', 'GitFlow branching workflow with SemVer auto-detection'),
+  cmd('release', 40, 'release', 'GitFlow 发版', 'GitFlow Release', 'GitFlow 四场景发版流程，SemVer 自动推导版本号，上线合并二选一 + 主分支名检测', 'GitFlow branching workflow with SemVer auto-detection, dual merge options and master/main detection'),
   cmd('changelog', 41, 'release', '生成 Changelog', 'Generate Changelog', 'Keep a Changelog 格式生成 CHANGELOG.md，按 commit 前缀分组', 'Generate Keep a Changelog format CHANGELOG.md from commit history'),
   cmd('publish', 42, 'release', 'npm 发布', 'npm Publish', 'npm 包发布：bmc 私域/GitHub/npmjs/CI 四场景', 'npm publish to bmc Nexus/GitHub/npmjs/CI targets'),
 ]
