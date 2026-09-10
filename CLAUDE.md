@@ -2,13 +2,18 @@
 
 > Claude Code 两角色精简工作流：Claude 自己完成聊天/分析/规划/实施，Codex 只在方案审查、代码审查两个节点做独立审查关卡。
 
-**Last Updated**: 2026-09-09 (v1.8.0)
+**Last Updated**: 2026-09-10 (v1.9.0)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-09-10 (v1.9.0) — 隔离方式三选一 + release 模板同步 gitflow v2.1.0
+- ✨ **`/ly:propose` 隔离询问升级三选一**：隔离 worktree（行为不变）/ 本项目切新分支（`git checkout -b` 仅分支隔离，无 baseline/无 cd/无兜底；脏改动三选处置 WIP commit/Stash/原样保留）/ 留在当前分支（仅触发脏改动三选处置）；已在开发分支上照常询问不跳过；delta spec 落 `worktree-create-before-propose`（MODIFIED），基线已随归档同步
+- ✨ **`/ly:release` 对齐 liyang-gitflow v2.1.0**（源 commit `92a8e64`）：release/hotfix 上线合并二选一（远端 PR 默认 / 本地直接合并）+ 主分支名检测规则（master/main，`git remote show origin` + `git branch -r` 兜底）；delta spec 落 `release-publish-commands`（ADDED），基线已随归档同步
+- 🔄 **`/ly:release` CLI 命令注册描述**（`installer-data.ts`）同步补关键词；版本号三处 bump 1.8.0 → 1.9.0
 
 ### 2026-09-09 (v1.8.0) — /ly:propose 会话不断链：切 worktree 后同会话续跑
 - ✨ **安装器 preflight 检查 openspec 依赖**：`npx ly-workflow` 默认动作（裸 `ly`，即菜单）与 `ly init` 入口新增 `src/utils/preflight.ts` 共享前置检查（CLI 缺失→询问就地安装/拒绝列清单/失败不阻断；技能未初始化→非阻断提示跑 /ly:init；就绪静默）；`ly doctor`/`ly status` 补 OpenSpec CLI/skills 两项体检；opsx 路径尊重 `CLAUDE_CONFIG_DIR`

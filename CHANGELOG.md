@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ---
 
+## [1.9.0] - 2026-09-10
+
+### Added
+- **`/ly:propose` 隔离方式三选一**：创建方案前的询问从"是否切隔离 worktree"二选一升级为三选一——隔离 worktree（行为不变）/ **本项目切新分支**（`git checkout -b <开发分支名>` 仅分支隔离，零环境成本：不跑 baseline、不 cd、无兜底命令；分支名已存在/非法报错转人工）/ 留在当前分支（不隔离）；两条原地路径在 `git status --porcelain` 非空时触发脏改动三选处置（WIP commit / Stash / 原样保留，文案如实写明各自后果；"留在当前分支"路径 Stash 不自动 pop）；worktree 路径行为零改动
+- **`/ly:release` 同步 liyang-gitflow v2.1.0**：release/hotfix 上线合并改为二选一（方式 A 远端 PR 默认 / 方式 B 本地直接 `merge --no-ff` 上主分支，跳过远端 PR）；新增主分支名检测规则（`git remote show origin | grep 'HEAD branch'`，附 `git branch -r` 兜底，示例命令中 `master` 替换为实际分支名）；三分支同步说明覆盖两种合并方式（源：liyang-skills `92a8e64`）
+
+### Changed
+- **`/ly:release` 命令注册描述**（`installer-data.ts`）补"上线合并二选一 + 主分支名检测"关键词，与命令表文档行一致
+
 ## [1.8.0] - 2026-09-09
 
 ### Added
