@@ -23,5 +23,5 @@ de-fork-slim-v2 按 D9 决策随 Go wrapper 一并移除了 SSE 审查进度 Web
 
 ## Impact
 
-- `src/wrapper/`（新增 web-ui 模块）、`src/ly-wrapper.ts`（接线）、`src/commands/init.ts`（向导选项）、`src/commands/menu.ts`（性能设置项）、`templates/commands/*.md`（`{{LITE_MODE_FLAG}}` 恢复有值渲染——机制已在，确认即可）、根 CLAUDE.md、vitest 测试
+- `src/wrapper/web-ui.ts`（新增）、`src/wrapper/core.ts`（onProgress 结构化改造）、`src/ly-wrapper.ts`（接线）、`src/commands/init.ts`（向导选项）、`src/commands/menu.ts`（性能设置项）、`templates/commands/*.md`（`{{LITE_MODE_FLAG}}` 恢复有值渲染——机制已在，确认即可）、根 CLAUDE.md、vitest 测试
 - 风险面小：全部为新增路径，`--lite` 时行为与现状完全一致
