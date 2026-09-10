@@ -1,23 +1,26 @@
 ---
-description: '委托 opsx:propose 生成方案；创建方案前先问 isolation worktree 与全自动/手动（各只一次）；产物生成后 commit 前执行方案自审（闭环+全面性），自审修复随 propose: commit 一次落库；全自动 = 自动流水线到审完代码，手动 = 逐步确认'
+description: '委托 opsx:propose 生成方案；创建方案前先问隔离方式（worktree / 本项目切新分支 / 留在当前分支）与全自动/手动（各只一次）；产物生成后 commit 前执行方案自审（闭环+全面性），自审修复随 propose: commit 一次落库；全自动 = 自动流水线到审完代码，手动 = 逐步确认'
 ---
 
 # Propose
 
-收尾编排入口。创建方案前先问两件事（各只一次）：是否切到隔离 worktree（不在 worktree 内才问）、本次走全自动还是手动。产物生成后、commit 前由方案提出者执行一次方案自审（逻辑闭环 + 业务全面性，见步骤 5），自审修复随 `propose: <change-name>` commit 一次干净落库；全自动路径在同一会话内自动跑 review-plan → apply → review-code 直到审完代码，手动路径逐步确认。
+收尾编排入口。创建方案前先问两件事（各只一次）：本次开发的隔离方式（隔离 worktree / 本项目切新分支 / 留在当前分支，不在 worktree 内才问）、本次走全自动还是手动。产物生成后、commit 前由方案提出者执行一次方案自审（逻辑闭环 + 业务全面性，见步骤 5），自审修复随 `propose: <change-name>` commit 一次干净落库；全自动路径在同一会话内自动跑 review-plan → apply → review-code 直到审完代码，手动路径逐步确认。
 
 ## 步骤
 
-### 1. 是否已在 worktree 内 + worktree 询问（创建方案前，全局只问一次）
+### 1. 是否已在 worktree 内 + 隔离方式询问（创建方案前，全局只问一次）
 
 先检测当前是否已处于某个 worktree 内：比较 `git rev-parse --git-dir` 与 `--git-common-dir`（路径先 realpath 归一化再比较），并排除子模块误判（`git rev-parse --show-superproject-working-tree`）。
 
-- **已在 worktree 内** → 跳过 worktree 询问，直接进入步骤 2。
-- **不在任何 worktree 内** → 询问一次：
+- **已在 worktree 内** → 跳过隔离方式询问，直接进入步骤 2。
+- **不在任何 worktree 内** → 询问一次（三选一；已在某个开发分支上时照常询问，不因当前分支非默认分支而跳过）：
   ```
-  AskUserQuestion: "是否切到隔离 worktree（从当前分支切出，目录 ~/.ly/worktrees/<项目名>/<开发分支名>）？"
+  AskUserQuestion: "本次开发的隔离方式？"
+    ○ 隔离 worktree（从当前分支切出，目录 ~/.ly/worktrees/<项目名>/<开发分支名>，目录+分支双隔离）
+    ○ 本项目切新分支（留在当前目录，git checkout -b <开发分支名>，仅分支隔离，零环境成本）
+    ○ 留在当前分支（不隔离，propose/apply 提交直接落在当前分支上）
   ```
-  - **是（切到隔离 worktree）**：
+  - **隔离 worktree**：
     1. 先检查当前工作区未提交改动（`git status --porcelain`）：存在未提交草稿时提示"当前工作区的未提交改动将留在原 worktree、不会带入新 worktree"，待用户确认后再切换。
     2. 询问/确认本次开发的开发分支名 `<开发分支名>`（可含 `/`，如 `feature/xxx`）。
     3. 执行（从**当前分支 HEAD** 切出，不是默认分支、不做分支拓扑校验）：
@@ -37,7 +40,17 @@ description: '委托 opsx:propose 生成方案；创建方案前先问 isolation
        3. 校验通过后提示"已进入隔离 worktree `<路径>`，本会话继续"，继续步骤 2。
        4. **cwd 纪律**：自校验通过之时起，本次编排所有 Git 操作、openspec 命令与文件读写以 worktree 为工作目录（文件操作用 worktree 绝对路径），不回到主仓库路径执行本次 change 的任何产物操作。
        5. worktree 目录/分支锁定为 `<开发分支名>`，后续不因 change 名不同而对 worktree/分支重命名。
-  - **否（留在当前工作区）** → 不创建 worktree，进入步骤 2。
+  - **本项目切新分支**：
+    1. 询问/确认开发分支名 `<开发分支名>`（规则与 worktree 路径一致：可含 `/`，如 `feature/xxx`）。
+    2. 检查当前工作区未提交改动（`git status --porcelain`）：非空时用一次三选一询问处置方式，各选项文案如实说明后果：
+       - **提交（WIP commit）**：`git add -A && git commit -m "wip: 切分支前暂存工作区改动"` 后再切分支——新分支从含 WIP commit 的 HEAD 切出，改动固化为新分支上的提交，review-code 审查对象不受污染；
+       - **Stash**：`git stash push -u` → 切分支 → `git stash pop`——如实说明"pop 回来后改动仍在工作区，stash 仅提供日志留底"；
+       - **原样保留**：不做任何处理——明示"改动会进入 review-code 审查范围（`git diff HEAD`），可能污染审查对象"。
+
+       三种选择均直接执行（风险已写入文案，不二次确认）；处置动作失败（提交失败、stash 失败等）→ **如实报错停止编排，不自动兜底**。
+    3. 执行 `git checkout -b <开发分支名>`（从当前 HEAD 建新分支并切换）。本路径**不运行 baseline 验证**（同一工作目录、同一 env、同一 node_modules，baseline 验证的"全新 worktree 可用性"前提不成立）、**不切换会话工作目录**、**不打印兜底续接命令**（无目录切换即无会话断链风险）。分支名已存在或非法导致 `git checkout -b` 失败时，**如实报错停止编排转人工**（不自动改名、不自动 stash），change 尚未生成。
+    4. 进入步骤 2，后续编排（opsx:propose → 自审 → commit → 流水线）在当前工作目录原位继续。
+  - **留在当前分支**：不创建 worktree、不切换分支，直接进入步骤 2。若 `git status --porcelain` 非空，触发与"本项目切新分支"相同的脏改动三选一处置询问（其中 Stash 选项因无切换动作**不自动 pop**——改动收进 stash 由用户日后 `git stash pop` 自取，执行时如实说明；WIP commit 选项将改动提交到当前分支，message 沿用同一文案）。
 
 ### 2. 询问全自动/手动（创建方案前，全局只问一次）
 
@@ -101,7 +114,7 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
 
 ### 8. 全自动：自动流水线直到审完代码
 
-**全程无 worktree 询问、无 `/ly:worktree switch` 调用、不自动 archive。**
+**全程无隔离方式询问、无 `/ly:worktree switch` 调用、不自动 archive。**
 
 1. 自动调用 `/ly:review-plan <change-name>`（审查对象为 `propose:` commit，清零时由循环统一提交修复）。
    - Critical 清零 → 进入步骤 2。
@@ -121,8 +134,8 @@ Skill({ skill: "opsx:propose", args: "$ARGUMENTS" })
    - **否** → 编排结束。方案已 commit；日后由用户自行 `/ly:apply` 实施、`/ly:review-code` 审查。
    - **是** → 继续步骤 2。
 2. 调用 `/ly:review-plan <change-name>`（审查对象为 `propose:` commit，清零时由循环统一提交修复）。
-3. 循环终止（无论何种原因）后编排结束，**不再询问 worktree、不再询问提交、不自动衔接 apply**——日后的实施与代码审查由用户另行 `/ly:apply`、`/ly:review-code` 触发。
+3. 循环终止（无论何种原因）后编排结束，**不再询问隔离方式、不再询问提交、不自动衔接 apply**——日后的实施与代码审查由用户另行 `/ly:apply`、`/ly:review-code` 触发。
 
 ---
 
-全程 **不再** 出现任何基于 `/ly:worktree switch` 的询问、调用或续接文案（`switch` 子命令已移除）；worktree 询问只发生在步骤 1（创建方案前，全局一次），且仅当当前不在任何 worktree 内时触发。
+全程 **不再** 出现任何基于 `/ly:worktree switch` 的询问、调用或续接文案（`switch` 子命令已移除）；隔离方式询问（三选一：隔离 worktree / 本项目切新分支 / 留在当前分支）只发生在步骤 1（创建方案前，全局一次），且仅当当前不在任何 worktree 内时触发。

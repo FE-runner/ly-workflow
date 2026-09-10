@@ -165,7 +165,7 @@ npx ly-workflow menu    # 交互式菜单
 |------|------|
 | `/ly:init` | 生成 CLAUDE.md（原生 `init` 技能）+ `openspec init` + 自动 commit |
 | `/ly:explore` | 委托 `opsx:explore` |
-| `/ly:propose` | 创建方案前问一次 worktree（不在 worktree 内才问，从当前分支 HEAD 切，切后**同会话 cd 进 worktree 续跑**、续接命令为异常兜底）+ 问"全自动/手动" → 委托 `opsx:propose` → **方案自审**（commit 前：正向/反向逻辑闭环 + 基线波及 + 通用业务维度过网，逐项结论清单硬约束；机械断链直接修、业务判断类问用户——全自动模式下仍问）→ commit `propose: <change>`（自审修复一并落库）；全自动 = review-plan → apply → review-code 自动化流水线；手动 = 逐步确认 |
+| `/ly:propose` | 创建方案前问一次隔离方式（三选一：隔离 worktree——从当前分支 HEAD 切、**同会话 cd 进 worktree 续跑**、续接命令为异常兜底 / 本项目切新分支——`git checkout -b` 仅分支隔离，脏改动三选处置（WIP commit/Stash/原样保留），无 baseline 无 cd / 留在当前分支——仅触发脏改动三选处置）+ 问"全自动/手动" → 委托 `opsx:propose` → **方案自审**（commit 前：正向/反向逻辑闭环 + 基线波及 + 通用业务维度过网，逐项结论清单硬约束；机械断链直接修、业务判断类问用户——全自动模式下仍问）→ commit `propose: <change>`（自审修复一并落库）；全自动 = review-plan → apply → review-code 自动化流水线；手动 = 逐步确认 |
 | `/ly:apply` | 读取 `routing.implementer`（`claude`（默认）/`codex`/`hermes`/`openclaw`）渲染：claude=当前会话本人读 tasks.md 逐任务实施+验证+勾 checkbox→commit；非 claude=委托 `codeagent-wrapper` + `builder.md` 单次 agentic 调用实施 tasks。全部任务完成后立即 commit `apply: <change-name>`；未全部完成原样呈报转人工（不重试不兜底）（无隔离检测、无 worktree 询问） |
 | `/ly:archive` | 委托 `opsx:archive` + 自动 commit |
 | `/ly:review-plan` | 审查对象为目标 change 的 `propose:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
