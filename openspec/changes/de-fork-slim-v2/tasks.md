@@ -22,7 +22,7 @@
 
 ## 4. 遗产清理模块（upstream-legacy-cleanup）
 
-- [ ] 4.1 新建 `src/utils/legacy-cleanup.ts`：逐项清理函数——~/.claude/skills/ly/domains/、~/.claude/hooks/ly/ 五个 hook 文件、~/.claude/output-styles/ 中 ly 安装的风格文件、~/.claude/rules/ly-skill-routing.md、~/.codex/ 的 LY 管理区块（AGENTS.md/config.toml 剥区块）与 hooks.json/hooks/ly-workflow.py/agents/ly-*.toml、~/.claude/bin/codeagent-wrapper
+- [ ] 4.1 新建 `src/utils/legacy-cleanup.ts`：逐项清理函数——~/.claude/skills/ly/ 下历史分类产物（impeccable/tools/orchestration/scrapling/SKILL.md/run_skill.js）、~/.claude/commands/ly/ 下分类生成器生成的历史命令文件（判据常量化保留在本模块内——如标题行 + 安装路径子串，不依赖将被删除的生成器代码；不误删用户自定义）、~/.claude/hooks/ly/ 五个 hook 文件、~/.claude/output-styles/ 中 ly 安装的风格文件、~/.claude/rules/ly-skill-routing.md、MCP 注册项（~/.claude.json mcpServers 中本工具注册的条目 + 全部同步副本，实施前核对 installer-mcp.ts 的完整落盘路径清单——含 ~/.codex/config.toml、~/.gemini/settings.json、~/.contextweaver/）、~/.codex/ 的 LY 管理区块（AGENTS.md/config.toml 剥区块）与 hooks.json/hooks/ly-workflow.py/agents/ly-*.toml/.ly-version、~/.claude/bin/codeagent-wrapper
 - [ ] 4.2 settings.json hook 注册项清理：仅移除命令字段指向 ~/.claude/hooks/ly/ 路径的条目，其余条目不动；原子写（临时文件 + rename）
 - [ ] 4.3 接入 update 与 uninstall 主流程：存在才清、逐项 try/catch、汇总逐项报告（清理/跳过/失败），失败不阻断；补 vitest 测试（含幂等与不误删场景）
 
@@ -31,7 +31,7 @@
 - [ ] 5.1 删除 templates/skills/（domains/impeccable/scrapling/orchestration/tools/SKILL.md/run_skill.js 整目录）、templates/output-styles/、templates/codex/、templates/hooks/
 - [ ] 5.2 installer 引用清零：可选 skill 分类机制（CORE/分类过滤/清理逻辑中 skill 相关部分）、skill-registry.ts、output-styles/hooks/codex mode 的安装函数与文件清单同步删除或收敛
 - [ ] 5.3 menu/init/update/doctor 引用清零：Codex Mode 菜单入口与安装调用、hooks 安装项、output-styles 项、skill 分类选项、doctor/status 中随功能消失的体检项
-- [ ] 5.4 删除 src/commands/config-mcp.ts、src/commands/diagnose-mcp.ts、src/utils/installer-mcp.ts、src/utils/mcp.ts 及 menu/init/update 中全部 MCP 入口
+- [ ] 5.4 删除 src/commands/config-mcp.ts、src/commands/diagnose-mcp.ts、src/utils/installer-mcp.ts、src/utils/mcp.ts 及 menu/init/update 中全部 MCP 入口；`--skip-mcp` 标志随 MCP 功能一并移除（update 内部对 `init --force --skip-prompt` 的调用不再传该标志，CLI 参数面同步删除）
 - [ ] 5.5 删除 templates/rules/ly-skill-routing.md；更新 templates/rules/ly-skills.md 移除 orchestration skill 路径引用（ly-codegraph.md 保留）；installer 卸载清单同步
 - [ ] 5.6 删除 src/utils/migration.ts 及其调用点（init/update 中迁移触发逻辑）
 - [ ] 5.7 命令模板改名：templates/commands/*.md 中 `~/.claude/bin/codeagent-wrapper` → `~/.claude/bin/ly-wrapper`（review-plan/review-code/apply 及其他出现处）
@@ -52,5 +52,5 @@
 ## 8. 验收
 
 - [ ] 8.1 `pnpm typecheck && pnpm build && pnpm test` 全绿；被删功能的既有测试已随删除同步移除，无残留引用
-- [ ] 8.2 全局 grep `codeagent-wrapper` 清零（src/templates/.github/根文档；openspec/ 历史归档除外）；grep `Ccg|ccg` 清零（migration.ts 已删，应为 0）
+- [ ] 8.2 全局 grep `codeagent-wrapper` 清零（src/templates/.github/根文档；`openspec/specs/` 中未被 delta 覆盖的非 Requirement 文本（如 Purpose 段）直接改基线同步更名；openspec/changes/ 历史归档除外）；grep `Ccg|ccg` 清零（migration.ts 已删，应为 0）
 - [ ] 8.3 本地实跑验证：`node dist/ly-wrapper.js --backend codex - "$PWD"` 单任务调用形态可用（含 SESSION_ID/OVERALL 解析输出）；`npx ly-workflow`（本地包路径）安装后 ~/.claude/bin/ly-wrapper 可直接执行

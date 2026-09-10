@@ -9,9 +9,10 @@
 - `~/.claude/skills/ly/domains/` 目录（域知识库）
 - `~/.claude/hooks/ly/` 下的 hook 文件（session-start.js / subagent-context.js / workflow-state.js / task-utils.js / skill-router.js）及 `~/.claude/settings.json` 中指向这些 hook 的注册项（subagent-context 等 PreToolUse 条目）
 - `~/.claude/output-styles/` 中由 ly-workflow 安装的风格文件
-- MCP 配置功能安装的文件与其在 settings/menu 层面的注册
-- `~/.codex/` 下由 Codex Mode 安装的文件（AGENTS.md 中的 LY 管理区块、hooks.json、hooks/ly-workflow.py、agents/ly-*.toml、config.toml 中的 LY 管理区块）
+- `~/.claude/skills/ly/` 下历史版本安装的分类产物（`impeccable/`、`tools/`、`orchestration/`、`scrapling/`、`SKILL.md`、`run_skill.js` 及其他旧布局残留）——按已知产物清单识别；`~/.claude/commands/ly/` 下由分类生成器生成的历史命令文件按生成器指纹识别清理，用户自定义的同名文件 SHALL NOT 被误删
 - `~/.claude/rules/ly-skill-routing.md`（domains 关键词路由表，随 domains 退役）
+- MCP 配置功能写入的注册项：`~/.claude.json` 中 `mcpServers` 里由本工具注册的 server 条目及其同步副本（`~/.codex/config.toml`、`~/.gemini/settings.json`、`~/.contextweaver/` 等按功能实际同步目标）——按"由本工具注册的 server 名/来源标识"识别，其他来源的 MCP 注册 SHALL NOT 触碰
+- `~/.codex/` 下由 Codex Mode 安装的文件（AGENTS.md 中的 LY 管理区块、hooks.json、hooks/ly-workflow.py、agents/ly-*.toml、config.toml 中的 LY 管理区块、`.ly-version` 标记文件）
 - `~/.claude/bin/codeagent-wrapper` 旧 Go 二进制
 
 清理必须（SHALL）在汇总中逐项如实报告（清理了什么 / 本就不存在跳过了什么）。

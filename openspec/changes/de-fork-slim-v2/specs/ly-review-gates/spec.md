@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: 方案审查解析目标 change 且排除已归档项
-`/ly:review-plan` 必须（SHALL）按以下优先级解析目标 change：（1）通过 `$ARGUMENTS` 传入的显式 change 名称；（2）若未指定, 且 `openspec/changes/` 下恰好只有一个 change 目录时, 使用该目录；（3）若存在多个 change 目录且未指定, 询问用户要审查哪一个。枚举候选目录时必须（SHALL）排除 `openspec/changes/archive/` 目录及其内容——已归档的 change 不是可选目标。解析完成后, 必须读取该 change 的 `proposal.md`、`design.md`、`tasks.md`（存在的部分）, 将其合并内容作为审查上下文传给以 `codex/reviewer.md` 角色提示词调用的 `ly-wrapper --backend codex`。审查必须聚焦方案的合理性——遗漏的边界情况、范围不清晰、风险点——而非逐行代码风格。
+`/ly:review-plan` 必须（SHALL）按以下优先级解析目标 change：（1）通过 `$ARGUMENTS` 传入的显式 change 名称；（2）若未指定, 且 `openspec/changes/` 下恰好只有一个 change 目录时, 使用该目录；（3）若存在多个 change 目录且未指定, 询问用户要审查哪一个。枚举候选目录时必须（SHALL）排除 `openspec/changes/archive/` 目录及其内容——已归档的 change 不是可选目标。解析完成后, 必须（SHALL）读取该 change 的 `proposal.md`、`design.md`、`tasks.md`（存在的部分）作为审查对象。审查的调用构造（角色提示词、后端选择、TASK 内容构造方式）统一由「方案审查分级输出发现」一条定义, 本条 SHALL NOT 重复定义另一套调用构造（基线中"以 `reviewer.md` 角色提示词合并内容调用"的描述与本能力内「方案审查分级输出发现」的 `plan-reviewer.md` + 路径清单构造互斥, 以后者为准, 前者随本条修改一并废止）。审查必须聚焦方案的合理性——遗漏的边界情况、范围不清晰、风险点——而非逐行代码风格。
 
 #### Scenario: change 有 proposal 和 tasks 但没有 design
 - **WHEN** 用户对一个有 `proposal.md` 和 `tasks.md` 但没有 `design.md` 的 change 运行 `/ly:review-plan`
@@ -99,8 +99,8 @@
 - **THEN** 命令必须报告 Critical, 说明"proposal 声明了 capability 变更但没有任何 delta spec 覆盖"; 若该 change 的 `.openspec.yaml` 同时设置了 `skip_specs: true`, 额外说明该 `skip_specs` 使用不当（`openspec validate`/`openspec archive` 不会拦截这种情况, 只有这一步能捕捉到)
 
 #### Scenario: 首轮 TASK 只传路径清单, 不拼贴全文
-- **WHEN** 某 change 的 `proposal.md`、`design.md`、`tasks.md` 及两份 delta spec 文件总长度超过千行
-- **THEN** 传给审查后端的 TASK 只包含该 5 个文件各自的相对路径清单和该 change 目录路径, 不包含 Claude 预先读取、拼接的完整文件内容；审查后端在 `WORKDIR` 下自行读取这些路径对应的当前内容
+- **WHEN** 某 change 的 `proposal.md`、`design.md`、`tasks.md` 及全部 delta spec 文件总长度超过千行
+- **THEN** 传给审查后端的 TASK 只包含这些文件各自的相对路径清单和该 change 目录路径, 不包含 Claude 预先读取、拼接的完整文件内容；审查后端在 `WORKDIR` 下自行读取这些路径对应的当前内容
 
 #### Scenario: 审查后端由 init 选定而非固定 codex
 - **WHEN** 用户已经通过 init 把 `routing.reviewer` 设为 `hermes` 或 `openclaw`, 然后运行 `/ly:review-plan`

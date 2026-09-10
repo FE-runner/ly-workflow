@@ -15,7 +15,7 @@ ly-workflow fork 自 ccg-workflow，携带了大量与"两角色精简工作流"
   - 删除 `templates/hooks/` 其余文件（session-start.js / subagent-context.js / workflow-state.js / task-utils.js）——它们全部服务于 v1.0.0 转 OpenSpec 后已无任何写入方的 `.ly/tasks/` 旧任务状态系统
   - 删除 `templates/skills/` 下的 `impeccable/`、`scrapling/`、`orchestration/`、`tools/`（`SKILL.md`、`run_skill.js`、`domains/` 之外的去留随本条一并定：全部移除，`templates/skills/` 目录不再存在）
   - 删除 `templates/rules/ly-skill-routing.md`（domains 的关键词路由表，D1 连带物）；`templates/rules/ly-skills.md` 移除对 orchestration skill 路径的引用（D6 连带断链）；`templates/rules/ly-codegraph.md` 不涉及被删资产，保留
-- **BREAKING 移除 MCP 配置功能**（D3）：删除 `src/commands/config-mcp.ts`、`src/commands/diagnose-mcp.ts`、`src/utils/installer-mcp.ts`、`src/utils/mcp.ts` 及 menu/init/update 中对应入口
+- **BREAKING 移除 MCP 配置功能**（D3）：删除 `src/commands/config-mcp.ts`、`src/commands/diagnose-mcp.ts`、`src/utils/installer-mcp.ts`、`src/utils/mcp.ts` 及 menu/init/update 中对应入口；`--skip-mcp` CLI 标志随功能一并移除（update 内部调用不再传该标志）
 - **BREAKING Go wrapper → TS 独立脚本**（D9）：删除 `codeagent-wrapper/` Go 工程，重写为 `src/wrapper/`（构建产物 `dist/ly-wrapper.js`，安装到 `~/.claude/bin/ly-wrapper`，node shebang）。保留调用契约：单任务 / stdin 传 prompt / 流式输出转发 / OVERALL+SESSION_ID 解析 / resume 续聊 / 超时 kill / 四 backend（codex/claude/hermes/openclaw）参数构造 / 后端缺失报错。抛弃并发调度、拓扑排序、SSE server、logger 系统。二进制名 `codeagent-wrapper` → `ly-wrapper`，命令模板调用路径同步更新
 - **BREAKING 移除 Go 二进制分发机制**：删除 `src/utils/installer.ts` 中 GitHub Release 下载 + `EXPECTED_BINARY_VERSION` 版本门禁 + 多源 fallback；wrapper 随 npm 包分发（`dist/ly-wrapper.js`）；删除 `.github/workflows/build-binaries.yml` 与 release.yml 中的 Go 构建
 - **BREAKING 移除已装遗产的安装侧注册**：installer 不再安装/保留任何可选 skill 分类；`cli-skill-category-lifecycle` 相关需求整体退役
@@ -29,7 +29,7 @@ ly-workflow fork 自 ccg-workflow，携带了大量与"两角色精简工作流"
 ### New Capabilities
 
 - `ly-wrapper`: TS 版 wrapper（ly-wrapper）的调用契约——四 backend 参数构造、stdin prompt、流式输出、OVERALL/SESSION_ID 解析、resume 续聊、超时 kill、后端缺失报错、随 npm 包分发到 `~/.claude/bin/ly-wrapper`
-- `upstream-legacy-cleanup`: 安装器 update/uninstall 对用户机器上已装上游遗产产物（domains/hooks（含 settings.json 注册项）/output-styles/MCP 配置/Codex Mode/旧 codeagent-wrapper 二进制）的清理行为
+- `upstream-legacy-cleanup`: 安装器 update/uninstall 对用户机器上已装上游遗产产物（domains/hooks（含 settings.json 注册项）/skills/ly 历史分类产物与 commands/ly 历史命令文件/output-styles/MCP 注册项/Codex Mode/旧 codeagent-wrapper 二进制）的清理行为
 
 ### Modified Capabilities
 

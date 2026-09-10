@@ -1,5 +1,16 @@
 ## MODIFIED Requirements
 
+### Requirement: 非交互升级路径静默补齐 routing.implementer
+`npx ly-workflow update`（内部以 `init --force --skip-prompt` 执行；原 `--skip-mcp` 标志随 MCP 配置功能在 de-fork-slim-v2 中一并移除）检测到既有配置缺失 `routing.implementer` 时，必须（SHALL）静默写入默认值 `claude`，不得中断升级流程、不得要求交互输入。已存在合法 `routing.implementer` 值（含历史遗留的 `hermes`）的存量配置 MUST NOT 被改写。
+
+#### Scenario: 老项目升级时静默补齐
+- **WHEN** 用户在未配置过 `routing.implementer` 的老项目运行 `npx ly-workflow update`
+- **THEN** 配置被静默写入 `routing.implementer: claude`，升级流程不中断、无交互输入
+
+#### Scenario: 存量配置不被改写
+- **WHEN** 用户在已配置 `routing.implementer: codex` 的项目运行 `npx ly-workflow update`
+- **THEN** 该值保持为 `codex`，不被改写为默认值
+
 ### Requirement: /ly:apply 委托 Implementer agent 单次 agentic 实施
 当 `routing.implementer` 为 `codex`/`hermes`/`openclaw` 之一时，`/ly:apply` 必须（SHALL）在确定目标 change 名后，读取 `routing.implementer`，通过 `ly-wrapper --backend <routing.implementer>` 发起一次 agentic 调用（`ROLE_FILE` 指向该 backend 的 `builder.md`），委托其自主阅读 `tasks.md` 并实施全部未完成任务。SHALL NOT 逐任务拆分调用，SHALL NOT 在委托路径中改由 Claude 自己实施。
 

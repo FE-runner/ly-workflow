@@ -45,7 +45,9 @@
 
 **理由**：
 - settings.json 的 hook 清理按"命令字段包含 `~/.claude/hooks/ly/` 路径"识别，只删指向已退役 hook 的条目——不碰其他工具的 hook（对应 `upstream-legacy-cleanup` 的不误删需求）
-- `~/.codex/` 清理只删 LY 管理区块（`<!-- LY:START -->...<!-- LY:END -->`）与明确由 ly-workflow 安装的文件（hooks/ly-workflow.py、agents/ly-*.toml、hooks.json），config.toml 只剥 LY 管理区块不删整个文件
+- MCP 注册项清理按"由本工具注册的 server 名/来源标识"识别（`~/.claude.json` mcpServers 及其同步副本），其他来源的 MCP 注册不碰；`~/.claude.json` 与 settings.json 同样走原子写
+- 历史分类产物清理按已知清单（`~/.claude/skills/ly/` 下 impeccable/tools/orchestration/scrapling/SKILL.md/run_skill.js）+ `~/.claude/commands/ly/` 生成器指纹识别，不误删用户自定义同名文件（承接 `cli-skill-category-lifecycle` 退役后的 Migration 承诺）
+- `~/.codex/` 清理只删 LY 管理区块（`<!-- LY:START -->...<!-- LY:END -->`）与明确由 ly-workflow 安装的文件（hooks/ly-workflow.py、agents/ly-*.toml、hooks.json、`.ly-version` 标记文件），config.toml 只剥 LY 管理区块不删整个文件
 - 旧二进制 `~/.claude/bin/codeagent-wrapper` 直接删除（本安装器的生成物，无指纹歧义）
 
 **备选否决**：要求用户手动清理（拒绝——cleanup 是本 change 的验收项之一）；在 init 向导加询问（拒绝——多余交互，清理是纯回收动作）。
