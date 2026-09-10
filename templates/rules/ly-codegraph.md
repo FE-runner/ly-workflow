@@ -23,17 +23,9 @@
 - ❌ 手动拼调用链（一次 explore 自动解析）
 - ❌ 对返回的源码再 Read（已是同等内容）
 
-## fast-context（语义补充）
-
-`codegraph_explore` 不擅长的场景用 `fast_context_search`：
-- 自然语言描述功能（"处理登录的逻辑在哪"）
-- 不确定符号名，只知道功能描述
-- 英文查询效果优于中文
-
 ## 优先级总结
 
 ```
 codegraph_explore → 结构查询（调用链/影响/依赖）— 本地，最快最准
-fast_context_search → 语义模糊搜索 — 远端 AI
 grep → 精确文本匹配（已知字符串）
 ```

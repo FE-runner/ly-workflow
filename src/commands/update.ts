@@ -8,8 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'pathe'
 import { checkForUpdates, compareVersions } from '../utils/version'
 import { showBinaryDownloadWarning, verifyBinary } from '../utils/installer'
-import { readLyConfig, writeLyConfig } from '../utils/config'
-import { migrateToV1_4_0, needsMigration } from '../utils/migration'
+import { readLyConfig } from '../utils/config'
 import { i18n } from '../i18n'
 
 const execAsync = promisify(exec)
@@ -182,36 +181,6 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
     return
   }
 
-  // Step 2: Auto-migrate from old directory structure (if needed)
-  if (await needsMigration()) {
-    spinner = ora(i18n.t('update:migrating')).start()
-    const migrationResult = await migrateToV1_4_0()
-
-    if (migrationResult.migratedFiles.length > 0) {
-      spinner.info(ansis.cyan(i18n.t('update:migrationDone')))
-      console.log()
-      for (const file of migrationResult.migratedFiles) {
-        console.log(`  ${ansis.green('✓')} ${file}`)
-      }
-      if (migrationResult.skipped.length > 0) {
-        console.log()
-        console.log(ansis.gray(`  ${i18n.t('update:migrationSkipped')}`))
-        for (const file of migrationResult.skipped) {
-          console.log(`  ${ansis.gray('○')} ${file}`)
-        }
-      }
-      console.log()
-    }
-
-    if (migrationResult.errors.length > 0) {
-      spinner.warn(ansis.yellow(i18n.t('update:migrationErrors')))
-      for (const error of migrationResult.errors) {
-        console.log(`  ${ansis.red('✗')} ${error}`)
-      }
-      console.log()
-    }
-  }
-
   // ── Atomic update: backup → install → verify → cleanup / rollback ──
   // Old approach deleted everything BEFORE installing, so if install failed
   // the user was left with nothing. New approach backs up first, installs new,
@@ -268,7 +237,7 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
 
   let installSuccess = false
   try {
-    await execAsync(`npx --yes ly-workflow@latest init --force --skip-mcp --skip-prompt`, {
+    await execAsync(`npx --yes ly-workflow@latest init --force --skip-prompt`, {
       timeout: 300000, // 5min — binary download from GitHub Release may be slow (especially in China)
       env: {
         ...process.env,
@@ -316,17 +285,16 @@ async function performUpdate(fromVersion: string, toVersion: string, isNewVersio
       catch { /* non-critical: stale backup files */ }
     }
 
-    // Verify binary exists, is functional, AND version matches
+    // Legacy artifact cleanup (upstream assets from pre-v2.0 installs) — 非阻断
+    try {
+      const { cleanupLegacyArtifacts, reportCleanupResult } = await import('../utils/legacy-cleanup')
+      reportCleanupResult(await cleanupLegacyArtifacts())
+    }
+    catch { /* non-blocking */ }
+
+    // Verify wrapper script exists and runs (version is the package version — no gate)
     if (!(await verifyBinary(installDir))) {
       showBinaryDownloadWarning(join(installDir, 'bin'))
-    }
-    else {
-      // Binary exists and runs, but check version
-      const { verifyBinaryVersion } = await import('../utils/installer')
-      const versionOk = await verifyBinaryVersion(installDir)
-      if (!versionOk) {
-        showBinaryDownloadWarning(join(installDir, 'bin'))
-      }
     }
   }
   else {

@@ -4,15 +4,13 @@ import ansis from 'ansis'
 import { version } from '../package.json'
 import { homedir } from 'node:os'
 import { join } from 'pathe'
-import { configMcp } from './commands/config-mcp'
 import { doctor, status } from './commands/doctor'
-import { diagnoseMcp, fixMcp } from './commands/diagnose-mcp'
 import { init } from './commands/init'
 import { showMainMenu } from './commands/menu'
 import { i18n, initI18n } from './i18n'
 import { readLyConfig } from './utils/config'
 import { checkExternalDeps } from './utils/preflight'
-import { installCodexMode, uninstallCodexMode, uninstallWorkflows } from './utils/installer'
+import { uninstallWorkflows } from './utils/installer'
 
 function customizeHelp(sections: any[]): any[] {
   sections.unshift({
@@ -25,12 +23,8 @@ function customizeHelp(sections: any[]): any[] {
     body: [
       `  ${ansis.cyan('ly')}              ${i18n.t('cli:help.commandDescriptions.showMenu')}`,
       `  ${ansis.cyan('ly init')} | ${ansis.cyan('i')}     ${i18n.t('cli:help.commandDescriptions.initConfig')}`,
-      `  ${ansis.cyan('ly config mcp')}   ${i18n.t('cli:help.commandDescriptions.configMcp')}`,
-      `  ${ansis.cyan('ly diagnose-mcp')} ${i18n.t('cli:help.commandDescriptions.diagnoseMcp')}`,
-      `  ${ansis.cyan('ly fix-mcp')}      ${i18n.t('cli:help.commandDescriptions.fixMcp')}`,
       `  ${ansis.cyan('ly doctor')}       Check installation health`,
       `  ${ansis.cyan('ly status')}       Show installation overview`,
-      `  ${ansis.cyan('ly codex-mode')}   Install/uninstall Codex-Led mode`,
       `  ${ansis.cyan('ly uninstall')}    Uninstall ly-workflow (non-interactive)`,
       '',
       ansis.gray(`  ${i18n.t('cli:help.shortcuts')}`),
@@ -103,7 +97,6 @@ export async function setupCommands(cli: CAC): Promise<void> {
     .option('--lang, -l <lang>', `${i18n.t('cli:help.optionDescriptions.displayLanguage')} (zh-CN, en)`)
     .option('--force, -f', i18n.t('cli:help.optionDescriptions.forceOverwrite'))
     .option('--skip-prompt, -s', i18n.t('cli:help.optionDescriptions.skipAllPrompts'))
-    .option('--skip-mcp', 'Skip MCP configuration (used during update)')
     .option('--reviewer, -r <model>', i18n.t('cli:help.optionDescriptions.reviewerModel'))
     .option('--implementer <model>', i18n.t('cli:help.optionDescriptions.implementerModel'))
     .option('--workflows, -w <workflows>', i18n.t('cli:help.optionDescriptions.workflows'))
@@ -116,33 +109,6 @@ export async function setupCommands(cli: CAC): Promise<void> {
       await init(options)
     })
 
-  // Diagnose MCP command
-  cli
-    .command('diagnose-mcp', i18n.t('cli:help.commandDescriptions.diagnoseMcp'))
-    .action(async () => {
-      await diagnoseMcp()
-    })
-
-  // Fix MCP command (Windows only)
-  cli
-    .command('fix-mcp', i18n.t('cli:help.commandDescriptions.fixMcp'))
-    .action(async () => {
-      await fixMcp()
-    })
-
-  // Config MCP command
-  cli
-    .command('config <subcommand>', i18n.t('cli:help.commandDescriptions.configMcp'))
-    .action(async (subcommand: string) => {
-      if (subcommand === 'mcp') {
-        await configMcp()
-      }
-      else {
-        console.log(ansis.red(i18n.t('common:unknownSubcommand', { subcommand })))
-        console.log(ansis.gray(i18n.t('common:availableSubcommands', { list: 'mcp' })))
-      }
-    })
-
   // Doctor: environment health check
   cli
     .command('doctor', 'Check ly-workflow installation health')
@@ -152,39 +118,6 @@ export async function setupCommands(cli: CAC): Promise<void> {
   cli
     .command('status', 'Show ly-workflow installation status')
     .action(async () => { await status() })
-
-  // Codex mode: non-interactive install/uninstall
-  cli
-    .command('codex-mode <action>', 'Install or uninstall Codex-Led mode (non-interactive)')
-    .action(async (action: string) => {
-      if (action === 'install') {
-        const result = await installCodexMode()
-        if (result.success) {
-          console.log(ansis.green('✓ Codex mode installed'))
-          console.log(result.message)
-        }
-        else {
-          console.error(ansis.red(`✗ ${result.message}`))
-          process.exitCode = 1
-        }
-      }
-      else if (action === 'uninstall') {
-        const result = await uninstallCodexMode()
-        if (result.success) {
-          console.log(ansis.green('✓ Codex mode uninstalled'))
-          if (result.removed.length > 0) console.log(ansis.gray(`  Removed: ${result.removed.join(', ')}`))
-        }
-        else {
-          console.error(ansis.red('✗ Codex mode uninstall failed'))
-          process.exitCode = 1
-        }
-      }
-      else {
-        console.error(ansis.red(`Unknown action: ${action}`))
-        console.log(ansis.gray('Usage: ly codex-mode <install|uninstall>'))
-        process.exitCode = 1
-      }
-    })
 
   // Uninstall ly-workflow (Claude Code mode): non-interactive
   cli

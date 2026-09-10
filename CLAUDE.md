@@ -137,6 +137,11 @@
 - 🔄 **项目改名**：`ccg-workflow` → `ly-workflow`，CLI 命令前缀 `ccg` → `ly`。
 - 🗑️ **删除**：`templates/commands-legacy/`（18 个旧版多模型命令）及其安装机制（`LEGACY_CONFIGS`、init 向导的"旧版兼容"选项、update 自动保留逻辑）；`templates/prompts/{gemini,grok,antigravity}/`。
 
+### 2026-09-10 (v2.0.0) — de-fork-slim-v2：去上游化瘦身 + 全 TS 化
+- 🔄 **BREAKING 全 TS 化**：Go 版 `codeagent-wrapper` 重写为 TS（`src/ly-wrapper.ts`，安装为 `~/.claude/bin/ly-wrapper`），随 npm 包分发，删除 GitHub Release 二进制下载/版本门禁/build-binaries workflow
+- 🗑️ **上游遗产移除**：domains 域知识、output-styles、Codex Mode、hooks（.ly/tasks 死系统）、impeccable/scrapling/orchestration/tools 技能、MCP 配置功能、migration.ts、社区开源姿态文档（CONTRIBUTING/CODE_OF_CONDUCT/SECURITY/.github 模板）；`legacy-cleanup.ts` 负责回收已装历史产物
+- ✅ **保留**：14 个 /ly:* 命令、prompts 角色词、init/update/menu/doctor 安装器、审查-修复循环行为不变
+
 ---
 
 ## 模块职责
@@ -144,9 +149,9 @@
 **ly-workflow** 是一套精简的 Claude Code 工作流：Claude 自己完成开发全流程，Codex 仅作为独立审查关卡介入。核心组成：
 
 1. **14 个 `/ly:*` 命令**：项目初始化（安装器入口含 openspec 依赖 preflight 检查）+ OpenSpec 生命周期委托 + 双审查关卡 + GitFlow 发布管线
-2. **`codeagent-wrapper`**：Go 二进制，桥接 Codex/Claude CLI，供 review-plan/review-code 调用
+2. **`ly-wrapper`**：TS 单文件脚本（`src/ly-wrapper.ts` + `src/wrapper/core.ts`，随 npm 包分发到 `~/.claude/bin/ly-wrapper`），桥接 Codex/Claude/Hermes/OpenClaw CLI，供 review-plan/review-code/apply 调用
 3. **Git 工具**：`commit`/`rollback`/`clean-branches`/`worktree`
-4. **质量关卡技能**：`verify-security`/`verify-quality`/`verify-change`/`verify-module`/`gen-docs`（继承自原 ccg-workflow，逻辑不变，安装命名空间随改名调整）
+4. **遗产清理**：`legacy-cleanup.ts` 在 update/uninstall 时回收 v2.0 瘦身前历史安装的上游资产（domains/hooks/output-styles/MCP 注册/Codex Mode/旧 Go 二进制）
 
 ---
 
@@ -202,11 +207,10 @@ npx ly-workflow menu    # 交互式菜单
 ## 相关文件
 
 ```
-src/                      # TypeScript CLI 源码
+src/                      # TypeScript CLI 源码（含 src/ly-wrapper.ts + src/wrapper/core.ts）
 templates/commands/       # 14 个 slash command
 templates/prompts/{codex,claude}/  # 审查/协作角色提示词
-templates/skills/         # 质量关卡技能
-codeagent-wrapper/        # Go 二进制（codex + claude backend）
+templates/rules/          # ly-codegraph / ly-skills 规则
 ```
 
 详见 [src/CLAUDE.md](./src/CLAUDE.md)、[templates/CLAUDE.md](./templates/CLAUDE.md)、[codeagent-wrapper/CLAUDE.md](./codeagent-wrapper/CLAUDE.md)。
@@ -218,6 +222,5 @@ codeagent-wrapper/        # Go 二进制（codex + claude backend）
 1. 更新 `package.json` 版本号
 2. 更新 `CHANGELOG.md`（新条目在顶部）
 3. 更新本文件的变更记录
-4. **wrapper 版本号与 npm 包号统一（每次发版都同步，非仅 Go 改动时）**：`codeagent-wrapper/main.go` 的 `version` 与 `src/utils/installer.ts` 的 `EXPECTED_BINARY_VERSION` 必须与 `package.json` 版本号一致（如 1.5.3），Go 代码改动额外需 bump 这两处并重新构建
 5. `pnpm typecheck && pnpm build && pnpm test` 全绿后 commit
 6. **发布方式：GitHub Actions 自动发布**，不在本地跑 `npm publish`——打 tag `v<版本号>`（如 `v1.2.0`）并 push，`.github/workflows/release.yml` 监听 `push: tags: ['v*.*.*']` 自动触发发布

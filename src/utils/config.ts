@@ -63,9 +63,7 @@ export function createDefaultConfig(options: {
   language: SupportedLang
   routing: ModelRouting
   installedWorkflows: string[]
-  mcpProvider?: string
   liteMode?: boolean
-  skipImpeccable?: boolean
 }): LyConfig {
   return {
     general: {
@@ -82,13 +80,8 @@ export function createDefaultConfig(options: {
       prompts: join(LY_DIR, 'prompts'), // v1.4.0: 移到配置目录
       backup: join(LY_DIR, 'backup'),
     },
-    mcp: {
-      provider: options.mcpProvider || 'fast-context',
-      setup_url: 'https://augmentcode.com/',
-    },
     performance: {
       liteMode: options.liteMode || false,
-      skipImpeccable: options.skipImpeccable || false,
     },
   }
 }

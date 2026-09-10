@@ -1,14 +1,9 @@
 import type { InstallResult } from '../types'
-import { homedir } from 'node:os'
 import ansis from 'ansis'
 import fs from 'fs-extra'
-import { basename, join, relative, sep } from 'pathe'
+import { basename, join } from 'pathe'
 import { getWorkflowById } from './installer-data'
 import { PACKAGE_ROOT, injectConfigVariables, replaceHomePathsInTemplate } from './installer-template'
-import { readLyConfig } from './config'
-import { CATEGORY_DIR_MAP, installSkillCommands } from './skill-registry'
-import type { SkillCategory } from './skill-registry'
-import { version as packageVersion } from '../../package.json'
 
 // ═══════════════════════════════════════════════════════
 // Re-exports — all consumers import from './installer'
@@ -27,48 +22,6 @@ export type { WorkflowPreset } from './installer-data'
 
 export { injectConfigVariables } from './installer-template'
 
-export {
-  installAceTool,
-  installAceToolRs,
-  installContextWeaver,
-  installFastContext,
-  installMcpServer,
-  syncMcpToCodex,
-  syncMcpToGemini,
-  uninstallAceTool,
-  uninstallContextWeaver,
-  uninstallFastContext,
-  uninstallMcpServer,
-} from './installer-mcp'
-export type { ContextWeaverConfig } from './installer-mcp'
-
-import {
-  removeFastContextPrompt,
-  writeFastContextPrompt,
-} from './installer-prompt'
-export {
-  removeFastContextPrompt,
-  writeFastContextPrompt,
-}
-
-export {
-  collectInvocableSkills,
-  collectSkills,
-  parseFrontmatter,
-} from './skill-registry'
-export type { SkillMeta } from './skill-registry'
-
-// ═══════════════════════════════════════════════════════
-// Binary version tracking
-// ═══════════════════════════════════════════════════════
-
-/**
- * Expected codeagent-wrapper binary version.
- * Must match the `version` constant in codeagent-wrapper/main.go.
- * When this differs from the installed binary, update triggers re-download.
- */
-const EXPECTED_BINARY_VERSION = '1.9.0'
-
 // ═══════════════════════════════════════════════════════
 // Install context — shared across sub-functions
 // ═══════════════════════════════════════════════════════
@@ -79,8 +32,6 @@ interface InstallConfig {
     implementer?: string
   }
   liteMode: boolean
-  mcpProvider: string
-  skipImpeccable?: boolean
 }
 
 interface InstallContext {
@@ -89,121 +40,6 @@ interface InstallContext {
   config: InstallConfig
   templateDir: string
   result: InstallResult
-}
-
-// ═══════════════════════════════════════════════════════
-// Binary download
-// ═══════════════════════════════════════════════════════
-
-const GITHUB_REPO = 'FE-runner/ly-workflow'
-const RELEASE_TAG = 'preset'
-
-/**
- * Download sources.
- * GitHub Release is the single source of truth: it carries the freshly built
- * preset binary for every push (build-binaries.yml) and with the version-gated
- * download (EXPECTED_BINARY_VERSION) mismatches are rejected loudly.
- * The old third-party Cloudflare/20031227 mirror was removed — it served a
- * stale 5.14.0 build and, being first in the list, silently shipped it forever.
- * If the network can't reach GitHub, the install fails visibly instead of
- * quietly installing a stale binary.
- */
-const BINARY_SOURCES = [
-  { name: 'GitHub Release', url: `https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}`, timeoutMs: 120_000 },
-]
-
-/**
- * Download binary from a single URL with retry.
- * Uses curl for proxy support (reads HTTPS_PROXY / ALL_PROXY env vars automatically).
- * Falls back to Node.js fetch if curl is unavailable.
- */
-async function downloadFromUrl(url: string, destPath: string, timeoutMs: number, maxAttempts = 2): Promise<boolean> {
-  const timeoutSec = Math.ceil(timeoutMs / 1000)
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      // Prefer curl — auto-reads HTTPS_PROXY / ALL_PROXY for proxy support
-      const { execSync } = await import('node:child_process')
-      execSync(
-        `curl -fsSL --max-time ${timeoutSec} -o "${destPath}" "${url}"`,
-        { stdio: 'pipe', timeout: timeoutMs + 5000 },
-      )
-
-      if (process.platform !== 'win32') {
-        await fs.chmod(destPath, 0o755)
-      }
-      return true
-    }
-    catch {
-      // curl failed — try Node.js fetch as fallback (no proxy support)
-      try {
-        const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), timeoutMs)
-
-        const response = await fetch(url, { redirect: 'follow', signal: controller.signal })
-        if (!response.ok) {
-          clearTimeout(timer)
-          if (attempt < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, attempt * 2000))
-            continue
-          }
-          return false
-        }
-
-        const buffer = Buffer.from(await response.arrayBuffer())
-        clearTimeout(timer)
-
-        await fs.writeFile(destPath, buffer)
-        if (process.platform !== 'win32') {
-          await fs.chmod(destPath, 0o755)
-        }
-        return true
-      }
-      catch {
-        if (attempt < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, attempt * 2000))
-          continue
-        }
-        return false
-      }
-    }
-  }
-  return false
-}
-
-/**
- * Download codeagent-wrapper binary with dual-source fallback.
- * Strategy: R2 mirror (60s) → GitHub Release (120s). Uses curl for proxy support.
- * Each source's download is version-gated: only a binary whose `--version`
- * matches EXPECTED_BINARY_VERSION is accepted — a stale CDN mirror used to
- * "succeed" with an old 5.14.0 build and silently ship, never hitting the
- * GitHub fallback where the freshest preset build lives.
- */
-async function downloadBinaryFromRelease(binaryName: string, destPath: string): Promise<boolean> {
-  for (const source of BINARY_SOURCES) {
-    const url = `${source.url}/${binaryName}`
-    const ok = await downloadFromUrl(url, destPath, source.timeoutMs)
-    if (!ok) continue
-
-    // Version-gate the downloaded binary before accepting it.
-    // Discard mismatches silently; if no source yields the expected version the
-    // caller reports "Failed to download binary" — never install stale quietly.
-    try {
-      const { execSync } = await import('node:child_process')
-      const versionOutput = execSync(`"${destPath}" --version`, { stdio: 'pipe' }).toString().trim()
-      const actualVersion = versionOutput.replace(/^.*version\s*/, '')
-      if (actualVersion === EXPECTED_BINARY_VERSION) {
-        return true
-      }
-    }
-    catch {
-      // Binary is broken — discard and fall through.
-    }
-
-    // Reject: remove the stale binary so it can never be accepted as installed.
-    await fs.remove(destPath).catch(() => { /* ignore */ })
-  }
-  return false
 }
 
 // ═══════════════════════════════════════════════════════
@@ -386,364 +222,6 @@ async function removeDirCollectMdNames(dir: string): Promise<string[]> {
 }
 
 /**
- * 根据当前安装配置算出应被跳过安装/清理的 SkillCategory 集合。
- * skill目录复制过滤（installSkillFiles）与命令清理（installSkillGeneratedCommands）共用同一份判断。
- */
-function computeSkipCategories(config: InstallConfig): SkillCategory[] {
-  const skipCategories: SkillCategory[] = []
-  if (config.skipImpeccable) {
-    skipCategories.push('impeccable')
-  }
-  return skipCategories
-}
-
-/**
- * Install skill files from templates/skills/ → ~/.claude/skills/ly/
- * Includes v1.7.73 legacy layout migration.
- */
-async function installSkillFiles(ctx: InstallContext): Promise<void> {
-  const skillsTemplateDir = join(ctx.templateDir, 'skills')
-  const skillsDestDir = join(ctx.installDir, 'skills', 'ly')
-
-  // Report error instead of silently returning when template dir is missing
-  if (!(await fs.pathExists(skillsTemplateDir))) {
-    ctx.result.errors.push(`Skills template directory not found: ${skillsTemplateDir}`)
-    return
-  }
-
-  try {
-    // Migration: move old v1.7.73 layout into skills/ly/ namespace
-    const oldSkillsRoot = join(ctx.installDir, 'skills')
-    const lyLegacyItems = ['tools', 'orchestration', 'SKILL.md', 'run_skill.js']
-    const needsMigration = !await fs.pathExists(skillsDestDir)
-      && await fs.pathExists(join(oldSkillsRoot, 'tools'))
-    if (needsMigration) {
-      await fs.ensureDir(skillsDestDir)
-      for (const item of lyLegacyItems) {
-        const oldPath = join(oldSkillsRoot, item)
-        const newPath = join(skillsDestDir, item)
-        if (await fs.pathExists(oldPath)) {
-          try {
-            await fs.move(oldPath, newPath, { overwrite: true })
-          }
-          catch (moveErr) {
-            // Windows: file locking can cause move to fail — log but continue
-            ctx.result.errors.push(`Skills migration: failed to move ${item}: ${moveErr}`)
-          }
-        }
-      }
-    }
-
-    // Recursive copy: preserves full directory tree
-    // Always overwrite to ensure fresh install gets all files
-    const skipCategories = computeSkipCategories(ctx.config)
-    const skipDirNames = skipCategories.map(c => CATEGORY_DIR_MAP[c]).filter(Boolean)
-    await fs.copy(skillsTemplateDir, skillsDestDir, {
-      overwrite: true,
-      errorOnExist: false,
-      filter: (src: string) => {
-        if (skipDirNames.length === 0) return true
-        const rel = relative(skillsTemplateDir, src)
-        if (rel === '') return true
-        const head = rel.split(sep)[0]
-        return !skipDirNames.includes(head)
-      },
-    })
-
-    // 清理目标目录里被跳过分类的历史遗留子目录（覆盖本变更上线前就已安装的场景）
-    for (const dirName of skipDirNames) {
-      const staleDir = join(skillsDestDir, dirName)
-      if (await fs.pathExists(staleDir)) {
-        await fs.remove(staleDir)
-        ctx.result.removedSkillDirectories.push(dirName)
-      }
-    }
-
-    // Remove security domain files — contains red team/pentest reference content
-    // that triggers antivirus/corporate security tool false positives.
-    // Users who need it can manually copy from templates/skills/domains/security/.
-    const securityDir = join(skillsDestDir, 'domains', 'security')
-    if (await fs.pathExists(securityDir)) {
-      await fs.remove(securityDir)
-    }
-
-    // Post-copy: apply template variable replacement to .md files
-    const replacePathsInDir = async (dir: string): Promise<void> => {
-      const entries = await fs.readdir(dir, { withFileTypes: true })
-      for (const entry of entries) {
-        const fullPath = join(dir, entry.name)
-        if (entry.isDirectory()) {
-          await replacePathsInDir(fullPath)
-        }
-        else if (entry.name.endsWith('.md')) {
-          const content = await fs.readFile(fullPath, 'utf-8')
-          const processed = replaceHomePathsInTemplate(content, ctx.installDir)
-          if (processed !== content) {
-            await fs.writeFile(fullPath, processed, 'utf-8')
-          }
-        }
-      }
-    }
-    await replacePathsInDir(skillsDestDir)
-
-    // Post-copy validation: verify at least one SKILL.md was actually copied
-    const installedSkills = await collectSkillNames(skillsDestDir)
-    ctx.result.installedSkills = installedSkills.length
-
-    if (installedSkills.length === 0) {
-      ctx.result.errors.push(
-        `Skills copy completed but no SKILL.md found in ${skillsDestDir}. `
-        + `Possible cause: file locking (antivirus), permission denied, or path too long. `
-        + `Try running as administrator or disabling antivirus real-time scanning temporarily.`,
-      )
-    }
-  }
-  catch (error) {
-    ctx.result.errors.push(`Failed to install skills: ${error}`)
-    ctx.result.success = false
-  }
-}
-
-/**
- * Auto-generate slash commands for user-invocable skills via Skill Registry.
- *
- * Scans templates/skills/ for SKILL.md files with `user-invocable: true` frontmatter,
- * then generates ~/.claude/commands/ly/{name}.md for each — SKIPPING any name that
- * already exists in installer-data.ts to avoid conflicts with complex multi-model commands.
- */
-async function installSkillGeneratedCommands(ctx: InstallContext): Promise<void> {
-  const skillsTemplateDir = join(ctx.templateDir, 'skills')
-  const skillsInstallDir = join(ctx.installDir, 'skills', 'ly')
-  const commandsDir = join(ctx.installDir, 'commands', 'ly')
-
-  if (!(await fs.pathExists(skillsTemplateDir))) return
-
-  try {
-    // Collect names of commands already installed by installer-data.ts
-    const existingCommandNames = new Set<string>()
-    const existingFiles = await fs.readdir(commandsDir).catch(() => [] as string[])
-    for (const f of existingFiles) {
-      if (f.endsWith('.md')) {
-        existingCommandNames.add(basename(f, '.md'))
-      }
-    }
-
-    const skipCategories = computeSkipCategories(ctx.config)
-
-    const { generated, removedSkillCommands, skippedCleanupFiles } = await installSkillCommands(
-      skillsTemplateDir,
-      skillsInstallDir,
-      commandsDir,
-      existingCommandNames,
-      skipCategories,
-    )
-
-    if (generated.length > 0) {
-      ctx.result.installedCommands.push(...generated)
-      ctx.result.installedSkillCommands = generated.length
-    }
-    if (removedSkillCommands.length > 0) {
-      ctx.result.removedSkillCommands.push(...removedSkillCommands)
-    }
-    if (skippedCleanupFiles.length > 0) {
-      ctx.result.skippedCleanupFiles.push(...skippedCleanupFiles)
-    }
-  }
-  catch (error) {
-    // Non-fatal: skill command generation failure shouldn't block installation
-    ctx.result.errors.push(`Skill Registry command generation warning: ${error}`)
-  }
-}
-
-/**
- * Install Codex-mode files: AGENTS.md + .codex/config.toml + .codex/agents/*.toml
- * These enable Codex CLI as an alternative lead orchestrator (Codex-led multi-model mode).
- * Files are installed to ~/.codex/ (global) and user copies AGENTS.md to project root.
- */
-export async function installCodexMode(): Promise<{ success: boolean, message: string }> {
-  const codexTemplateDir = join(PACKAGE_ROOT, 'templates', 'codex')
-  if (!(await fs.pathExists(codexTemplateDir))) {
-    return { success: false, message: 'Codex template directory not found' }
-  }
-
-  try {
-    const codexHome = join(homedir(), '.codex')
-    await fs.ensureDir(join(codexHome, 'agents'))
-
-    // Read ly config once — reused for template variable injection across
-    // AGENTS.md + hooks/ly-workflow.py so model routing (frontend/backend)
-    // stays consistent with what the user configured (issue: codex mode still
-    // referenced gemini after the antigravity default switch).
-    const config = await readLyConfig()
-    const injectOpts = {
-      routing: config?.routing as any,
-      liteMode: config?.performance?.liteMode || false,
-      mcpProvider: config?.mcp?.provider || 'skip',
-    }
-
-    const configSrc = join(codexTemplateDir, 'config.toml')
-    const configDest = join(codexHome, 'config.toml')
-    if (await fs.pathExists(configSrc) && !(await fs.pathExists(configDest))) {
-      await fs.copy(configSrc, configDest)
-    }
-
-    const agentsSrc = join(codexTemplateDir, 'agents')
-    if (await fs.pathExists(agentsSrc)) {
-      await fs.copy(agentsSrc, join(codexHome, 'agents'), { overwrite: true })
-    }
-
-    const agentsMdSrc = join(codexTemplateDir, 'AGENTS.md')
-    if (await fs.pathExists(agentsMdSrc)) {
-      // Always inject — injectConfigVariables falls back to sane defaults
-      // (antigravity/codex) when no config, so placeholders never leak.
-      let content = await fs.readFile(agentsMdSrc, 'utf-8')
-      content = injectConfigVariables(content, injectOpts)
-      content = replaceHomePathsInTemplate(content, join(homedir(), '.claude'))
-      await fs.writeFile(join(codexHome, 'AGENTS.md'), content, 'utf-8')
-    }
-
-    // hooks/ — inject template variables into ly-workflow.py so the guidance
-    // it emits references the user's actual frontend model, not hardcoded gemini.
-    const hooksSrc = join(codexTemplateDir, 'hooks')
-    if (await fs.pathExists(hooksSrc)) {
-      const hooksDest = join(codexHome, 'hooks')
-      await fs.ensureDir(hooksDest)
-      for (const file of await fs.readdir(hooksSrc)) {
-        const srcFile = join(hooksSrc, file)
-        const destFile = join(hooksDest, file)
-        if (file.endsWith('.py')) {
-          let content = await fs.readFile(srcFile, 'utf-8')
-          content = injectConfigVariables(content, injectOpts)
-          await fs.writeFile(destFile, content, 'utf-8')
-        }
-        else {
-          await fs.copy(srcFile, destFile, { overwrite: true })
-        }
-      }
-    }
-
-    // hooks.json — resolve the `~/.codex/...` hook command to an absolute path.
-    // Codex does not reliably expand `~` when spawning the hook command, so a
-    // relative/tilde path made it look for `.codex/hooks/` in the project dir.
-    const hooksJsonSrc = join(codexTemplateDir, 'hooks.json')
-    if (await fs.pathExists(hooksJsonSrc)) {
-      let content = await fs.readFile(hooksJsonSrc, 'utf-8')
-      const absHome = homedir().replace(/\\/g, '/')
-      content = content.replace(/~\//g, `${absHome}/`)
-      await fs.writeFile(join(codexHome, 'hooks.json'), content, 'utf-8')
-    }
-
-    // Write version marker so external tools can check which ly-workflow version installed Codex mode
-    await fs.writeFile(join(codexHome, '.ly-version'), packageVersion, 'utf-8')
-
-    return {
-      success: true,
-      message: `Codex mode installed:\n  ~/.codex/AGENTS.md\n  ~/.codex/config.toml\n  ~/.codex/hooks.json\n  ~/.codex/hooks/ly-workflow.py\n  ~/.codex/agents/ly-implement.toml\n  ~/.codex/agents/ly-review.toml\n  ~/.codex/agents/ly-research.toml\n  ~/.codex/.ly-version (${packageVersion})`,
-    }
-  }
-  catch (error) {
-    return { success: false, message: `Failed to install Codex mode: ${error}` }
-  }
-}
-
-/**
- * Uninstall ly-workflow Codex mode — only removes files installed by ly-workflow, preserves user files.
- */
-export async function uninstallCodexMode(): Promise<{ success: boolean, removed: string[], skipped: string[] }> {
-  const codexHome = join(homedir(), '.codex')
-  const removed: string[] = []
-  const skipped: string[] = []
-
-  // ly-managed files (exact paths)
-  const lyFiles = [
-    join(codexHome, 'agents', 'ly-implement.toml'),
-    join(codexHome, 'agents', 'ly-review.toml'),
-    join(codexHome, 'agents', 'ly-research.toml'),
-    join(codexHome, 'hooks', 'ly-workflow.py'),
-    join(codexHome, 'hooks.json'),
-    join(codexHome, '.ly-version'),
-  ]
-
-  // AGENTS.md — only remove if it contains ly-workflow marker
-  const agentsMd = join(codexHome, 'AGENTS.md')
-
-  try {
-    for (const file of lyFiles) {
-      if (await fs.pathExists(file)) {
-        await fs.remove(file)
-        removed.push(file.replace(homedir(), '~'))
-      }
-    }
-
-    if (await fs.pathExists(agentsMd)) {
-      const content = await fs.readFile(agentsMd, 'utf-8')
-      if (content.includes('<!-- LY:START')) {
-        await fs.remove(agentsMd)
-        removed.push('~/.codex/AGENTS.md')
-      }
-      else {
-        skipped.push('~/.codex/AGENTS.md (not managed by ly-workflow)')
-      }
-    }
-
-    // config.toml — never delete (user may have custom settings)
-    skipped.push('~/.codex/config.toml (preserved — may contain user settings)')
-
-    // Clean up empty dirs
-    for (const dir of ['agents', 'hooks']) {
-      const dirPath = join(codexHome, dir)
-      if (await fs.pathExists(dirPath)) {
-        const files = await fs.readdir(dirPath)
-        if (files.length === 0) {
-          await fs.remove(dirPath)
-          removed.push(`~/.codex/${dir}/ (empty, removed)`)
-        }
-      }
-    }
-
-    return { success: true, removed, skipped }
-  }
-  catch (error) {
-    return { success: false, removed, skipped: [...skipped, `Error: ${error}`] }
-  }
-}
-
-async function _installCodexFilesInternal(ctx: InstallContext): Promise<void> {
-  const codexTemplateDir = join(ctx.templateDir, 'codex')
-  if (!(await fs.pathExists(codexTemplateDir))) return
-
-  try {
-    const codexHome = join(homedir(), '.codex')
-    await fs.ensureDir(join(codexHome, 'agents'))
-
-    // .codex/config.toml (merge, don't overwrite user's existing config)
-    const configSrc = join(codexTemplateDir, 'config.toml')
-    const configDest = join(codexHome, 'config.toml')
-    if (await fs.pathExists(configSrc)) {
-      if (!(await fs.pathExists(configDest))) {
-        await fs.copy(configSrc, configDest)
-      }
-    }
-
-    // .codex/agents/*.toml
-    const agentsSrc = join(codexTemplateDir, 'agents')
-    if (await fs.pathExists(agentsSrc)) {
-      await fs.copy(agentsSrc, join(codexHome, 'agents'), { overwrite: true })
-    }
-
-    // AGENTS.md → ~/.codex/AGENTS.md (global fallback)
-    const agentsMdSrc = join(codexTemplateDir, 'AGENTS.md')
-    if (await fs.pathExists(agentsMdSrc)) {
-      await fs.copy(agentsMdSrc, join(codexHome, 'AGENTS.md'), { overwrite: true })
-    }
-  }
-  catch (error) {
-    // Non-fatal: Codex mode is optional
-    ctx.result.errors.push(`Codex files install warning: ${error}`)
-  }
-}
-
-/**
  * Install rule .md files from templates/rules/ → ~/.claude/rules/
  */
 async function installRuleFiles(ctx: InstallContext): Promise<void> {
@@ -759,28 +237,53 @@ async function installRuleFiles(ctx: InstallContext): Promise<void> {
     ctx.result.errors.push(`Failed to install rules: ${error}`)
   }
 }
-
-/** Resolve platform-specific binary name. Returns null for unsupported platforms. */
-function getBinaryName(): string | null {
-  const osMap: Record<string, string> = { darwin: 'darwin', linux: 'linux', win32: 'windows' }
-  const os = osMap[process.platform]
-  if (!os) return null
-  const arch = process.arch === 'arm64' ? 'arm64' : 'amd64'
-  const ext = process.platform === 'win32' ? '.exe' : ''
-  return `codeagent-wrapper-${os}-${arch}${ext}`
-}
+// ═══════════════════════════════════════════════════════
+// ly-wrapper 安装（随 npm 包分发，无二进制下载/版本门禁）
+// ═══════════════════════════════════════════════════════
 
 /**
- * Check if codeagent-wrapper binary exists and is functional.
- * Returns true if the binary passes `--version` check.
+ * Install ly-wrapper script from the npm package dist/ → ~/.claude/bin/ly-wrapper.
+ * The wrapper ships inside the npm package (built by scripts/build-wrapper.mjs) —
+ * no GitHub Release download, no EXPECTED_BINARY_VERSION version gate.
  */
+async function installBinaryFile(ctx: InstallContext): Promise<void> {
+  try {
+    const binDir = join(ctx.installDir, 'bin')
+    await fs.ensureDir(binDir)
+    const destBinary = join(binDir, 'ly-wrapper')
+    const srcWrapper = join(PACKAGE_ROOT, 'dist', 'ly-wrapper.js')
+
+    if (!(await fs.pathExists(srcWrapper))) {
+      ctx.result.errors.push('ly-wrapper script not found in package dist/ — package build is broken')
+      ctx.result.success = false
+      return
+    }
+
+    await fs.copy(srcWrapper, destBinary, { overwrite: true })
+    if (process.platform !== 'win32') {
+      await fs.chmod(destBinary, 0o755)
+    }
+
+    // Verify the installed script runs
+    try {
+      const { execSync } = await import('node:child_process')
+      execSync(`"${destBinary}" --version`, { stdio: 'pipe' })
+      ctx.result.binPath = binDir
+      ctx.result.binInstalled = true
+    }
+    catch (verifyError) {
+      ctx.result.errors.push(`ly-wrapper verification failed (non-blocking): ${verifyError}`)
+    }
+  }
+  catch (error) {
+    ctx.result.errors.push(`Failed to install ly-wrapper (non-blocking): ${error}`)
+  }
+}
+
+/** Check if ly-wrapper script exists in ~/.claude/bin and runs. */
 export async function verifyBinary(installDir: string): Promise<boolean> {
-  const binDir = join(installDir, 'bin')
-  const wrapperName = process.platform === 'win32' ? 'codeagent-wrapper.exe' : 'codeagent-wrapper'
-  const wrapperPath = join(binDir, wrapperName)
-
+  const wrapperPath = join(installDir, 'bin', 'ly-wrapper')
   if (!(await fs.pathExists(wrapperPath))) return false
-
   try {
     const { execSync } = await import('node:child_process')
     execSync(`"${wrapperPath}" --version`, { stdio: 'pipe' })
@@ -792,256 +295,23 @@ export async function verifyBinary(installDir: string): Promise<boolean> {
 }
 
 /**
- * Check if installed binary version matches expected version.
- * Returns true if version matches, false if outdated or unreadable.
- */
-export async function verifyBinaryVersion(installDir: string): Promise<boolean> {
-  const binDir = join(installDir, 'bin')
-  const wrapperName = process.platform === 'win32' ? 'codeagent-wrapper.exe' : 'codeagent-wrapper'
-  const wrapperPath = join(binDir, wrapperName)
-
-  try {
-    const { execSync } = await import('node:child_process')
-    const output = execSync(`"${wrapperPath}" --version`, { stdio: 'pipe' }).toString().trim()
-    const version = output.replace(/^.*version\s*/, '')
-    return version === EXPECTED_BINARY_VERSION
-  }
-  catch {
-    return false
-  }
-}
-
-/**
- * Show prominent red-box warning when codeagent-wrapper binary download failed.
- * Used by both init and update flows to provide manual fix instructions.
+ * Show prominent red-box warning when ly-wrapper is missing or unusable.
+ * Used by both init and update flows.
  */
 export function showBinaryDownloadWarning(binDir: string): void {
-  const binaryExt = process.platform === 'win32' ? '.exe' : ''
-  const platformLabel = process.platform === 'darwin'
-    ? (process.arch === 'arm64' ? 'darwin-arm64' : 'darwin-amd64')
-    : process.platform === 'linux'
-      ? (process.arch === 'arm64' ? 'linux-arm64' : 'linux-amd64')
-      : (process.arch === 'arm64' ? 'windows-arm64' : 'windows-amd64')
-  const binaryFileName = `codeagent-wrapper-${platformLabel}${binaryExt}`
-  const destFileName = `codeagent-wrapper${binaryExt}`
-  const releaseUrl = `https://github.com/${GITHUB_REPO}/releases/tag/${RELEASE_TAG}`
-
   console.log()
-  console.log(ansis.red.bold(`  ╔════════════════════════════════════════════════════════════╗`))
-  console.log(ansis.red.bold(`  ║  ⚠  codeagent-wrapper 下载失败                            ║`))
-  console.log(ansis.red.bold(`  ║     Binary download failed (network issue)                 ║`))
-  console.log(ansis.red.bold(`  ╚════════════════════════════════════════════════════════════╝`))
+  console.log(ansis.red.bold('  ╔════════════════════════════════════════════════════════════╗'))
+  console.log(ansis.red.bold('  ║  ⚠  ly-wrapper 不可用                                     ║'))
+  console.log(ansis.red.bold('  ╚════════════════════════════════════════════════════════════╝'))
   console.log()
-  console.log(ansis.yellow(`  Codex 审查命令 (/ly:review-plan, /ly:review-code) 需要此文件才能工作。`))
-  console.log(ansis.yellow(`  Codex review commands require this binary to work.`))
+  console.log(ansis.yellow('  审查命令 (/ly:review-plan, /ly:review-code) 需要此文件才能工作。'))
   console.log()
-  console.log(ansis.cyan(`  手动修复 / Manual fix:`))
-  console.log()
-  console.log(ansis.white(`    1. 下载 / Download:`))
-  console.log(ansis.cyan(`       ${releaseUrl}`))
-  console.log(ansis.gray(`       → 找到 ${ansis.white(binaryFileName)} 并下载`))
-  console.log()
-  console.log(ansis.white(`    2. 放到 / Place at:`))
-  const displayPath = process.platform === 'win32'
-    ? `${binDir.replace(/\//g, '\\')}\\${destFileName}`
-    : `${binDir}/${destFileName}`
-  console.log(ansis.cyan(`       ${displayPath}`))
-  console.log()
-  if (process.platform !== 'win32') {
-    console.log(ansis.white(`    3. 加权限 / Make executable:`))
-    console.log(ansis.cyan(`       chmod +x "${binDir}/${destFileName}"`))
-    console.log()
-  }
-  console.log(ansis.white(`    或重新安装 / Or re-install:`))
-  console.log(ansis.cyan(`       npx ly-workflow@latest`))
+  console.log(ansis.cyan('  手动修复 / Manual fix:'))
+  console.log(ansis.cyan('     重新安装: npx ly-workflow@latest'))
+  console.log(ansis.gray(`     目标位置: ${binDir}/ly-wrapper`))
   console.log()
 }
 
-/**
- * Download and install codeagent-wrapper binary for current platform.
- * Skips download if binary already exists and passes `--version` check.
- */
-async function installBinaryFile(ctx: InstallContext): Promise<void> {
-  try {
-    const binDir = join(ctx.installDir, 'bin')
-    await fs.ensureDir(binDir)
-
-    const binaryName = getBinaryName()
-    if (!binaryName) {
-      ctx.result.errors.push(`Unsupported platform: ${process.platform}`)
-      ctx.result.success = false
-      return
-    }
-
-    const destBinary = join(binDir, process.platform === 'win32' ? 'codeagent-wrapper.exe' : 'codeagent-wrapper')
-
-    // Check if binary exists, is functional, AND version matches
-    if (await fs.pathExists(destBinary)) {
-      try {
-        const { execSync } = await import('node:child_process')
-        const versionOutput = execSync(`"${destBinary}" --version`, { stdio: 'pipe' }).toString().trim()
-        const installedVersion = versionOutput.replace(/^.*version\s*/, '')
-
-        // Compare with expected version from package
-        const expectedVersion = EXPECTED_BINARY_VERSION
-        if (installedVersion === expectedVersion) {
-          // Binary exists, works, and version matches — skip download
-          ctx.result.binPath = binDir
-          ctx.result.binInstalled = true
-          return
-        }
-        // Version mismatch — fall through to re-download
-      }
-      catch {
-        // Binary exists but broken — fall through to re-download
-      }
-    }
-
-    const installed = await downloadBinaryFromRelease(binaryName, destBinary)
-
-    if (installed) {
-      try {
-        const { execSync } = await import('node:child_process')
-        execSync(`"${destBinary}" --version`, { stdio: 'pipe' })
-        ctx.result.binPath = binDir
-        ctx.result.binInstalled = true
-      }
-      catch (verifyError) {
-        ctx.result.errors.push(`Binary verification failed (non-blocking): ${verifyError}`)
-      }
-    }
-    else {
-      ctx.result.errors.push(`Failed to download binary: ${binaryName} from GitHub Release (after 3 attempts). Check network or visit https://github.com/${GITHUB_REPO}/releases/tag/${RELEASE_TAG}`)
-    }
-  }
-  catch (error) {
-    ctx.result.errors.push(`Failed to install codeagent-wrapper (non-blocking): ${error}`)
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-// ly-workflow Engine installation
-// ═══════════════════════════════════════════════════════
-
-/**
- * Install engine files from templates/engine/ → ~/.claude/.ly/engine/
- * Includes model-router.md, phase-guide.md, and strategy files.
- * All .md files receive variable injection + path replacement.
- */
-async function installEngineFiles(ctx: InstallContext): Promise<void> {
-  const engineSrcDir = join(ctx.templateDir, 'engine')
-  if (!(await fs.pathExists(engineSrcDir))) return
-
-  const engineDestDir = join(ctx.installDir, '.ly', 'engine')
-
-  try {
-    // Copy top-level engine .md files (model-router.md, phase-guide.md)
-    await copyMdTemplates(ctx, engineSrcDir, engineDestDir, { inject: true })
-
-    // Copy strategy files
-    const strategiesSrc = join(engineSrcDir, 'strategies')
-    const strategiesDest = join(engineDestDir, 'strategies')
-    if (await fs.pathExists(strategiesSrc)) {
-      await copyMdTemplates(ctx, strategiesSrc, strategiesDest, { inject: true })
-    }
-  }
-  catch (error) {
-    ctx.result.errors.push(`Failed to install engine files: ${error}`)
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-// ly-workflow Hook installation
-// ═══════════════════════════════════════════════════════
-
-const HOOK_FILES = ['task-utils.js', 'workflow-state.js', 'session-start.js', 'subagent-context.js', 'skill-router.js']
-
-/**
- * Install ly-workflow hook scripts to ~/.claude/hooks/ly/
- */
-async function installHookScripts(ctx: InstallContext): Promise<void> {
-  const hooksSrcDir = join(ctx.templateDir, 'hooks')
-  if (!(await fs.pathExists(hooksSrcDir))) return
-
-  const hooksDestDir = join(ctx.installDir, 'hooks', 'ly')
-  await fs.ensureDir(hooksDestDir)
-
-  try {
-    for (const file of HOOK_FILES) {
-      const src = join(hooksSrcDir, file)
-      const dest = join(hooksDestDir, file)
-      if (await fs.pathExists(src)) {
-        await fs.copy(src, dest, { overwrite: true })
-      }
-    }
-  }
-  catch (error) {
-    ctx.result.errors.push(`Failed to install hook scripts: ${error}`)
-  }
-}
-
-/**
- * Register ly-workflow hooks in ~/.claude/settings.json.
- * Merges with existing hooks — does not overwrite user's other hooks.
- */
-async function registerHooksInSettings(ctx: InstallContext): Promise<void> {
-  const settingsPath = join(ctx.installDir, 'settings.json')
-  const hooksDir = join(ctx.installDir, 'hooks', 'ly')
-
-  try {
-    let settings: Record<string, unknown> = {}
-    if (await fs.pathExists(settingsPath)) {
-      try {
-        settings = JSON.parse(await fs.readFile(settingsPath, 'utf-8'))
-      }
-      catch {
-        settings = {}
-      }
-    }
-
-    const hooks = (settings.hooks || {}) as Record<string, unknown[]>
-
-    const lyHookDefs = {
-      UserPromptSubmit: {
-        hooks: [
-          { type: 'command', command: `node ${join(hooksDir, 'workflow-state.js')}`, timeout: 10000 },
-          { type: 'command', command: `node ${join(hooksDir, 'skill-router.js')}`, timeout: 5000 },
-        ],
-      },
-      SessionStart: {
-        matcher: 'startup|clear|compact',
-        hooks: [{ type: 'command', command: `node ${join(hooksDir, 'session-start.js')}`, timeout: 15000 }],
-      },
-      PreToolUse: {
-        matcher: 'Bash|Agent',
-        hooks: [{ type: 'command', command: `node ${join(hooksDir, 'subagent-context.js')}`, timeout: 15000 }],
-      },
-    }
-
-    for (const [event, def] of Object.entries(lyHookDefs)) {
-      const eventHooks = (hooks[event] || []) as Record<string, unknown>[]
-      const lyCommand = (def.hooks[0] as Record<string, unknown>).command as string
-      const existingIdx = eventHooks.findIndex((h) => {
-        const hHooks = (h.hooks || []) as Record<string, unknown>[]
-        return hHooks.some(hh => typeof hh.command === 'string' && hh.command.includes('hooks/ly/'))
-      })
-
-      if (existingIdx >= 0) {
-        eventHooks[existingIdx] = def
-      }
-      else {
-        eventHooks.push(def)
-      }
-      hooks[event] = eventHooks
-    }
-
-    settings.hooks = hooks
-    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8')
-  }
-  catch (error) {
-    ctx.result.errors.push(`Failed to register hooks in settings.json: ${error}`)
-  }
-}
 
 // ═══════════════════════════════════════════════════════
 // Public API: install / uninstall
@@ -1057,8 +327,6 @@ export async function installWorkflows(
       implementer?: string
     }
     liteMode?: boolean
-    mcpProvider?: string
-    skipImpeccable?: boolean
   },
 ): Promise<InstallResult> {
   const ctx: InstallContext = {
@@ -1069,8 +337,6 @@ export async function installWorkflows(
         reviewer: 'codex',
       },
       liteMode: config?.liteMode || false,
-      mcpProvider: config?.mcpProvider || 'fast-context',
-      skipImpeccable: config?.skipImpeccable || false,
     },
     templateDir: join(PACKAGE_ROOT, 'templates'),
     result: {
@@ -1079,9 +345,6 @@ export async function installWorkflows(
       installedPrompts: [],
       errors: [],
       configPath: '',
-      removedSkillCommands: [],
-      removedSkillDirectories: [],
-      skippedCleanupFiles: [],
     },
   }
 
@@ -1102,16 +365,10 @@ export async function installWorkflows(
   await fs.ensureDir(join(installDir, 'commands', 'ly'))
   await fs.ensureDir(join(installDir, '.ly'))
   await fs.ensureDir(join(installDir, '.ly', 'prompts'))
-  await fs.ensureDir(join(installDir, '.ly', 'engine', 'strategies'))
 
   // Execute each install step
   await installCommandFiles(ctx, workflowIds)
-  await installEngineFiles(ctx)
-  await installHookScripts(ctx)
-  await registerHooksInSettings(ctx)
   await installPromptFiles(ctx)
-  await installSkillFiles(ctx)
-  await installSkillGeneratedCommands(ctx)
   await installRuleFiles(ctx)
   await installBinaryFile(ctx)
 
@@ -1216,28 +473,16 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
     }
   }
 
-  // Remove fast-context rule file (~/.claude/rules/ly-fast-context.md).
-  // Written by writeFastContextPrompt (installer-prompt.ts) — NOT part of
-  // templates/rules/, so the fixed-name list above misses it. Also clears the
-  // marker blocks it appended to ~/.codex/AGENTS.md / ~/.gemini/GEMINI.md.
-  try {
-    await removeFastContextPrompt()
-    result.removedRules = true
-  }
-  catch (error) {
-    result.errors.push(`Failed to remove fast-context rule: ${error}`)
-    result.success = false
-  }
-
-  // Remove codeagent-wrapper binary (skip during update to avoid unnecessary re-download)
+  // Remove ly-wrapper script (skip during update)
   if (!options?.preserveBinary && await fs.pathExists(binDir)) {
     try {
-      const wrapperName = process.platform === 'win32' ? 'codeagent-wrapper.exe' : 'codeagent-wrapper'
-      const wrapperPath = join(binDir, wrapperName)
+      let removedAny = false
+      const wrapperPath = join(binDir, 'ly-wrapper')
       if (await fs.pathExists(wrapperPath)) {
         await fs.remove(wrapperPath)
-        result.removedBin = true
+        removedAny = true
       }
+      result.removedBin = removedAny
     }
     catch (error) {
       result.errors.push(`Failed to remove binary: ${error}`)
@@ -1302,6 +547,15 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
     catch (error) {
       result.errors.push(`Failed to deregister hooks from settings.json: ${error}`)
     }
+  }
+
+  // 遗产清理：回收 v2.0 瘦身前历史安装的上游资产（非阻断）
+  try {
+    const { cleanupLegacyArtifacts, reportCleanupResult } = await import('./legacy-cleanup')
+    reportCleanupResult(await cleanupLegacyArtifacts())
+  }
+  catch (error) {
+    result.errors.push(`Legacy cleanup failed (non-blocking): ${error}`)
   }
 
   return result

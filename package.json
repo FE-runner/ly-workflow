@@ -38,13 +38,11 @@
     "templates/commands/",
     "templates/prompts/codex/",
     "templates/prompts/claude/",
-    "templates/output-styles/",
-    "templates/skills/",
     "templates/rules/"
   ],
   "scripts": {
     "dev": "tsx src/cli.ts",
-    "build": "unbuild",
+    "build": "unbuild && node scripts/build-wrapper.mjs",
     "start": "node bin/ly.mjs",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm build",

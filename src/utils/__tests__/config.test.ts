@@ -68,16 +68,6 @@ describe('createDefaultConfig', () => {
     expect(config.workflows.installed).toEqual(['init-project', 'commit'])
   })
 
-  it('defaults mcpProvider to fast-context', () => {
-    const config = createDefaultConfig(baseOptions)
-    expect(config.mcp.provider).toBe('fast-context')
-  })
-
-  it('respects custom mcpProvider', () => {
-    const config = createDefaultConfig({ ...baseOptions, mcpProvider: 'contextweaver' })
-    expect(config.mcp.provider).toBe('contextweaver')
-  })
-
   it('defaults liteMode to false', () => {
     const config = createDefaultConfig(baseOptions)
     expect(config.performance?.liteMode).toBe(false)

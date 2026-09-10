@@ -195,14 +195,13 @@ describe('injectConfigVariables — apply.md render snapshots', () => {
     const result = injectConfigVariables(applyTemplate, {
       routing: { reviewer: 'codex', implementer: 'claude' },
       liteMode: false,
-      mcpProvider: 'ace-tool',
     })
     // Claude branch present, external machinery absent (frontmatter description
     // still mentions both paths in general terms — assert the body only)
     const body = result.split('---', 3)[2] ?? ''
     expect(result).toContain('本人实施')
     expect(result).toContain('不委托任何外部 agent')
-    expect(body).not.toContain('codeagent-wrapper')
+    expect(body).not.toContain('ly-wrapper')
     expect(body).not.toContain('OVERALL')
     expect(result).not.toContain('LY:IF')
     expect(result).not.toContain('LY:ENDIF')
@@ -216,7 +215,6 @@ describe('injectConfigVariables — apply.md render snapshots', () => {
       const result = injectConfigVariables(applyTemplate, {
         routing: { reviewer: 'codex', implementer: backend },
         liteMode: false,
-        mcpProvider: 'ace-tool',
       })
       expect(result, `backend=${backend}`).toContain('委托 Implementer agent 单次 agentic 调用')
       expect(result).toContain(`--backend ${backend}`)
@@ -237,21 +235,21 @@ describe('injectConfigVariables — apply.md render snapshots', () => {
 
 describe('injectConfigVariables — liteMode', () => {
   it('injects --lite flag when liteMode is true', () => {
-    const input = 'codeagent-wrapper {{LITE_MODE_FLAG}}--backend codex'
+    const input = 'ly-wrapper {{LITE_MODE_FLAG}}--backend codex'
     const result = injectConfigVariables(input, { liteMode: true })
-    expect(result).toBe('codeagent-wrapper --lite --backend codex')
+    expect(result).toBe('ly-wrapper --lite --backend codex')
   })
 
   it('injects empty string when liteMode is false', () => {
-    const input = 'codeagent-wrapper {{LITE_MODE_FLAG}}--backend codex'
+    const input = 'ly-wrapper {{LITE_MODE_FLAG}}--backend codex'
     const result = injectConfigVariables(input, { liteMode: false })
-    expect(result).toBe('codeagent-wrapper --backend codex')
+    expect(result).toBe('ly-wrapper --backend codex')
   })
 
   it('injects empty string when liteMode is not specified', () => {
-    const input = 'codeagent-wrapper {{LITE_MODE_FLAG}}--backend codex'
+    const input = 'ly-wrapper {{LITE_MODE_FLAG}}--backend codex'
     const result = injectConfigVariables(input, {})
-    expect(result).toBe('codeagent-wrapper --backend codex')
+    expect(result).toBe('ly-wrapper --backend codex')
   })
 })
 
@@ -287,7 +285,6 @@ describe('template variable completeness', () => {
       const result = injectConfigVariables(content, {
         routing: { reviewer: 'codex' },
         liteMode: false,
-        mcpProvider: 'ace-tool',
       })
 
       // Find any remaining {{ }} template variables
@@ -302,26 +299,6 @@ describe('template variable completeness', () => {
 })
 
 // ─────────────────────────────────────────────────────────────
-// D. installWorkflows E2E — contextweaver provider
-// ─────────────────────────────────────────────────────────────
-describe('installWorkflows E2E — mcpProvider="contextweaver"', () => {
-  const tmpDir = join(tmpdir(), `ly-test-cw-${Date.now()}`)
-
-  afterAll(async () => {
-    await fs.remove(tmpDir)
-  })
-
-  // 依赖真实网络下载 codeagent-wrapper 二进制，本地/CI 网络抖动会超时，跳过
-  it.skip('installs all workflows without errors', async () => {
-    const result = await installWorkflows(getAllCommandIds(), tmpDir, true, {
-      mcpProvider: 'contextweaver',
-    })
-    expect(result.success).toBe(true)
-    expect(result.errors).toEqual([])
-  }, 30_000)
-})
-
-// ─────────────────────────────────────────────────────────────
 // E. uninstallWorkflows E2E
 // ─────────────────────────────────────────────────────────────
 describe('uninstallWorkflows E2E', () => {
@@ -331,12 +308,9 @@ describe('uninstallWorkflows E2E', () => {
     await fs.remove(tmpDir)
   })
 
-  // 依赖真实网络下载 codeagent-wrapper 二进制，本地/CI 网络抖动会超时，跳过
   it.skip('installs then uninstalls cleanly', async () => {
     // First install
-    const installResult = await installWorkflows(getAllCommandIds(), tmpDir, true, {
-      mcpProvider: 'ace-tool',
-    })
+    const installResult = await installWorkflows(getAllCommandIds(), tmpDir, true, {})
     expect(installResult.success).toBe(true)
 
     // Verify files exist
@@ -361,30 +335,6 @@ describe('uninstallWorkflows E2E', () => {
 })
 
 // ─────────────────────────────────────────────────────────────
-// F. Binary installation
-// ─────────────────────────────────────────────────────────────
-describe('installWorkflows — binary installation', () => {
-  const tmpDir = join(tmpdir(), `ly-test-bin-${Date.now()}`)
-
-  afterAll(async () => {
-    await fs.remove(tmpDir)
-  })
-
-  // 依赖真实网络下载 codeagent-wrapper 二进制，本地/CI 网络抖动会超时，跳过
-  it.skip('installs codeagent-wrapper binary for current platform', async () => {
-    const result = await installWorkflows(['commit'], tmpDir, true, {
-      mcpProvider: 'skip',
-    })
-
-    expect(result.binInstalled).toBe(true)
-    expect(result.binPath).toBeTruthy()
-
-    const binaryName = process.platform === 'win32' ? 'codeagent-wrapper.exe' : 'codeagent-wrapper'
-    expect(fs.existsSync(join(result.binPath!, binaryName))).toBe(true)
-  })
-})
-
-// ─────────────────────────────────────────────────────────────
 // G. Prompts installation
 // ─────────────────────────────────────────────────────────────
 describe('installWorkflows — prompts installation', () => {
@@ -394,11 +344,8 @@ describe('installWorkflows — prompts installation', () => {
     await fs.remove(tmpDir)
   })
 
-  // 依赖真实网络下载 codeagent-wrapper 二进制，本地/CI 网络抖动会超时，跳过
   it.skip('installs codex and claude prompts only', async () => {
-    const result = await installWorkflows(getAllCommandIds(), tmpDir, true, {
-      mcpProvider: 'skip',
-    })
+    const result = await installWorkflows(getAllCommandIds(), tmpDir, true, {})
     expect(result.success).toBe(true)
     expect(result.installedPrompts.length).toBeGreaterThan(0)
 
@@ -415,52 +362,5 @@ describe('installWorkflows — prompts installation', () => {
     // Check at least one prompt per model
     const codexFiles = readdirSync(join(promptsDir, 'codex')).filter(f => f.endsWith('.md'))
     expect(codexFiles.length).toBeGreaterThanOrEqual(5)
-  })
-})
-
-// ─────────────────────────────────────────────────────────────
-// H. Skills namespace isolation (skills/ly/)
-// ─────────────────────────────────────────────────────────────
-describe('skills namespace isolation', () => {
-  const tmpDir = join(tmpdir(), `ly-test-skills-${Date.now()}`)
-
-  afterAll(async () => {
-    await fs.remove(tmpDir)
-  })
-
-  // 依赖真实网络下载 codeagent-wrapper 二进制，本地/CI 网络抖动会超时，跳过
-  it.skip('installs skills under skills/ly/ namespace', async () => {
-    const result = await installWorkflows(['commit'], tmpDir, true, {
-      mcpProvider: 'skip',
-    })
-    expect(result.success).toBe(true)
-    expect(result.installedSkills).toBeGreaterThanOrEqual(6)
-
-    // Skills must be under skills/ly/, not skills/ root
-    expect(fs.existsSync(join(tmpDir, 'skills', 'ly', 'SKILL.md'))).toBe(true)
-    expect(fs.existsSync(join(tmpDir, 'skills', 'ly', 'tools'))).toBe(true)
-    expect(fs.existsSync(join(tmpDir, 'skills', 'ly', 'orchestration'))).toBe(true)
-  })
-
-  // 依赖真实网络下载 codeagent-wrapper 二进制，本地/CI 网络抖动会超时，跳过
-  it.skip('uninstall only removes skills/ly/, preserves user skills', async () => {
-    // Simulate a user-created skill at skills/my-custom-skill/SKILL.md
-    const userSkillDir = join(tmpDir, 'skills', 'my-custom-skill')
-    await fs.ensureDir(userSkillDir)
-    await fs.writeFile(join(userSkillDir, 'SKILL.md'), '# My Custom Skill')
-
-    // Uninstall
-    const result = await uninstallWorkflows(tmpDir)
-    expect(result.success).toBe(true)
-    expect(result.removedSkills.length).toBeGreaterThan(0)
-
-    // ly skills gone
-    expect(fs.existsSync(join(tmpDir, 'skills', 'ly'))).toBe(false)
-
-    // User skill preserved!
-    expect(fs.existsSync(join(userSkillDir, 'SKILL.md'))).toBe(true)
-
-    // Cleanup
-    await fs.remove(userSkillDir)
   })
 })
