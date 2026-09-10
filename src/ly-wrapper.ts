@@ -144,6 +144,8 @@ async function main(): Promise<number> {
       ui.broadcast({ event: 'done', session_id: finalResult.sessionId, backend: cfg.backend, content: finalResult.message, content_type: 'message', done: true })
     }
     ui.close()
+    // 兜底：keep-alive 空闲连接可能延迟事件循环排空，1s 后强制结束（正常路径上 exitCode 已设置）
+    setTimeout(() => process.exit(process.exitCode ?? 0), 1000).unref()
   }
 
   if (timedOut) return TIMEOUT_EXIT_CODE

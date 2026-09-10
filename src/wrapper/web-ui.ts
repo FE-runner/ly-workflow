@@ -97,8 +97,7 @@ export function startProgressServer(backend: string): Promise<ProgressServer | n
 }
 
 function startServer(backend: string, resolve: (s: ProgressServer | null) => void): void {
-  {
-    const clients = new Set<http.ServerResponse>()
+  const clients = new Set<http.ServerResponse>()
     const server = http.createServer((req, res) => {
       try {
         if (req.url === '/events') {
@@ -152,16 +151,15 @@ function startServer(backend: string, resolve: (s: ProgressServer | null) => voi
           // 广播异常不影响审查主流程
         }
       },
-        close() {
-          try {
-            for (const client of clients) { try { client.end() } catch { /* ignore */ } }
-            clients.clear()
-            server.close()
-          } catch {
-            // 关闭异常静默
-          }
-        },
+      close() {
+        try {
+          for (const client of clients) { try { client.end() } catch { /* ignore */ } }
+          clients.clear()
+          server.close()
+        } catch {
+          // 关闭异常静默
+        }
+      },
       })
     })
-  }
 }
