@@ -17,6 +17,7 @@
  * 所有目标目录均可注入（claudeDir/codexDir/homeDir），默认基于真实 homedir() 计算以便测试隔离。
  */
 import * as fs from 'fs-extra'
+import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -83,7 +84,7 @@ async function cleanupSettingsJsonHooks(result: CleanupResult, dirs: Dirs): Prom
     return
   }
   try {
-    const raw = await fs.readFile(settingsPath, 'utf-8')
+    const raw = await readFile(settingsPath, 'utf-8')
     const settings = JSON.parse(raw) as {
       hooks?: Record<string, { matcher?: string, hooks?: { command?: string }[] }[]>
       permissions?: { allow?: string[] }
@@ -112,7 +113,7 @@ async function cleanupSettingsJsonHooks(result: CleanupResult, dirs: Dirs): Prom
 
     if (hooksRemoved > 0 || permsRemoved > 0) {
       const tmpPath = `${settingsPath}.tmp`
-      await fs.writeFile(tmpPath, JSON.stringify(settings, null, 2))
+      await writeFile(tmpPath, JSON.stringify(settings, null, 2))
       await fs.move(tmpPath, settingsPath, { overwrite: true })
       if (hooksRemoved > 0) result.cleaned.push(`settings.json hooks (${hooksRemoved} entries)`)
       if (permsRemoved > 0) result.cleaned.push(`settings.json permissions.allow (${permsRemoved} entries)`)
@@ -132,11 +133,11 @@ async function cleanupCodexAgentsMd(result: CleanupResult, dirs: Dirs): Promise<
     return
   }
   try {
-    const content = await fs.readFile(filePath, 'utf-8')
+    const content = await readFile(filePath, 'utf-8')
     const stripped = content.replace(/<!-- LY:START[\s\S]*?-- LY:END -->\n?/g, '')
     if (stripped !== content) {
       const tmpPath = `${filePath}.tmp`
-      await fs.writeFile(tmpPath, stripped)
+      await writeFile(tmpPath, stripped)
       await fs.move(tmpPath, filePath, { overwrite: true })
       result.cleaned.push('~/.codex/AGENTS.md (LY blocks stripped)')
     } else {
@@ -159,7 +160,7 @@ async function cleanupCodexConfigTomlLyBlocks(result: CleanupResult, dirs: Dirs)
     return
   }
   try {
-    const content = await fs.readFile(filePath, 'utf-8')
+    const content = await readFile(filePath, 'utf-8')
     const lines = content.split('\n')
     const out: string[] = []
     let removed = false
@@ -193,7 +194,7 @@ async function cleanupCodexConfigTomlLyBlocks(result: CleanupResult, dirs: Dirs)
     }
     if (removed) {
       const tmpPath = `${filePath}.tmp`
-      await fs.writeFile(tmpPath, out.join('\n'))
+      await writeFile(tmpPath, out.join('\n'))
       await fs.move(tmpPath, filePath, { overwrite: true })
       result.cleaned.push('~/.codex/config.toml (LY blocks stripped)')
     } else {
@@ -231,7 +232,7 @@ async function cleanupCodexMode(result: CleanupResult, dirs: Dirs): Promise<void
   const agentsDir = join(dirs.codexDir, 'agents')
   if (await fs.pathExists(agentsDir)) {
     try {
-      for (const file of await fs.readdir(agentsDir)) {
+      for (const file of await readdir(agentsDir)) {
         if (file.startsWith('ly-') && file.endsWith('.toml')) {
           await removePath(join(agentsDir, file))
           result.cleaned.push(`~/.codex/agents/${file}`)
@@ -262,12 +263,12 @@ async function cleanupMcpRegistrations(result: CleanupResult, dirs: Dirs): Promi
   const claudeJsonPath = join(dirs.homeDir, '.claude.json')
   if (await fs.pathExists(claudeJsonPath)) {
     try {
-      const raw = await fs.readFile(claudeJsonPath, 'utf-8')
+      const raw = await readFile(claudeJsonPath, 'utf-8')
       const config = JSON.parse(raw) as { mcpServers?: Record<string, unknown> }
       const removed = removeMcpKeys(config)
       if (removed.length > 0) {
         const tmpPath = `${claudeJsonPath}.tmp`
-        await fs.writeFile(tmpPath, JSON.stringify(config, null, 2))
+        await writeFile(tmpPath, JSON.stringify(config, null, 2))
         await fs.move(tmpPath, claudeJsonPath, { overwrite: true })
         result.cleaned.push(`~/.claude.json mcpServers (${removed.join(', ')})`)
       } else {
@@ -284,12 +285,12 @@ async function cleanupMcpRegistrations(result: CleanupResult, dirs: Dirs): Promi
   const geminiSettingsPath = join(dirs.homeDir, '.gemini', 'settings.json')
   if (await fs.pathExists(geminiSettingsPath)) {
     try {
-      const raw = await fs.readFile(geminiSettingsPath, 'utf-8')
+      const raw = await readFile(geminiSettingsPath, 'utf-8')
       const settings = JSON.parse(raw) as { mcpServers?: Record<string, unknown> }
       const removed = removeMcpKeys(settings)
       if (removed.length > 0) {
         const tmpPath = `${geminiSettingsPath}.tmp`
-        await fs.writeFile(tmpPath, JSON.stringify(settings, null, 2))
+        await writeFile(tmpPath, JSON.stringify(settings, null, 2))
         await fs.move(tmpPath, geminiSettingsPath, { overwrite: true })
         result.cleaned.push(`~/.gemini/settings.json mcpServers (${removed.join(', ')})`)
       } else {
@@ -306,7 +307,7 @@ async function cleanupMcpRegistrations(result: CleanupResult, dirs: Dirs): Promi
   const codexConfigPath = join(dirs.codexDir, 'config.toml')
   if (await fs.pathExists(codexConfigPath)) {
     try {
-      const content = await fs.readFile(codexConfigPath, 'utf-8')
+      const content = await readFile(codexConfigPath, 'utf-8')
       const lines = content.split('\n')
       // 两种真实产物格式：内联 `key = { ... }`（手写）与 `[mcp_servers.<key>]` 表（smol-toml stringify）
       const out: string[] = []
@@ -336,7 +337,7 @@ async function cleanupMcpRegistrations(result: CleanupResult, dirs: Dirs): Promi
       }
       if (removed) {
         const tmpPath = `${codexConfigPath}.tmp`
-        await fs.writeFile(tmpPath, out.join('\n'))
+        await writeFile(tmpPath, out.join('\n'))
         await fs.move(tmpPath, codexConfigPath, { overwrite: true })
         result.cleaned.push('~/.codex/config.toml mcpServers (ly-registered entries removed)')
       } else {
@@ -403,7 +404,7 @@ export async function cleanupLegacyArtifacts(options: CleanupOptions = {}): Prom
         continue
       }
       try {
-        const content = await fs.readFile(filePath, 'utf-8')
+        const content = await readFile(filePath, 'utf-8')
         if (content.includes(marker)) {
           await removePath(filePath)
           result.cleaned.push(`commands/ly/${file} (fingerprint matched)`)
