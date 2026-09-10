@@ -170,7 +170,7 @@ npx ly-workflow menu    # 交互式菜单
 | `/ly:archive` | 委托 `opsx:archive` + 自动 commit |
 | `/ly:review-plan` | 审查对象为目标 change 的 `propose:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
 | `/ly:review-code` | 审查对象为目标 change 的最近 `apply:` commit，{{REVIEWER_MODEL}} 分级审查，审查-修复循环直到清零或触发终止条件（全局轮数上限 5 轮，清零优先），清零时统一提交修复 |
-| `/ly:release` | GitFlow 四场景发版（feature/release/hotfix/dev-offline），SemVer + Conventional Commits 自动推导版本号，用户确认后执行 |
+| `/ly:release` | GitFlow 四场景发版（feature/release/hotfix/dev-offline），SemVer + Conventional Commits 自动推导版本号，用户确认后执行；上线合并二选一（远端 PR 默认 / 本地直接合并）+ 主分支名检测（master/main） |
 | `/ly:changelog` | Keep a Changelog 格式生成/更新 CHANGELOG.md，按 commit 前缀分组（Added/Fixed/Changed），无对应提交的分组自动省略 |
 | `/ly:publish` | npm 包发布四场景（bmc 私域 Nexus/GitHub Packages/npmjs+GitHub Release/CI 自动发布），前置检查→版本号推导→构建→发布→验证 |
 

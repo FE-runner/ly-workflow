@@ -23,7 +23,17 @@ description: 'GitFlow 发版流程：feature/release/hotfix/dev-offline 四场�
 >
 > **分支基准规则：`master` 是唯一的分支 base**——feature、release、hotfix 分支**一律从 master 拉出**；`develop` 是主开发分支，只接收合并（所有开发成果汇入 develop），**任何时候不作为创建分支的 base**。
 >
-> **线上合并后必须三分支同步：** 任何改动合并到 master（含 feature 方式 C 直上线、release/hotfix 的 PR merge）后，都要把 `master`、`develop`、`dev-offline` 三个分支同步一遍，**以远端 `origin/master` 为基准**——同步前先 `git fetch origin master` 保证 `origin/master` 是线上最新状态，再 `git merge origin/master`，确保本地三个分支与线上保持一致。
+> **线上合并后必须三分支同步：** 任何改动合并到 master（含 feature 方式 C 直上线、release/hotfix 的 PR merge 或本地直接合并）后，都要把 `master`、`develop`、`dev-offline` 三个分支同步一遍，**以远端 `origin/master` 为基准**——同步前先 `git fetch origin master` 保证 `origin/master` 是线上最新状态，再 `git merge origin/master`，确保本地三个分支与线上保持一致。
+>
+> **主分支名检测规则：主分支可能是 `master` 也可能是 `main`。** 在执行任何场景前，先检测远端主分支名：
+>
+> ```bash
+> git remote show origin | grep 'HEAD branch'    # 输出形如：HEAD branch: master
+> # 远端不可用或未设置 HEAD 时的兜底：
+> git branch -r | grep -E 'origin/(master|main)$'
+> ```
+>
+> 下方所有命令示例中的 `master` 一律替换为实际检测到的主分支名（如 `main`），流程逻辑不变。
 
 ---
 
@@ -178,13 +188,22 @@ git commit -m "chore: bump version to <确认的版本号>"
 git add CHANGELOG.md   # 如果文件存在
 git commit -m "docs: update CHANGELOG for v<确认的版本号>"
 
-# 4. push release 分支，创建 PR 到 master
+# 4. 上线合并到 master（二选一）：
+#
+# 方式 A：远端 PR 合并（默认，可走 code review）
 git push origin release/<版本号>
 # 在 GitHub/GitLab 创建 PR：release/<版本号> → master
 # 标题示例：Release v<版本号>
 # 等待 code review 通过后 merge
+#
+# 方式 B：本地直接合并 master（跳过远端 PR，适合无需 review 的快速上线）
+git push origin release/<版本号>    # 先推送分支留档
+git checkout master
+git pull origin master
+git merge --no-ff release/<版本号>
+git push origin master
 
-# 5. PR merge 后，以远端 origin/master 为基准同步 develop 和 dev-offline（带回版本号、CHANGELOG、修复）
+# 5. 上线合并完成后（无论方式 A 还是 B），以远端 origin/master 为基准同步 develop 和 dev-offline（带回版本号、CHANGELOG、修复）
 git fetch origin master          # 先把 origin/master 引用刷新到线上最新
 git checkout master
 git merge --ff-only origin/master
@@ -229,13 +248,22 @@ git commit -m "fix: <问题描述>"
 git add version.sh
 git commit -m "chore: bump version to <确认的版本号>"
 
-# 4. push hotfix 分支，创建 PR 到 master
+# 4. 上线合并到 master（二选一）：
+#
+# 方式 A：远端 PR 合并（默认，可走 code review）
 git push origin hotfix/<问题描述>
 # 在 GitHub/GitLab 创建 PR：hotfix/<问题描述> → master
 # 标题示例：Hotfix: <问题描述>
 # 等待 code review 通过后 merge
+#
+# 方式 B：本地直接合并 master（跳过远端 PR，适合紧急情况快速上线）
+git push origin hotfix/<问题描述>   # 先推送分支留档
+git checkout master
+git pull origin master
+git merge --no-ff hotfix/<问题描述>
+git push origin master
 
-# 5. PR merge 后，以远端 origin/master 为基准同步 develop 和 dev-offline（三个分支对齐）
+# 5. 上线合并完成后（无论方式 A 还是 B），以远端 origin/master 为基准同步 develop 和 dev-offline（三个分支对齐）
 git fetch origin master          # 先把 origin/master 引用刷新到线上最新
 git checkout master
 git merge --ff-only origin/master
@@ -254,7 +282,7 @@ git branch -d hotfix/<问题描述>
 git push origin --delete hotfix/<问题描述>
 ```
 
-**注意：** hotfix PR merge 后必须同步到 develop 和 dev-offline 两个分支，缺一不可。
+**注意：** hotfix 上线合并后（无论 PR merge 还是本地直接合并）必须同步到 develop 和 dev-offline 两个分支，缺一不可。
 
 ---
 

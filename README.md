@@ -22,7 +22,7 @@ npx ly-workflow
 | `/ly:review-plan` | Codex 审查当前方案的合理性、遗漏边界、风险点 |
 | `/ly:review-code` | Codex 审查代码变更，Critical/Warning/Info 分级输出 |
 | `/ly:archive` | 归档完成的 change（委托 `opsx:archive`） |
-| `/ly:release` | GitFlow 四场景发版（feature/release/hotfix/dev-offline），SemVer 自动推导版本号 |
+| `/ly:release` | GitFlow 四场景发版（feature/release/hotfix/dev-offline），SemVer 自动推导版本号；上线合并二选一（远端 PR / 本地直接合并）+ 主分支名检测（master/main） |
 | `/ly:changelog` | 按 commit 前缀分组生成 Keep a Changelog 格式的 CHANGELOG.md |
 | `/ly:publish` | npm 包发布四场景（bmc 私域 Nexus / GitHub Packages / npmjs + GitHub Release / CI 自动发布） |
 | `/ly:commit` `/ly:rollback` `/ly:clean-branches` `/ly:worktree` | Git 工具 |
