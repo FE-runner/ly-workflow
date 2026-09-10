@@ -39,6 +39,7 @@ async function main(): Promise<number> {
     process.stdout.write(
       `Usage: ly-wrapper [--backend codex|claude|hermes|openclaw] [--progress] - [workdir]\n`
       + `       ly-wrapper --backend <b> resume <session_id> - [workdir]\n`
+      + `       ly-wrapper --lite   关闭审查进度 Web UI（或 env CODEAGENT_LITE_MODE=true）\n`
       + `Env: CODEX_TIMEOUT (秒, >10000 视为毫秒; 默认 7200)\n`)
     return 0
   }
@@ -166,7 +167,10 @@ async function main(): Promise<number> {
   return 0
 }
 
-main().then((code) => process.exit(code)).catch((err: unknown) => {
+main().then((code) => {
+  // 不直接 process.exit：给 SSE server.close() 留出排空时间，确保 done 帧送达浏览器
+  process.exitCode = code
+}).catch((err: unknown) => {
   process.stderr.write(`ERROR: ${err instanceof Error ? err.message : String(err)}\n`)
   process.exit(1)
 })

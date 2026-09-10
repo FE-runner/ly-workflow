@@ -35,12 +35,16 @@ describe('startProgressServer', () => {
     const decoder = new TextDecoder()
     // 先读到 hello 帧
     let acc = ''
-    while (!acc.includes('hello')) {
-      acc += decoder.decode((await reader.read()).value)
+    for (;;) {
+      const { value, done } = await reader.read()
+      acc += decoder.decode(value)
+      if (acc.includes('hello') || done) break
     }
     server!.broadcast({ event: 'message', session_id: 's1', backend: 'codex', content: '结论内容', content_type: 'message' })
-    while (!acc.includes('结论内容')) {
-      acc += decoder.decode((await reader.read()).value)
+    for (;;) {
+      const { value, done } = await reader.read()
+      acc += decoder.decode(value)
+      if (acc.includes('结论内容') || done) break
     }
     expect(acc).toContain('"event":"message"')
     expect(acc).toContain('"session_id":"s1"')

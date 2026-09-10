@@ -303,12 +303,9 @@ function showHelp(): void {
   console.log()
 }
 
-/**
- * Synchronous config read for non-async contexts (help display)
- */
 /** 显示设置：审查进度展示方式（liteMode）——Web UI（默认）/ 终端进度（lite） */
 async function configDisplayMode(config: any): Promise<void> {
-  const isZh = i18n.t('menu:title') !== undefined
+  const isZh = (config?.general?.language || 'zh-CN') === 'zh-CN'
   const current = config?.performance?.liteMode === true ? 'lite' : 'webui'
   const { mode } = await inquirer.prompt([{
     type: 'list',
@@ -321,6 +318,11 @@ async function configDisplayMode(config: any): Promise<void> {
     default: current,
   }])
   const fresh: any = await readLyConfig()
+  if (!fresh) {
+    console.log(`  ${ansis.yellow('⚠')} ${isZh ? '尚未初始化 ly-workflow 配置，无可修改项' : 'ly-workflow config not initialized'}`)
+    console.log()
+    return
+  }
   fresh.performance = fresh.performance ?? {}
   fresh.performance.liteMode = mode === 'lite'
   await writeLyConfig(fresh)
@@ -328,6 +330,9 @@ async function configDisplayMode(config: any): Promise<void> {
   console.log()
 }
 
+/**
+ * Synchronous config read for non-async contexts (help display)
+ */
 function readLyConfigSync(): any {
   try {
     const configPath = join(homedir(), '.claude', '.ly', 'config.toml')

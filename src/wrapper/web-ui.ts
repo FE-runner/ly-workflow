@@ -3,6 +3,7 @@
  * port 0 随机空闲端口、内嵌单页（EventSource 订阅 /events）、自动开浏览器（失败静默）、
  * 后端进程退出时由调用方 close()，不残留后台进程。
  * 服务内部全部 try/catch：任何异常不影响审查主流程。
+ * 事件范围：结构化事件流由 codex backend 产生；claude/hermes/openclaw 后端当前仅推送最终 done 报告（无过程事件）。
  */
 import * as http from 'node:http'
 import { spawn } from 'node:child_process'
@@ -28,13 +29,18 @@ export interface ProgressServer {
 /** 平台命令打开浏览器（macOS open -g 后台不抢焦点）；失败静默——URL 已由调用方打印到终端兜底 */
 export function openBrowser(url: string): void {
   try {
+    let child: ReturnType<typeof spawn>
     if (process.platform === 'darwin') {
-      spawn('open', ['-g', url], { detached: true, stdio: 'ignore' }).unref()
+      child = spawn('open', ['-g', url], { detached: true, stdio: 'ignore' })
     } else if (process.platform === 'win32') {
-      spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore' }).unref()
+      child = spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore' })
     } else {
-      spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref()
+      child = spawn('xdg-open', [url], { detached: true, stdio: 'ignore' })
     }
+    // spawn 失败是异步 'error' 事件（如 headless 环境无 xdg-open），必须监听静默——
+    // 无监听器时 unhandled 'error' 会崩溃整个 wrapper 进程
+    child.on('error', () => { /* 打开失败静默：URL 已打印，用户可手动打开 */ })
+    child.unref()
   } catch {
     // 打开失败静默：URL 已打印，用户可手动打开
   }
@@ -112,8 +118,11 @@ function startServer(backend: string, resolve: (s: ProgressServer | null) => voi
         // 单请求异常不影响服务与主流程
       }
     })
-    // Node listen 异步：等 'listening' 事件后才有 address；'error' 降级为 null
+    // Node listen 异步：等 'listening' 事件后才有 address；'error' 仅在 listen 阶段降级为 null
+    let resolved = false
     server.once('error', () => {
+      if (resolved) return // 运行期错误（罕见）不关停正在服务的 UI
+      resolved = true
       try { server.close() } catch { /* ignore */ }
       resolve(null)
     })
@@ -121,11 +130,14 @@ function startServer(backend: string, resolve: (s: ProgressServer | null) => voi
       const address = server.address()
       if (!address || typeof address === 'string') {
         server.close()
+        resolved = true
         resolve(null)
         return
       }
       const port = address.port
-      const url = `http://localhost:${port}`
+      // 绑定 127.0.0.1 就输出 127.0.0.1——部分环境 localhost 优先解析 ::1（IPv6）
+      const url = `http://127.0.0.1:${port}`
+      resolved = true
       openBrowser(url)
       resolve({
       url,

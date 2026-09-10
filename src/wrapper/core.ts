@@ -2,7 +2,7 @@
  * ly-wrapper core — TS 移植自 Go 版 codeagent-wrapper 的单任务路径。
  *
  * 对照基线（Go 版行为，实施前从 codeagent-wrapper/ 源码提取）：
-XX
+ * - CLI: [--backend <v>|--backend=<v>] [--progress] [--lite|-L(关闭 Web UI)] [--skip-permissions(接受不生效)]
  *        [--skip-permissions(接受不生效)] (resume <session_id>)? (<task|->)? (<workdir>)?
  * - `-` 表示任务从 stdin 读入；ROLE_FILE: <path> 行原地替换为文件内容（~ 展开，读取失败保留原行）
  * - stdin 模式判定：显式 `-` 或任务含特殊字符(\n \ " ' ` $)或长度>800
@@ -293,7 +293,7 @@ function processLine(state: ParseState, rawLine: string, emit: EmitFn, emitStruc
           cmd: JSON.stringify((item.command ?? '').slice(0, 120)),
           ...(exit ? { exit } : {}),
         })
-        emitStructured({ name: 'cmd_done', sessionId: state.sessionId, contentType: 'command', cmd: (item.command ?? '').slice(0, 200), exit })
+        emitStructured({ name: 'cmd_done', sessionId: state.sessionId, contentType: 'command', cmd: (item.command ?? '').slice(0, 200), exit }) // cmd 为展示护栏截断；content 类字段不截断
       }
     }
     return
