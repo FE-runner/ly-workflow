@@ -42,7 +42,7 @@ npx ly-workflow
 
 - **实施**：`routing.implementer` 默认 `claude`——Claude Code 本人写代码；可选切换 `codex`/`hermes`/`openclaw` 委托外部 agent 实施
 - **审查**：两个关卡都走 `ly-wrapper（TS 脚本，随 npm 包分发） --backend <routing.reviewer>`（默认 `codex`），复用其 session 管理与进度回调
-- **发布**：打 tag `v*.*.*` push 触发 GitHub Actions 自动发 npm 包，`ly-wrapper（TS 脚本，随 npm 包分发）/` 变更自动重建各平台二进制
+- **发布**：打 tag `v*.*.*` push 触发 GitHub Actions 自动发 npm 包，`ly-wrapper` 为 TS 脚本、随 npm 包一同分发（无独立二进制构建步骤）
 - **生命周期**：直接委托 OpenSpec 原生技能（`opsx:*`），不重新封装
 
 详见 [CLAUDE.md](./CLAUDE.md)。

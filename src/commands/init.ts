@@ -660,6 +660,13 @@ export async function init(options: InitOptions = {}): Promise<void> {
       showBinaryDownloadWarning(join(installDir, 'bin'))
     }
 
+    // Legacy artifact cleanup (upstream assets from pre-v2.0 installs) — 非阻断
+    try {
+      const { cleanupLegacyArtifacts, reportCleanupResult } = await import('../utils/legacy-cleanup')
+      reportCleanupResult(await cleanupLegacyArtifacts())
+    }
+    catch { /* non-blocking */ }
+
     console.log()
   }
   catch (error) {

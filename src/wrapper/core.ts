@@ -17,9 +17,10 @@
  * - openclaw 多行 JSON blob: payloads[].text 拼接 + meta.agentMeta.sessionId
  * - 超时: CODEX_TIMEOUT（>10000 视为毫秒），默认 7200s，超时 kill 进程树退出码 124
  * - 成功输出: <message>\n---\nSESSION_ID: <id>\n（有 session 时）
+ * - 有意裁剪：管道输入自动读入（readPipedTask）未移植——命令模板均用显式 `-` 调用
  */
 import { spawn } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -345,4 +346,29 @@ export function resolveTimeoutSeconds(): number {
   const parsed = Number.parseInt(raw, 10)
   if (Number.isNaN(parsed) || parsed <= 0) return DEFAULT_TIMEOUT_SECONDS
   return parsed > 10000 ? Math.floor(parsed / 1000) : parsed
+}
+
+// ─── 环境注入 ────────────────────────────────────────────
+
+/**
+ * 读取 ~/.claude/settings.json 中 env 对象的字符串值（移植自 Go 版 loadMinimalEnvSettings）。
+ * 文件缺失 / 解析失败 / 文件超过 1MB 时返回空对象；仅提取字符串值，其余类型忽略。
+ */
+export function loadMinimalEnvSettings(): Record<string, string> {
+  const settingsPath = join(homedir(), '.claude', 'settings.json')
+  try {
+    if (statSync(settingsPath).size > 1024 * 1024) return {}
+    const parsed = JSON.parse(readFileSync(settingsPath, 'utf-8')) as {
+      env?: Record<string, unknown>
+    }
+    const env: Record<string, string> = {}
+    if (parsed.env && typeof parsed.env === 'object') {
+      for (const [key, value] of Object.entries(parsed.env)) {
+        if (typeof value === 'string') env[key] = value
+      }
+    }
+    return env
+  } catch {
+    return {}
+  }
 }

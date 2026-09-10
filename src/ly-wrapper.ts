@@ -11,7 +11,7 @@ import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import {
   backendCommand, buildBackendArgs, createOutputStreamParser, injectRoleFile,
-  parseArgs, resolveTimeoutSeconds, shouldUseStdin, TIMEOUT_EXIT_CODE,
+  loadMinimalEnvSettings, parseArgs, resolveTimeoutSeconds, shouldUseStdin, TIMEOUT_EXIT_CODE,
 } from './wrapper/core'
 
 const LY_WRAPPER_VERSION = '2.0.0'
@@ -54,6 +54,10 @@ async function main(): Promise<number> {
     finalTask = injectRoleFile(cfg.task)
   }
 
+  // 显式 stdin 模式下把回填的任务文本写回 cfg.task，
+  // 使 buildBackendArgs 中 hermes/openclaw 的 stdin 提升（targetArg === '-' && config.task）生效
+  cfg.task = finalTask
+
   // 与 Go 版一致：显式 `-` 必走 stdin；否则仅当任务含特殊字符（\n \ " ' ` $）或长度>800 时走 stdin
   const stdinMode = cfg.explicitStdin || shouldUseStdin({ ...cfg, explicitStdin: false }, false)
 
@@ -66,6 +70,7 @@ async function main(): Promise<number> {
 
   const child = spawn(command, args, {
     cwd: cfg.workDir,
+    env: { ...process.env, ...loadMinimalEnvSettings() },
     stdio: ['pipe', 'pipe', 'inherit'],
     detached: process.platform !== 'win32', // posix 下独立进程组，便于超时整树 kill
   })
@@ -117,6 +122,11 @@ async function main(): Promise<number> {
   }
 
   const result = parser.result()
+  if (!result.message) {
+    // 退出码 0 但无任何 message：按失败处理，避免伪装成空报告
+    process.stderr.write(`ERROR: backend completed without message output${result.sessionId ? ` (session: ${result.sessionId})` : ''}\n`)
+    return 1
+  }
   process.stdout.write(`${result.message}\n`)
   if (result.sessionId) {
     process.stdout.write(`\n---\nSESSION_ID: ${result.sessionId}\n`)

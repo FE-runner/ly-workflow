@@ -317,7 +317,9 @@ describe('uninstallWorkflows E2E', () => {
     expect(fs.existsSync(join(tmpDir, 'commands', 'ly', 'commit.md'))).toBe(true)
 
     // Now uninstall
-    const uninstallResult = await uninstallWorkflows(tmpDir)
+    const uninstallResult = await uninstallWorkflows(tmpDir, {
+      legacyCleanupDirs: { claudeDir: join(tmpDir, '.claude'), codexDir: join(tmpDir, '.codex'), homeDir: tmpDir },
+    })
     expect(uninstallResult.success).toBe(true)
     expect(uninstallResult.removedCommands.length).toBeGreaterThan(0)
 
@@ -327,7 +329,9 @@ describe('uninstallWorkflows E2E', () => {
 
   it('uninstall on empty dir succeeds without errors', async () => {
     const emptyDir = join(tmpdir(), `ly-test-empty-${Date.now()}`)
-    const result = await uninstallWorkflows(emptyDir)
+    const result = await uninstallWorkflows(emptyDir, {
+      legacyCleanupDirs: { claudeDir: join(emptyDir, '.claude'), codexDir: join(emptyDir, '.codex'), homeDir: emptyDir },
+    })
     expect(result.success).toBe(true)
     expect(result.errors).toEqual([])
     await fs.remove(emptyDir)

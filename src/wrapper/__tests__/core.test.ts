@@ -126,6 +126,25 @@ describe('buildBackendArgs', () => {
   it('未知 backend 返回空数组', () => {
     expect(buildBackendArgs(cfg({ backend: 'gemini' }), 't')).toEqual([])
   })
+
+  // 端到端：显式 stdin 模式（`-` + stdin heredoc）——ly-wrapper 读入任务文本回填 cfg.task 后，
+  // hermes/openclaw 的 stdin 提升逻辑必须产出任务全文（而非 `-` 字面量）
+  it('端到端 hermes: parseArgs(`-`) + stdin 回填 task → -z 任务全文', () => {
+    const parsed = parseArgs(['--backend', 'hermes', '-', '.'])
+    expect(parsed.error).toBeUndefined()
+    const c = parsed.config!
+    c.task = '审查任务全文' // 模拟 ly-wrapper 读入 stdin 并回填 cfg.task
+    expect(buildBackendArgs(c, '-')).toEqual(['-z', '审查任务全文'])
+  })
+
+  it('端到端 openclaw: parseArgs(`-`) + stdin 回填 task → -m 任务全文', () => {
+    const parsed = parseArgs(['--backend', 'openclaw', '-', '.'])
+    expect(parsed.error).toBeUndefined()
+    const c = parsed.config!
+    c.task = '实施任务全文'
+    expect(buildBackendArgs(c, '-'))
+      .toEqual(['agent', '--local', '--agent', 'main', '-m', '实施任务全文', '--json'])
+  })
 })
 
 describe('createOutputStreamParser', () => {

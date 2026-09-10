@@ -407,7 +407,10 @@ export interface UninstallResult {
  * Uninstall workflows by removing their command files.
  * @param options.preserveBinary — when true, skip binary removal (used during update)
  */
-export async function uninstallWorkflows(installDir: string, options?: { preserveBinary?: boolean }): Promise<UninstallResult> {
+export async function uninstallWorkflows(
+  installDir: string,
+  options?: { preserveBinary?: boolean, legacyCleanupDirs?: { claudeDir?: string, codexDir?: string, homeDir?: string } },
+): Promise<UninstallResult> {
   const result: UninstallResult = {
     success: true,
     removedCommands: [],
@@ -552,7 +555,7 @@ export async function uninstallWorkflows(installDir: string, options?: { preserv
   // 遗产清理：回收 v2.0 瘦身前历史安装的上游资产（非阻断）
   try {
     const { cleanupLegacyArtifacts, reportCleanupResult } = await import('./legacy-cleanup')
-    reportCleanupResult(await cleanupLegacyArtifacts())
+    reportCleanupResult(await cleanupLegacyArtifacts(options?.legacyCleanupDirs))
   }
   catch (error) {
     result.errors.push(`Legacy cleanup failed (non-blocking): ${error}`)
