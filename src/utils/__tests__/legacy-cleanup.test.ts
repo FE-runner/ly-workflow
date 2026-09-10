@@ -73,6 +73,12 @@ function makeFakeHome(): string {
     'ace-tool = { command = "ace" }',
     'context7 = "legacy"',
     '',
+    '[mcp_servers.context7]',
+    'command = "npx"',
+    '',
+    '[mcp_servers.context7.env]',
+    'API_KEY = "x"',
+    '',
   ].join('\n'))
   write(join(codex, 'agents/ly-review.toml'), '# legacy agent')
   write(join(codex, 'hooks.json'), '{}')
@@ -143,6 +149,8 @@ describe('cleanupLegacyArtifacts（注入临时目录）', () => {
       expect(configToml).not.toContain('enabled = true')
       expect(configToml).not.toContain('ace-tool')
       expect(configToml).not.toContain('context7')
+      // 回归：删除父表时子表 [mcp_servers.<key>.env] 必须一并删除，不留孤儿表头
+      expect(configToml).not.toContain('.env]')
       expect(configToml).toContain('[model]')
       expect(configToml).toContain('gpt = "5"')
       expect(configToml).toContain('[mcp_servers.user_own]')

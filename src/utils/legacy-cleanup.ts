@@ -317,7 +317,12 @@ async function cleanupMcpRegistrations(result: CleanupResult, dirs: Dirs): Promi
         const trimmed = line.trim()
         if (inLyTable) {
           if (trimmed.startsWith('[')) {
-            inLyTable = false // 下一个表开始，该行按正常逻辑处理
+            // 子表（[mcp_servers.<key>.<sub>]）随父表一并删除，否则留下无 transport 的孤儿表头
+            if (/^\[mcp_servers\."?[\w-]+"?\./.test(trimmed)) {
+              removed = true
+              continue
+            }
+            inLyTable = false // 真正的下一个表开始，该行按正常逻辑处理
           } else {
             removed = true
             continue
