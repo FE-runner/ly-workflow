@@ -30,7 +30,7 @@ CLI 工具的全部 TypeScript 实现：安装/更新 `ly-workflow` 到 `~/.clau
 | `ly menu` | `commands/menu.ts` |
 | `ly update` | `commands/update.ts` |
 | `ly doctor` / `ly status` | `commands/doctor.ts` |
-| `ly diagnose-mcp` | `commands/diagnose-mcp.ts` |
+| `ly uninstall` | `cli-setup.ts`（内联注册） |
 
 ## 核心类型（`types/index.ts`）
 
@@ -44,7 +44,7 @@ CLI 工具的全部 TypeScript 实现：安装/更新 `ly-workflow` 到 `~/.clau
 
 - `installWorkflows()`：安装 14 个 `/ly:*` 命令到 `~/.claude/commands/ly/`
 - Backend 只需 codex/claude，无 frontend/backend 双模型分派逻辑
-- `EXPECTED_BINARY_VERSION`：需与 `codeagent-wrapper/main.go` 的 `version` 保持一致
+- ly-wrapper 以 Node 脚本形式随 npm 包分发（`src/ly-wrapper.ts` → `dist/ly-wrapper.js` → `~/.claude/bin/ly-wrapper`），无独立版本门禁
 
 ## 构建
 

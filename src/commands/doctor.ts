@@ -58,64 +58,20 @@ export async function doctor(): Promise<void> {
     detail: `${cmdCount} installed`,
   })
 
-  // 4. Hooks
-  const hookDir = join(installDir, 'hooks', 'ly')
-  const hooks = await dirFiles(hookDir)
-  const hookCount = hooks.filter(f => f.endsWith('.js')).length
-  checks.push({
-    label: 'Hooks',
-    status: hookCount >= 4 ? OK : hookCount > 0 ? WARN : FAIL,
-    detail: `${hookCount}/5 scripts`,
-  })
-
-  // 5. Hooks registered in settings.json
-  let hooksRegistered = 0
-  const settingsPath = join(installDir, 'settings.json')
-  if (await fileExists(settingsPath)) {
-    try {
-      const settings = await fs.readJSON(settingsPath)
-      const hooksConfig = settings.hooks || {}
-      for (const entries of Object.values(hooksConfig) as any[]) {
-        for (const entry of (Array.isArray(entries) ? entries : [])) {
-          const cmds = (entry?.hooks || []) as any[]
-          if (cmds.some((h: any) => typeof h?.command === 'string' && h.command.includes('hooks/ly/'))) {
-            hooksRegistered++
-          }
-        }
-      }
-    }
-    catch { /* ignore */ }
-  }
-  checks.push({
-    label: 'Hook registration',
-    status: hooksRegistered >= 3 ? OK : hooksRegistered > 0 ? WARN : FAIL,
-    detail: `${hooksRegistered} events in settings.json`,
-  })
-
-  // 6. Binary
-  const wrapperName = process.platform === 'win32' ? 'codeagent-wrapper.exe' : 'codeagent-wrapper'
-  const wrapperPath = join(installDir, 'bin', wrapperName)
+  // 4. ly-wrapper script
+  const wrapperPath = join(installDir, 'bin', 'ly-wrapper')
   let binaryVer: string | null = null
   if (await fileExists(wrapperPath)) {
     binaryVer = execSafe(`"${wrapperPath}" --version`)
     if (binaryVer) binaryVer = binaryVer.replace(/^.*version\s*/, '')
   }
   checks.push({
-    label: 'Binary',
+    label: 'ly-wrapper',
     status: binaryVer ? OK : FAIL,
     detail: binaryVer ? `v${binaryVer}` : `Not found (${wrapperPath})`,
   })
 
-  // 7. Skills
-  const skillDir = join(installDir, 'skills', 'ly')
-  const hasSkills = await fileExists(skillDir)
-  checks.push({
-    label: 'Skills',
-    status: hasSkills ? OK : WARN,
-    detail: hasSkills ? 'Installed' : 'Not found',
-  })
-
-  // 8. Rules
+  // 5. Rules
   const rulesDir = join(installDir, 'rules')
   const rules = (await dirFiles(rulesDir)).filter(f => f.startsWith('ly-'))
   checks.push({
@@ -124,32 +80,7 @@ export async function doctor(): Promise<void> {
     detail: rules.length > 0 ? rules.join(', ') : 'None',
   })
 
-  // 9. MCP servers
-  const claudeJsonPath = join(homedir(), '.claude.json')
-  let mcpServers: string[] = []
-  if (await fileExists(claudeJsonPath)) {
-    try {
-      const cj = await fs.readJSON(claudeJsonPath)
-      mcpServers = Object.keys(cj.mcpServers || {})
-    }
-    catch { /* ignore */ }
-  }
-  checks.push({
-    label: 'MCP servers',
-    status: mcpServers.length > 0 ? OK : WARN,
-    detail: mcpServers.length > 0 ? mcpServers.join(', ') : 'None configured',
-  })
-
-  // 10. Codex mode
-  const codexAgentsMd = join(homedir(), '.codex', 'AGENTS.md')
-  const hasCodexMode = await fileExists(codexAgentsMd)
-  checks.push({
-    label: 'Codex mode',
-    status: hasCodexMode ? OK : ansis.gray('—'),
-    detail: hasCodexMode ? 'Installed' : 'Not installed (optional)',
-  })
-
-  // 11. OpenSpec CLI
+  // 6. OpenSpec CLI
   const openspecCli = await detectOpenspecCli()
   checks.push({
     label: 'OpenSpec CLI',
@@ -157,7 +88,7 @@ export async function doctor(): Promise<void> {
     detail: openspecCli.installed ? `v${openspecCli.version}` : i18n.t('common:doctor.openspecCliMissing'),
   })
 
-  // 12. OpenSpec skills (opsx)
+  // 7. OpenSpec skills (opsx)
   const hasOpsxSkills = detectOpsxSkills()
   checks.push({
     label: 'OpenSpec skills',
@@ -195,12 +126,8 @@ export async function status(): Promise<void> {
   // Commands
   const cmds = (await dirFiles(join(installDir, 'commands', 'ly'))).filter(f => f.endsWith('.md'))
 
-  // Hooks
-  const hooks = (await dirFiles(join(installDir, 'hooks', 'ly'))).filter(f => f.endsWith('.js'))
-
-  // Binary
-  const wrapperName = process.platform === 'win32' ? 'codeagent-wrapper.exe' : 'codeagent-wrapper'
-  const wrapperPath = join(installDir, 'bin', wrapperName)
+  // ly-wrapper script
+  const wrapperPath = join(installDir, 'bin', 'ly-wrapper')
   let binaryVer = '—'
   if (await fileExists(wrapperPath)) {
     const raw = execSafe(`"${wrapperPath}" --version`)
@@ -209,17 +136,6 @@ export async function status(): Promise<void> {
 
   // Model routing
   const reviewer = config?.routing?.reviewer || 'codex'
-
-  // MCP
-  let mcpServers: string[] = []
-  const claudeJsonPath = join(homedir(), '.claude.json')
-  if (await fileExists(claudeJsonPath)) {
-    try {
-      const cj = await fs.readJSON(claudeJsonPath)
-      mcpServers = Object.keys(cj.mcpServers || {})
-    }
-    catch { /* ignore */ }
-  }
 
   // Active tasks
   let activeTasks = 0
@@ -241,9 +157,6 @@ export async function status(): Promise<void> {
     }
   }
 
-  // Codex mode
-  const codexMode = await fileExists(join(homedir(), '.codex', 'AGENTS.md'))
-
   // OpenSpec dependency (same detectors as installer preflight)
   const openspecCli = await detectOpenspecCli()
   const openspecSkills = detectOpsxSkills()
@@ -254,11 +167,8 @@ export async function status(): Promise<void> {
   console.log()
   console.log(`  ${ansis.bold('Version')}        ${installedVer}${installedVer !== latestVer ? ansis.yellow(` (latest: ${latestVer})`) : ansis.green(' (up to date)')}`)
   console.log(`  ${ansis.bold('Commands')}       ${cmds.length}`)
-  console.log(`  ${ansis.bold('Hooks')}          ${hooks.length} scripts`)
-  console.log(`  ${ansis.bold('Binary')}         ${binaryVer}`)
+  console.log(`  ${ansis.bold('ly-wrapper')}      ${binaryVer}`)
   console.log(`  ${ansis.bold('Reviewer')}       ${reviewer}`)
-  console.log(`  ${ansis.bold('MCP')}            ${mcpServers.length > 0 ? mcpServers.join(', ') : ansis.gray('none')}`)
-  console.log(`  ${ansis.bold('Codex mode')}     ${codexMode ? 'installed' : ansis.gray('not installed')}`)
   console.log(`  ${ansis.bold('OpenSpec CLI')}   ${openspecCli.installed ? `v${openspecCli.version}` : ansis.yellow(i18n.t('common:doctor.openspecCliMissing'))}`)
   console.log(`  ${ansis.bold('OpenSpec skills')}${openspecSkills ? ` ${i18n.t('common:doctor.skillsInitialized')}` : ansis.yellow(` ${i18n.t('common:doctor.skillsMissing')}`)}`)
   console.log(`  ${ansis.bold('Active tasks')}   ${activeTasks > 0 ? ansis.yellow(String(activeTasks)) : '0'}`)

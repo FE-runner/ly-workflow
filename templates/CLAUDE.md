@@ -13,9 +13,7 @@
 | `commands/` | 14 个 slash command | `~/.claude/commands/ly/` |
 | `commands/agents/` | 目前为空（旧 agent 已随多模型引擎删除） | — |
 | `prompts/codex/` `prompts/claude/` | 审查/角色提示词（只留 codex+claude） | `~/.claude/.ly/prompts/` |
-| `skills/` | 质量关卡 + 域知识 + impeccable 工具（逻辑不变，命名空间随改名调整） | `~/.claude/skills/ly/` |
-| `rules/` | `ly-skills.md`/`ly-skill-routing.md`/`ly-codegraph.md` | `~/.claude/rules/` |
-| `output-styles/` | 8 种输出风格 | `~/.claude/output-styles/` |
+| `rules/` | `ly-skills.md`/`ly-codegraph.md` | `~/.claude/rules/` |
 
 ## commands/（14 个）
 
@@ -24,7 +22,7 @@
 | `init.md` | 真逻辑 | 生成 CLAUDE.md + `openspec init` + 自动 commit |
 | `explore.md` | 薄壳委托 | 直接调用 `opsx:explore`，收敛到方案时提示转 `/ly:propose` |
 | `propose.md` | 真逻辑 | 委托 `opsx:propose` + 创建方案前 worktree 询问（从当前分支切出，不在 worktree 内才问，全局一次；切后**同会话 cd 进 worktree 续跑**——cd 后立即校验工作目录失败即停，续接命令降级为会话异常死亡时的兜底，baseline 失败分支为"仍继续/放弃"）+ 全自动/手动两路径（全自动 = review-plan → apply → review-code 自动化流水线；手动 = 逐步确认）；生成后 commit 前执行**方案自审**（正向/反向逻辑闭环 + 基线波及 + 通用业务维度过网，逐项结论清单硬约束；机械断链直接修、业务判断类 AskUserQuestion 问用户——全自动模式下仍问）；自审修复随 `propose: <change-name>` commit 一次干净落库 |
-| `apply.md` | 真逻辑 | 读取 `routing.implementer`（`claude`/`codex`/`hermes`/`openclaw`，默认 `claude`）：`claude` = 当前会话 Claude 本人读 tasks.md 逐任务实施+验证+勾 checkbox，无 wrapper 调用；外部后端 = 委托 `codeagent-wrapper` + `builder.md` 单次 agentic 调用实施 tasks，`OVERALL: PASS` 后立即 commit（`apply: <change-name>`），`OVERALL: FAIL`/调用失败原样呈报转人工（不重试不兜底）；不再隔离检测/不再暂存区持有 |
+| `apply.md` | 真逻辑 | 读取 `routing.implementer`（`claude`/`codex`/`hermes`/`openclaw`，默认 `claude`）：`claude` = 当前会话 Claude 本人读 tasks.md 逐任务实施+验证+勾 checkbox，无 wrapper 调用；外部后端 = 委托 `ly-wrapper` + `builder.md` 单次 agentic 调用实施 tasks，`OVERALL: PASS` 后立即 commit（`apply: <change-name>`），`OVERALL: FAIL`/调用失败原样呈报转人工（不重试不兜底）；不再隔离检测/不再暂存区持有 |
 | `archive.md` | 真逻辑 | 委托 `opsx:archive` 归档 + 自动 commit |
 | `review-plan.md` | 真逻辑 | Codex 审方案（独立角色提示词 `plan-reviewer.md`，不与 `review-code.md` 共用 `reviewer.md`；审查对象为目标 change 的 `propose:` commit），审查-修复循环（全局轮数上限 5 轮，清零优先；新增第 9 类"审查对象类型持续系统性误判"），循环期间不提交、清零后对审查目标全部文件统一提交（`--no-commit` 关闭） |
 | `review-code.md` | 真逻辑 | Codex 审代码，Critical/Warning/Info 分级，审查对象为最近 `apply:` commit（`git log --grep="^apply:"` 定位），审查-修复循环（全局轮数上限 5 轮，清零优先；新增第 9 类"审查对象类型持续系统性误判"，与 `review-plan.md` 共用），循环期间不提交、清零后对审查范围全部文件统一提交（`--no-commit` 关闭） |
@@ -54,6 +52,5 @@
 | `{{REVIEWER_MODEL}}` | 审查模型（codex/hermes/openclaw，不含 claude），默认 codex |
 | `{{IMPLEMENTER_MODEL}}` | 实施模型（claude/codex/hermes/openclaw，含 claude），默认 claude；`apply.md` 使用，claude 时连同 `LY:IF:IMPLEMENTER_*` 条件块一起渲染"本人实施"路径 |
 | `{{LITE_MODE_FLAG}}` | 轻量模式标志 |
-| `{{MCP_SEARCH_TOOL}}` / `{{MCP_SEARCH_PARAM}}` | MCP provider 注册表驱动（当前 14 个命令均未使用，代码保留但暂无消费者） |
 
 `{{FRONTEND_PRIMARY}}` `{{BACKEND_PRIMARY}}` `{{GEMINI_MODEL_FLAG}}` `{{GROK_MODEL_FLAG}}` 等旧占位符已随多模型层一并移除。

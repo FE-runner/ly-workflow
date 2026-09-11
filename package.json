@@ -1,6 +1,6 @@
 {
   "name": "ly-workflow",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "description": "Claude Code + OpenSpec + Codex review gates — a lean two-role dev workflow",
   "type": "module",
   "packageManager": "pnpm@10.17.1",
@@ -38,13 +38,11 @@
     "templates/commands/",
     "templates/prompts/codex/",
     "templates/prompts/claude/",
-    "templates/output-styles/",
-    "templates/skills/",
     "templates/rules/"
   ],
   "scripts": {
     "dev": "tsx src/cli.ts",
-    "build": "unbuild",
+    "build": "unbuild && node scripts/build-wrapper.mjs",
     "start": "node bin/ly.mjs",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm build",

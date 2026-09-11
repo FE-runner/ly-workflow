@@ -24,7 +24,7 @@
 
 `/ly:apply` SHALL 在委托实施**之前**解析目标 change 名：按固定优先级 `$ARGUMENTS` 中显式且合法的 change 名 → `openspec/changes/` 下唯一未归档的 change → 无法唯一确定时直接询问用户。SHALL NOT 使用"当前 worktree 反查"或"固定目标路径匹配"（新模型下 worktree 目录/分支锁定为开发分支名、不等于 change 名，不存在可反查的固定路径映射）。`/ly:apply` SHALL NOT 再执行基于 `/ly:worktree switch` 的隔离检测——是否隔离由 `/ly:propose` 在创建方案前决定；apply 只负责在**当前工作区**（无论是否 worktree）实施 tasks。`/ly:apply` SHALL NOT 调用 `/ly:worktree switch`，其会话尾部 SHALL NOT 再提示"如需隔离环境可用 `/ly:worktree switch ...`"。
 
-`/ly:apply` SHALL NOT 直接调用 `opsx:apply` 让 Claude 自己实施代码——实施步骤 SHALL 读取 `routing.implementer`，委托 `codeagent-wrapper --backend <routing.implementer>`（`ROLE_FILE` 指向 `builder.md`）以单次 agentic 调用完成全部 tasks（具体行为见 `optional-implementer-agent` 能力）。
+`/ly:apply` SHALL NOT 直接调用 `opsx:apply` 让 Claude 自己实施代码——实施步骤 SHALL 读取 `routing.implementer`，委托 `ly-wrapper --backend <routing.implementer>`（`ROLE_FILE` 指向 `builder.md`）以单次 agentic 调用完成全部 tasks（具体行为见 `optional-implementer-agent` 能力）。
 
 Implementer agent 返回 `OVERALL: PASS` 后 SHALL 检查是否有实际文件变动（`git status --porcelain`）。有变动时 SHALL `git add` 本次实际改动的文件，然后**立即 commit**（提交信息 `apply: <change-name>`）；无变动则跳过，SHALL NOT 创建空 commit。该 commit 即为 `/ly:review-code` 的审查对象（见 `ly-propose-flow` 的"审查对象 = 最近一次相关 commit"）。若 `git commit` 失败，如实报告 Git 返回的原始错误。返回 `OVERALL: FAIL` 或调用本身失败时的处理见 `optional-implementer-agent` 能力，不执行提交。
 

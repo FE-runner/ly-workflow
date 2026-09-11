@@ -37,7 +37,7 @@ ls -d openspec/changes/*/ 2>/dev/null | grep -v '/archive/'
 ```
 WORKDIR=$(pwd)
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/{{REVIEWER_MODEL}}/plan-reviewer.md\n<TASK>审查以下OpenSpec方案的合理性：遗漏的边界情况、范围是否清晰、风险点、spec 是否覆盖 proposal 的 What Changes。
+  command: "~/.claude/bin/ly-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/{{REVIEWER_MODEL}}/plan-reviewer.md\n<TASK>审查以下OpenSpec方案的合理性：遗漏的边界情况、范围是否清晰、风险点、spec 是否覆盖 proposal 的 What Changes。
 
 核心约束（加速审查、减少无关探索）：
 - 只审查该 change 目录下 artifact 之间的内在一致性和完整性（proposal vs design vs tasks vs spec 是否互相矛盾、是否有遗漏）

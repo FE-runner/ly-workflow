@@ -4,14 +4,12 @@ import ora from 'ora'
 import { exec, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { homedir } from 'node:os'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'pathe'
+import { join } from 'pathe'
 import fs from 'fs-extra'
 import { parse as parseTOML } from 'smol-toml'
 import { version } from '../../package.json'
-import { configMcp } from './config-mcp'
 import { i18n } from '../i18n'
-import { collectInvocableSkills, getWorkflowConfigs, installCodexMode, uninstallCodexMode, uninstallWorkflows } from '../utils/installer'
+import { getWorkflowConfigs, uninstallWorkflows } from '../utils/installer'
 import { isValidImplementerBackend, isValidRoutingBackend, readLyConfig, writeLyConfig } from '../utils/config'
 import { init } from './init'
 import { update } from './update'
@@ -157,7 +155,6 @@ export async function showMainMenu(): Promise<void> {
     const config = await readLyConfig()
     const cmdCount = config?.workflows?.installed?.length || 0
     const lang = config?.general?.language || 'zh-CN'
-    const mcpProvider = config?.mcp?.provider || '—'
 
     // Build status parts
     const statusParts = [
@@ -165,9 +162,6 @@ export async function showMainMenu(): Promise<void> {
       ansis.white(`${cmdCount} commands`),
       ansis.yellow(lang),
     ]
-    if (mcpProvider && mcpProvider !== '—' && mcpProvider !== 'skip') {
-      statusParts.push(ansis.magenta(mcpProvider))
-    }
     if (config?.routing?.reviewer) {
       statusParts.push(ansis.green(`reviewer: ${config.routing.reviewer}`))
     }
@@ -194,13 +188,11 @@ export async function showMainMenu(): Promise<void> {
         groupSep(isZh ? 'Claude Code' : 'Claude Code'),
         item('1', i18n.t('menu:options.init'), isZh ? '安装 ly-workflow' : 'Install ly-workflow'),
         item('2', i18n.t('menu:options.update'), isZh ? '更新到最新版本' : 'Update to latest version'),
-        item('3', i18n.t('menu:options.configMcp'), isZh ? '代码检索 MCP 工具' : 'Code retrieval MCP tool'),
-        item('4', i18n.t('menu:options.configApi'), isZh ? '自定义 API 端点' : 'Custom API endpoint'),
-        item('5', i18n.t('menu:options.configStyle'), isZh ? '选择输出人格' : 'Choose output personality'),
-        item('6', i18n.t('menu:options.configModel'), isZh ? '切换审查模型 (Codex/Claude)' : 'Switch reviewer model (Codex/Claude)'),
+        item('3', i18n.t('menu:options.configApi'), isZh ? '自定义 API 端点' : 'Custom API endpoint'),
+        item('4', i18n.t('menu:options.configModel'), isZh ? '切换审查模型 (Codex/Claude)' : 'Switch reviewer model (Codex/Claude)'),
+        item('D', isZh ? '显示设置' : 'Display Settings', isZh ? '审查进度展示方式（终端/Web UI）' : 'Review progress display (terminal/Web UI)'),
 
         groupSep(isZh ? '其他工具' : 'Tools'),
-        item('X', isZh ? 'Codex 模式' : 'Codex Mode', isZh ? '安装 Codex 主导的多模型编排' : 'Install Codex-led multi-model orchestration'),
         item('T', i18n.t('menu:options.tools'), 'ccusage, CCometixLine'),
         item('C', i18n.t('menu:options.installClaude'), isZh ? '安装/重装 CLI' : 'Install/reinstall CLI'),
 
@@ -221,19 +213,14 @@ export async function showMainMenu(): Promise<void> {
         await update()
         break
       case '3':
-        await configMcp()
-        break
-      case '4':
         await configApi()
         break
-      case '5':
-        await configOutputStyle()
+      case 'D':
+        await configDisplayMode(config)
         break
-      case '6':
+
+      case '4':
         await configModelRouting()
-        break
-      case 'X':
-        await handleCodexMode()
         break
       case 'T':
         await handleTools()
@@ -270,14 +257,6 @@ export async function showMainMenu(): Promise<void> {
 // Help
 // ═══════════════════════════════════════════════════════
 
-const SKILL_CATEGORY_LABELS: Record<string, { zh: string, en: string }> = {
-  tool: { zh: '工具类技能命令', en: 'tool skill commands' },
-  domain: { zh: '领域知识技能命令', en: 'domain-knowledge skill commands' },
-  orchestration: { zh: '多智能体编排技能命令', en: 'multi-agent orchestration skill commands' },
-  impeccable: { zh: '前端设计工具命令', en: 'frontend design tool commands' },
-  root: { zh: '其他技能命令', en: 'other skill commands' },
-}
-
 function showHelp(): void {
   const config = readLyConfigSync()
   const isZh = (config?.general?.language || 'zh-CN') === 'zh-CN'
@@ -308,7 +287,6 @@ function showHelp(): void {
   const coreCommandNames = new Set(coreConfigs.flatMap(w => w.commands))
 
   const coreFiles = installedFiles.filter(f => coreCommandNames.has(f.replace('.md', '')))
-  const skillFiles = installedFiles.filter(f => !coreCommandNames.has(f.replace('.md', '')))
 
   // Core commands — list each by name
   section(isZh ? '核心命令' : 'Core commands')
@@ -321,34 +299,34 @@ function showHelp(): void {
   }
   console.log()
 
-  // Skill-generated commands — count + category breakdown, not enumerated
-  if (skillFiles.length > 0) {
-    section(isZh ? `技能命令（${skillFiles.length} 个）` : `Skill commands (${skillFiles.length})`)
-
-    const skillsDir = join(installDir, 'skills', 'ly')
-    const skillMetas = collectInvocableSkills(skillsDir)
-    const skillNameToCategory = new Map(skillMetas.map(s => [s.name, s.category]))
-
-    const byCategory = new Map<string, string[]>()
-    for (const file of skillFiles) {
-      const name = file.replace('.md', '')
-      const category = skillNameToCategory.get(name) || 'root'
-      if (!byCategory.has(category)) byCategory.set(category, [])
-      byCategory.get(category)!.push(name)
-    }
-
-    for (const [category, names] of byCategory) {
-      const label = SKILL_CATEGORY_LABELS[category] || SKILL_CATEGORY_LABELS.root
-      const examples = names.slice(0, 3).join('/')
-      const line = isZh
-        ? `${names.length} 个${label.zh}，含 ${examples} 等`
-        : `${names.length} ${label.en}, incl. ${examples}, etc.`
-      console.log(`  ${ansis.gray('•')} ${ansis.gray(line)}`)
-    }
-    console.log()
-  }
-
   console.log(ansis.gray(`  ${i18n.t('menu:help.hint')}`))
+  console.log()
+}
+
+/** 显示设置：审查进度展示方式（liteMode）——Web UI（默认）/ 终端进度（lite） */
+async function configDisplayMode(config: any): Promise<void> {
+  const isZh = (config?.general?.language || 'zh-CN') === 'zh-CN'
+  const current = config?.performance?.liteMode === true ? 'lite' : 'webui'
+  const { mode } = await inquirer.prompt([{
+    type: 'list',
+    name: 'mode',
+    message: isZh ? '审查进度展示方式' : 'Review progress display',
+    choices: [
+      { name: isZh ? `● Web UI（浏览器实时预览）${current === 'webui' ? ' ← 当前' : ''}` : `● Web UI (live preview)${current === 'webui' ? ' ← current' : ''}`, value: 'webui' },
+      { name: isZh ? `● 终端进度（轻量）${current === 'lite' ? ' ← 当前' : ''}` : `● Terminal progress (lite)${current === 'lite' ? ' ← current' : ''}`, value: 'lite' },
+    ],
+    default: current,
+  }])
+  const fresh: any = await readLyConfig()
+  if (!fresh) {
+    console.log(`  ${ansis.yellow('⚠')} ${isZh ? '尚未初始化 ly-workflow 配置，无可修改项' : 'ly-workflow config not initialized'}`)
+    console.log()
+    return
+  }
+  fresh.performance = fresh.performance ?? {}
+  fresh.performance.liteMode = mode === 'lite'
+  await writeLyConfig(fresh)
+  console.log(`  ${ansis.green('✓')} ${isZh ? '已更新' : 'Updated'}: liteMode = ${fresh.performance.liteMode}`)
   console.log()
 }
 
@@ -463,14 +441,14 @@ async function configApi(): Promise<void> {
   settings.env.CLAUDE_CODE_ATTRIBUTION_HEADER = '0'
   settings.env.MCP_TIMEOUT = '60000'
 
-  // codeagent-wrapper permission allowlist
+  // ly-wrapper permission allowlist
   if (!settings.permissions)
     settings.permissions = {}
   if (!settings.permissions.allow)
     settings.permissions.allow = []
   const wrapperPerms = [
-    'Bash(~/.claude/bin/codeagent-wrapper --backend codex*)',
-    'Bash(~/.claude/bin/codeagent-wrapper --backend claude*)',
+    'Bash(~/.claude/bin/ly-wrapper --backend codex*)',
+    'Bash(~/.claude/bin/ly-wrapper --backend claude*)',
   ]
   for (const perm of wrapperPerms) {
     if (!settings.permissions.allow.includes(perm))
@@ -484,22 +462,6 @@ async function configApi(): Promise<void> {
   console.log(ansis.green(`  ✓ ${i18n.t('menu:api.saved')}`))
   console.log(ansis.gray(`    ${i18n.t('common:configFile')}: ${settingsPath}`))
 }
-
-// ═══════════════════════════════════════════════════════
-// Output Style Configuration
-// ═══════════════════════════════════════════════════════
-
-const OUTPUT_STYLES = [
-  { id: 'default', nameKey: 'menu:style.default', descKey: 'menu:style.defaultDesc' },
-  { id: 'engineer-professional', nameKey: 'menu:style.engineerPro', descKey: 'menu:style.engineerProDesc' },
-  { id: 'nekomata-engineer', nameKey: 'menu:style.nekomata', descKey: 'menu:style.nekomataDesc' },
-  { id: 'laowang-engineer', nameKey: 'menu:style.laowang', descKey: 'menu:style.laowangDesc' },
-  { id: 'ojousama-engineer', nameKey: 'menu:style.ojousama', descKey: 'menu:style.ojousamaDesc' },
-  { id: 'abyss-cultivator', nameKey: 'menu:style.abyss', descKey: 'menu:style.abyssDesc' },
-  { id: 'abyss-concise', nameKey: 'menu:style.abyssConcise', descKey: 'menu:style.abyssConciseDesc' },
-  { id: 'abyss-command', nameKey: 'menu:style.abyssCommand', descKey: 'menu:style.abyssCommandDesc' },
-  { id: 'abyss-ritual', nameKey: 'menu:style.abyssRitual', descKey: 'menu:style.abyssRitualDesc' },
-]
 
 // ═══════════════════════════════════════════════════════
 // Model Routing Configuration
@@ -572,7 +534,7 @@ async function configModelRouting(): Promise<void> {
   const spinner = ora(i18n.t('init:model.reinstalling')).start()
   try {
     const { execSync } = await import('node:child_process')
-    execSync('npx --yes ly-workflow init --force --skip-prompt --skip-mcp', {
+    execSync('npx --yes ly-workflow init --force --skip-prompt', {
       timeout: 300000,
       stdio: 'pipe',
       env: { ...process.env, LY_UPDATE_MODE: 'true' },
@@ -586,158 +548,8 @@ async function configModelRouting(): Promise<void> {
   console.log(ansis.gray(`  ${i18n.t('common:restartToApply')}`))
 }
 
-async function configOutputStyle(): Promise<void> {
-  console.log()
-  console.log(ansis.cyan.bold(`  ${i18n.t('menu:style.title')}`))
-  console.log()
-
-  const settingsPath = join(homedir(), '.claude', 'settings.json')
-  let settings: Record<string, any> = {}
-  if (await fs.pathExists(settingsPath)) {
-    settings = await fs.readJson(settingsPath)
-  }
-
-  const currentStyle = settings.outputStyle || 'default'
-  console.log(ansis.gray(`  ${i18n.t('menu:style.currentStyle')}: ${currentStyle}`))
-  console.log()
-
-  const { style } = await inquirer.prompt([{
-    type: 'list',
-    name: 'style',
-    message: i18n.t('menu:style.selectStyle'),
-    choices: OUTPUT_STYLES.map(s => ({
-      name: `${i18n.t(s.nameKey)} ${ansis.gray(`- ${i18n.t(s.descKey)}`)}`,
-      value: s.id,
-    })),
-    default: currentStyle,
-  }])
-
-  if (style === currentStyle) {
-    console.log(ansis.gray(i18n.t('menu:style.notChanged')))
-    return
-  }
-
-  // Copy style file if not default
-  if (style !== 'default') {
-    const outputStylesDir = join(homedir(), '.claude', 'output-styles')
-    await fs.ensureDir(outputStylesDir)
-
-    const __filename = fileURLToPath(import.meta.url)
-    const __dirname = dirname(__filename)
-    let pkgRoot = dirname(dirname(__dirname))
-    if (!await fs.pathExists(join(pkgRoot, 'templates'))) {
-      pkgRoot = dirname(pkgRoot)
-    }
-    const templatePath = join(pkgRoot, 'templates', 'output-styles', `${style}.md`)
-    const destPath = join(outputStylesDir, `${style}.md`)
-
-    if (await fs.pathExists(templatePath)) {
-      await fs.copy(templatePath, destPath)
-      console.log(ansis.green(`  ✓ ${i18n.t('menu:style.installed', { style })}`))
-    }
-  }
-
-  // Update settings.json
-  if (style === 'default') {
-    delete settings.outputStyle
-  }
-  else {
-    settings.outputStyle = style
-  }
-
-  await fs.writeJson(settingsPath, settings, { spaces: 2 })
-
-  console.log()
-  console.log(ansis.green(`  ✓ ${i18n.t('menu:style.set', { style })}`))
-  console.log(ansis.gray(`    ${i18n.t('common:restartToApply')}`))
-}
-
 // ═══════════════════════════════════════════════════════
 // Install Claude Code
-// ═══════════════════════════════════════════════════════
-
-async function handleCodexMode(): Promise<void> {
-  const isZh = i18n.language === 'zh-CN'
-  console.log()
-  console.log(ansis.cyan.bold(isZh ? '  Codex 多模型编排模式' : '  Codex Multi-Model Orchestration Mode'))
-  console.log()
-
-  const { action } = await inquirer.prompt([{
-    type: 'list',
-    name: 'action',
-    message: isZh ? '选择操作' : 'Select action',
-    choices: [
-      { name: isZh ? '安装 / 更新 Codex 模式' : 'Install / Update Codex Mode', value: 'install' },
-      { name: isZh ? '卸载 Codex 模式（只删 ly-workflow 文件，保留用户配置）' : 'Uninstall Codex Mode (ly-workflow files only, preserves user config)', value: 'uninstall' },
-      { name: isZh ? '返回' : 'Back', value: 'back' },
-    ],
-  }])
-
-  if (action === 'back') return
-
-  if (action === 'uninstall') {
-    const spinner = ora(isZh ? '卸载 Codex 模式...' : 'Uninstalling Codex mode...').start()
-    const result = await uninstallCodexMode()
-    if (result.success) {
-      spinner.succeed(isZh ? 'Codex 模式已卸载' : 'Codex mode uninstalled')
-      if (result.removed.length > 0) {
-        console.log()
-        for (const f of result.removed) {
-          console.log(`  ${ansis.red('✗')} ${f}`)
-        }
-      }
-      if (result.skipped.length > 0) {
-        console.log()
-        for (const f of result.skipped) {
-          console.log(`  ${ansis.gray('○')} ${f}`)
-        }
-      }
-    }
-    else {
-      spinner.fail(isZh ? '卸载失败' : 'Uninstall failed')
-    }
-    return
-  }
-
-  // Install
-  console.log(isZh
-    ? '  安装 ly-workflow Codex 模式到 ~/.codex/，让 Codex CLI 作为主导者编排多模型。'
-    : '  Install ly-workflow Codex mode to ~/.codex/, enabling Codex CLI as lead orchestrator.',
-  )
-  console.log()
-  console.log(isZh ? '  将安装:' : '  Will install:')
-  console.log('    ~/.codex/AGENTS.md              — orchestration instructions')
-  console.log('    ~/.codex/config.toml             — multi-agent + timeout config')
-  console.log('    ~/.codex/hooks.json + hooks/     — adaptive guardrail hook')
-  console.log('    ~/.codex/agents/ly-*.toml       — sub-agent definitions')
-  console.log()
-
-  const { confirm } = await inquirer.prompt([{
-    type: 'confirm',
-    name: 'confirm',
-    message: isZh ? '确认安装？' : 'Confirm install?',
-    default: true,
-  }])
-
-  if (!confirm) return
-
-  const spinner = ora(isZh ? '安装 Codex 模式...' : 'Installing Codex mode...').start()
-  const result = await installCodexMode()
-  if (result.success) {
-    spinner.succeed(isZh ? 'Codex 模式安装完成' : 'Codex mode installed')
-    console.log()
-    console.log(ansis.green(result.message))
-    console.log()
-    console.log(ansis.yellow(isZh
-      ? '  使用方法: 在项目目录运行 codex，AGENTS.md 会自动生效'
-      : '  Usage: run codex in your project directory, AGENTS.md takes effect automatically',
-    ))
-  }
-  else {
-    spinner.fail(result.message)
-  }
-}
-
 // ═══════════════════════════════════════════════════════
 
 async function handleInstallClaude(): Promise<void> {
@@ -917,7 +729,7 @@ async function uninstall(): Promise<void> {
     if (result.removedBin) {
       console.log()
       console.log(ansis.cyan(`  ${i18n.t('menu:uninstall.removedBin')}`))
-      console.log(`    ${ansis.gray('•')} codeagent-wrapper`)
+      console.log(`    ${ansis.gray('•')} ly-wrapper`)
     }
 
     // If globally installed, show instructions to uninstall npm package

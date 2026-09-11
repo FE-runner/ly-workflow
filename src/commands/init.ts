@@ -6,46 +6,18 @@ import ora from 'ora'
 import { homedir } from 'node:os'
 import { join } from 'pathe'
 import { i18n, initI18n } from '../i18n'
-import { createDefaultConfig, ensureLyDir, getLyDir, isValidImplementerBackend, isValidRoutingBackend, readLyConfig, writeLyConfig } from '../utils/config'
-import { getCoreCommandIds, installAceTool, installAceToolRs, installContextWeaver, installFastContext, installMcpServer, installWorkflows, showBinaryDownloadWarning, syncMcpToCodex, writeFastContextPrompt } from '../utils/installer'
-import { isWindows } from '../utils/platform'
+import { createDefaultConfig, ensureLyDir, isValidImplementerBackend, isValidRoutingBackend, readLyConfig, writeLyConfig } from '../utils/config'
+import { getCoreCommandIds, installWorkflows, showBinaryDownloadWarning } from '../utils/installer'
 
 /**
- * Auto-approve codeagent-wrapper Bash commands in settings.json.
+ * Auto-approve ly-wrapper Bash commands in settings.json.
  *
- * All platforms use permissions.allow with wildcard pattern (v1.7.89+).
- * Old Hook-based approach and old permission entries are automatically cleaned up.
+ * All platforms use permissions.allow with wildcard pattern.
  */
 async function installHook(settingsPath: string): Promise<'permission'> {
   let settings: Record<string, any> = {}
   if (await fs.pathExists(settingsPath)) {
     settings = await fs.readJSON(settingsPath)
-  }
-
-  // ── All platforms: permissions.allow approach (v1.7.89+) ──
-
-  // Remove old Hook if it exists (migration from ≤v1.7.88)
-  if (settings.hooks?.PreToolUse) {
-    const hookIdx = settings.hooks.PreToolUse.findIndex(
-      (h: any) => h.matcher === 'Bash' && h.hooks?.some((hh: any) => hh.command?.includes('codeagent-wrapper')),
-    )
-    if (hookIdx >= 0) {
-      settings.hooks.PreToolUse.splice(hookIdx, 1)
-      // Clean up empty arrays/objects
-      if (settings.hooks.PreToolUse.length === 0)
-        delete settings.hooks.PreToolUse
-      if (settings.hooks && Object.keys(settings.hooks).length === 0)
-        delete settings.hooks
-    }
-  }
-
-  // Remove old permission entry without leading wildcard (migration from ≤v1.7.88)
-  if (settings.permissions?.allow) {
-    const oldEntry = 'Bash(codeagent-wrapper*)'
-    const oldIdx = settings.permissions.allow.indexOf(oldEntry)
-    if (oldIdx >= 0) {
-      settings.permissions.allow.splice(oldIdx, 1)
-    }
   }
 
   // Add permissions.allow entry
@@ -54,71 +26,13 @@ async function installHook(settingsPath: string): Promise<'permission'> {
   if (!settings.permissions.allow)
     settings.permissions.allow = []
 
-  const permEntry = 'Bash(*codeagent-wrapper*)'
+  const permEntry = 'Bash(*ly-wrapper*)'
   if (!settings.permissions.allow.includes(permEntry)) {
     settings.permissions.allow.push(permEntry)
   }
 
   await fs.writeJSON(settingsPath, settings, { spaces: 2 })
   return 'permission'
-}
-
-/**
- * Write grok-search global prompt to ~/.claude/rules/ly-grok-search.md
- * Uses rules/ directory for modularity — avoids bloating CLAUDE.md
- */
-async function appendGrokSearchPrompt(): Promise<void> {
-  const rulesDir = join(homedir(), '.claude', 'rules')
-  const rulePath = join(rulesDir, 'ly-grok-search.md')
-
-  // Also clean up legacy CLAUDE.md injection if present
-  const claudeMdPath = join(homedir(), '.claude', 'CLAUDE.md')
-  if (await fs.pathExists(claudeMdPath)) {
-    const content = await fs.readFile(claudeMdPath, 'utf-8')
-    if (content.includes('LY-GROK-SEARCH-PROMPT')) {
-      const cleaned = content.replace(/\n*<!-- LY-GROK-SEARCH-PROMPT-START -->[\s\S]*?<!-- LY-GROK-SEARCH-PROMPT-END -->\n*/g, '')
-      await fs.writeFile(claudeMdPath, cleaned, 'utf-8')
-    }
-  }
-
-  const prompt = `## 0. Language and Format Standards
-
-- **Interaction Language**: Tools and models must interact exclusively in **English**; user outputs must be in **Chinese**.
-- MUST ULRTA Thinking in ENGLISH!
-- **Formatting Requirements**: Use standard Markdown formatting. Code blocks and specific text results should be marked with backticks. Skilled in applying four or more \`\`\`\`markdown wrappers.
-
-## 1. Search and Evidence Standards
-Typically, the results of web searches only constitute third-party suggestions and are not directly credible; they must be cross-verified with sources to provide users with absolutely authoritative and correct answers.
-
-### Search Trigger Conditions
-Strictly distinguish between internal and external knowledge. Avoid speculation based on general internal knowledge. When uncertain, explicitly inform the user.
-
-For example, when using the \`fastapi\` library to encapsulate an API endpoint, despite possessing common-sense knowledge internally, you must still rely on the latest search results or official documentation for reliable implementation.
-
-### Search Execution Guidelines
-
-- Use the \`mcp__grok-search\` tool for web searches
-- Execute independent search requests in parallel; sequential execution applies only when dependencies exist
-- Evaluate search results for quality: analyze relevance, source credibility, cross-source consistency, and completeness. Conduct supplementary searches if gaps exist
-
-### Source Quality Standards
-
-- Key factual claims must be supported by >=2 independent sources. If relying on a single source, explicitly state this limitation
-- Conflicting sources: Present evidence from both sides, assess credibility and timeliness, identify the stronger evidence, or declare unresolved discrepancies
-- Empirical conclusions must include confidence levels (High/Medium/Low)
-- Citation format: [Author/Organization, Year/Date, Section/URL]. Fabricated references are strictly prohibited
-
-## 2. Reasoning and Expression Principles
-
-- Be concise, direct, and information-dense: Use lists for discrete items; paragraphs for arguments
-- Challenge flawed premises: When user logic contains errors, pinpoint specific issues with evidence
-- All conclusions must specify: Applicable conditions, scope boundaries, and known limitations
-- Avoid greetings, pleasantries, filler adjectives, and emotional expressions
-- When uncertain: State unknowns and reasons before presenting confirmed facts
-`
-
-  await fs.ensureDir(rulesDir)
-  await fs.writeFile(rulePath, prompt, 'utf-8')
 }
 
 // ═══════════════════════════════════════════════════════
@@ -128,7 +42,7 @@ For example, when using the \`fastapi\` library to encapsulate an API endpoint, 
 // "← back" (step 2+) and "× cancel". Users can also jump to any
 // step from the final summary page.
 
-type StepId = 'api' | 'model' | 'mcp' | 'perf'
+type StepId = 'api' | 'model' | 'perf'
 type StepReturn = 'next' | 'back' | 'cancel'
 type SummaryAction = 'confirm' | 'cancel' | StepId
 
@@ -153,33 +67,6 @@ function navSentinels(canGoBack: boolean): any[] {
     value: CANCEL_SENTINEL,
   })
   return items
-}
-
-/**
- * Install grok-search MCP server
- */
-async function installGrokSearchMcp(keys: {
-  tavilyKey?: string
-  firecrawlKey?: string
-  grokApiUrl?: string
-  grokApiKey?: string
-}): Promise<{ success: boolean, message: string }> {
-  const env: Record<string, string> = {}
-  if (keys.tavilyKey)
-    env.TAVILY_API_KEY = keys.tavilyKey
-  if (keys.firecrawlKey)
-    env.FIRECRAWL_API_KEY = keys.firecrawlKey
-  if (keys.grokApiUrl)
-    env.GROK_API_URL = keys.grokApiUrl
-  if (keys.grokApiKey)
-    env.GROK_API_KEY = keys.grokApiKey
-
-  return installMcpServer(
-    'grok-search',
-    'uvx',
-    ['--from', 'git+https://github.com/GuDaStudio/GrokSearch@grok-with-tavily', 'grok-search'],
-    env,
-  )
 }
 
 export async function init(options: InitOptions = {}): Promise<void> {
@@ -259,24 +146,6 @@ export async function init(options: InitOptions = {}): Promise<void> {
 
   // Performance mode selection
   let liteMode = false
-  let skipImpeccable = false
-
-  // MCP Tool Selection
-  let mcpProvider = 'fast-context'
-  let aceToolBaseUrl = ''
-  let aceToolToken = ''
-  let contextWeaverApiKey = ''
-  let fastContextApiKey = ''
-  let fastContextIncludeSnippets = false
-  let wantFastContext = false
-
-  // Grok Search MCP
-  let wantGrokSearch = false
-  let wantCodeGraph = false
-  let tavilyKey = ''
-  let firecrawlKey = ''
-  let grokApiUrl = ''
-  let grokApiKey = ''
 
   // Claude Code API configuration
   let apiUrl = ''
@@ -289,13 +158,6 @@ export async function init(options: InitOptions = {}): Promise<void> {
     const existingConfig = await readLyConfig()
     if (existingConfig?.performance?.liteMode !== undefined) {
       liteMode = existingConfig.performance.liteMode
-    }
-    if (existingConfig?.performance?.skipImpeccable !== undefined) {
-      skipImpeccable = existingConfig.performance.skipImpeccable
-    }
-    if (options.skipMcp) {
-      // Fix #124: preserve existing MCP provider from config during update
-      mcpProvider = existingConfig?.mcp?.provider || 'skip'
     }
   }
 
@@ -325,7 +187,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
 
     async function runApiStep(canGoBack: boolean): Promise<StepReturn> {
       console.log()
-      console.log(ansis.cyan.bold(`  🔑 Step 1/4 — ${i18n.t('init:api.title')}`))
+      console.log(ansis.cyan.bold(`  🔑 Step 1/3 — ${i18n.t('init:api.title')}`))
       console.log()
 
       const { apiProvider } = await inquirer.prompt([{
@@ -393,7 +255,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
 
     async function runModelStep(canGoBack: boolean): Promise<StepReturn> {
       console.log()
-      console.log(ansis.cyan.bold(`  🧠 Step 2/4 — ${i18n.t('init:model.title')}`))
+      console.log(ansis.cyan.bold(`  🧠 Step 2/3 — ${i18n.t('init:model.title')}`))
       console.log()
 
       const { selectedReviewer } = await inquirer.prompt([{
@@ -445,202 +307,9 @@ export async function init(options: InitOptions = {}): Promise<void> {
       return 'next'
     }
 
-    async function runMcpStep(canGoBack: boolean): Promise<StepReturn> {
-      if (options.skipMcp) {
-        mcpProvider = existingConfig?.mcp?.provider || 'skip'
-        return 'next'
-      }
-
-      console.log()
-      console.log(ansis.cyan.bold(`  🔧 Step 3/4 — ${i18n.t('init:mcp.title')}`))
-      console.log()
-
-      // Pre-step gate: since the main prompt is a checkbox (can't embed
-      // navigation sentinels cleanly), ask a single-choice list first.
-      const { gate } = await inquirer.prompt([{
-        type: 'list',
-        name: 'gate',
-        message: i18n.t('init:mcp.gatePrompt'),
-        choices: [
-          { name: `${ansis.green('●')} ${i18n.t('init:mcp.gateContinue')}`, value: 'continue' },
-          ...navSentinels(canGoBack),
-        ],
-      }])
-
-      if (gate === BACK_SENTINEL)
-        return 'back'
-      if (gate === CANCEL_SENTINEL)
-        return 'cancel'
-
-      // Reset MCP state before re-collecting
-      aceToolBaseUrl = ''
-      aceToolToken = ''
-      fastContextApiKey = ''
-      fastContextIncludeSnippets = false
-      contextWeaverApiKey = ''
-      wantFastContext = false
-      wantGrokSearch = false
-      wantCodeGraph = false
-      tavilyKey = ''
-      firecrawlKey = ''
-      grokApiUrl = ''
-      grokApiKey = ''
-
-      const { selectedTools } = await inquirer.prompt([{
-        type: 'checkbox',
-        name: 'selectedTools',
-        message: i18n.t('init:mcp.selectTools'),
-        choices: [
-          {
-            name: `fast-context ${ansis.green(`(${i18n.t('common:recommended')})`)} ${ansis.gray('— AI 驱动语义搜索')}`,
-            value: 'fast-context',
-            checked: true,
-          },
-          {
-            name: `ace-tool ${ansis.gray('— search_context 代码检索')}`,
-            value: 'ace-tool',
-          },
-          {
-            name: `context7 ${ansis.green('(free)')} ${ansis.gray('— 库文档查询')}`,
-            value: 'context7',
-            checked: true,
-          },
-          {
-            name: `grok-search ${ansis.gray('— 联网搜索 (需 API Key)')}`,
-            value: 'grok-search',
-          },
-          {
-            name: `codegraph ${ansis.gray('— 本地代码知识图谱 (调用链/影响范围/架构)')}`,
-            value: 'codegraph',
-          },
-          {
-            name: `contextweaver ${ansis.gray('— 硅基流动嵌入检索 (需 API Key)')}`,
-            value: 'contextweaver',
-          },
-        ],
-      }]) as { selectedTools: string[] }
-
-      const hasAceTool = selectedTools.includes('ace-tool')
-      const hasFastContext = selectedTools.includes('fast-context')
-      const hasContextWeaver = selectedTools.includes('contextweaver')
-      const hasCodeGraph = selectedTools.includes('codegraph')
-      wantFastContext = hasFastContext
-      wantGrokSearch = selectedTools.includes('grok-search')
-      wantCodeGraph = hasCodeGraph
-
-      if (hasAceTool) {
-        mcpProvider = 'ace-tool'
-      }
-      else if (hasFastContext) {
-        mcpProvider = 'fast-context'
-      }
-      else if (hasContextWeaver) {
-        mcpProvider = 'contextweaver'
-      }
-      else {
-        mcpProvider = 'skip'
-      }
-
-      if (hasAceTool) {
-        console.log()
-        console.log(ansis.cyan.bold(`  🔧 ace-tool MCP`))
-        console.log()
-        console.log(`     ${ansis.gray('•')} ${ansis.cyan(i18n.t('init:mcp.officialService'))}: ${ansis.underline('https://augmentcode.com/')}`)
-        console.log(`     ${ansis.gray('•')} ${ansis.cyan(i18n.t('init:mcp.proxyService'))} ${ansis.yellow(`(${i18n.t('init:mcp.noSignup')})`)}: ${ansis.underline('https://acemcp.heroman.wtf/')}`)
-        console.log()
-
-        const aceAnswers = await inquirer.prompt([
-          {
-            type: 'input',
-            name: 'baseUrl',
-            message: `Base URL ${ansis.gray(`(${i18n.t('init:mcp.baseUrlHint')})`)}`,
-            default: '',
-          },
-          {
-            type: 'password',
-            name: 'token',
-            message: `Token ${ansis.gray(`(${i18n.t('init:mcp.tokenRequired')})`)}`,
-            mask: '*',
-            validate: (input: string) => input.trim() !== '' || i18n.t('init:mcp.enterToken'),
-          },
-        ])
-        aceToolBaseUrl = aceAnswers.baseUrl || ''
-        aceToolToken = aceAnswers.token || ''
-      }
-
-      if (hasFastContext) {
-        console.log()
-        console.log(ansis.cyan.bold(`  🔧 fast-context MCP`))
-        console.log(ansis.gray(`     Windsurf Fast Context — ${i18n.t('init:mcp.fcAutoExtract')}`))
-        console.log()
-
-        const fcAnswers = await inquirer.prompt([
-          {
-            type: 'input',
-            name: 'apiKey',
-            message: `WINDSURF_API_KEY ${ansis.gray(`(${i18n.t('init:mcp.fcLeaveEmpty')})`)}`,
-            default: '',
-          },
-          {
-            type: 'list',
-            name: 'includeSnippets',
-            message: i18n.t('init:mcp.fcSnippetMode'),
-            choices: [
-              { name: `${i18n.t('init:mcp.fcPathOnly')} ${ansis.gray(`(${i18n.t('init:mcp.fcSaveToken')})`)}`, value: false },
-              { name: i18n.t('init:mcp.fcFullSnippet'), value: true },
-            ],
-          },
-        ])
-        fastContextApiKey = fcAnswers.apiKey?.trim() || ''
-        fastContextIncludeSnippets = fcAnswers.includeSnippets
-      }
-
-      if (hasContextWeaver) {
-        console.log()
-        console.log(ansis.cyan.bold(`  🔧 ContextWeaver MCP`))
-        console.log()
-        console.log(`     ${ansis.gray('1.')} ${i18n.t('init:mcp.siliconflowStep1', { url: ansis.underline('https://siliconflow.cn/') })}`)
-        console.log(`     ${ansis.gray('2.')} ${i18n.t('init:mcp.siliconflowStep2')}`)
-        console.log(`     ${ansis.gray('3.')} ${i18n.t('init:mcp.siliconflowStep3')}`)
-        console.log()
-
-        const cwAnswers = await inquirer.prompt([{
-          type: 'password',
-          name: 'apiKey',
-          message: `SiliconFlow API Key ${ansis.gray('(sk-xxx)')}`,
-          mask: '*',
-          validate: (input: string) => input.trim() !== '' || i18n.t('init:mcp.enterApiKey'),
-        }])
-        contextWeaverApiKey = cwAnswers.apiKey || ''
-      }
-
-      if (wantGrokSearch) {
-        console.log()
-        console.log(ansis.cyan.bold(`  🔍 grok-search MCP`))
-        console.log()
-        console.log(`     Tavily: ${ansis.underline('https://www.tavily.com/')} ${ansis.gray(`(${i18n.t('init:grok.tavilyHint')})`)}`)
-        console.log(`     Firecrawl: ${ansis.underline('https://www.firecrawl.dev/')} ${ansis.gray(`(${i18n.t('init:grok.firecrawlHint')})`)}`)
-        console.log(`     Grok API: ${ansis.gray(i18n.t('init:grok.grokHint'))}`)
-        console.log()
-
-        const grokAnswers = await inquirer.prompt([
-          { type: 'input', name: 'grokApiUrl', message: `GROK_API_URL ${ansis.gray(`(${i18n.t('init:grok.optional')})`)}`, default: '' },
-          { type: 'password', name: 'grokApiKey', message: `GROK_API_KEY ${ansis.gray(`(${i18n.t('init:grok.optional')})`)}`, mask: '*' },
-          { type: 'password', name: 'tavilyKey', message: `TAVILY_API_KEY ${ansis.gray(`(${i18n.t('init:grok.optional')})`)}`, mask: '*' },
-          { type: 'password', name: 'firecrawlKey', message: `FIRECRAWL_API_KEY ${ansis.gray(`(${i18n.t('init:grok.optional')})`)}`, mask: '*' },
-        ])
-
-        tavilyKey = grokAnswers.tavilyKey?.trim() || ''
-        firecrawlKey = grokAnswers.firecrawlKey?.trim() || ''
-        grokApiUrl = grokAnswers.grokApiUrl?.trim() || ''
-        grokApiKey = grokAnswers.grokApiKey?.trim() || ''
-      }
-      return 'next'
-    }
-
     async function runPerfStep(canGoBack: boolean): Promise<StepReturn> {
       console.log()
-      console.log(ansis.cyan.bold(`  ⚡ Step 4/4 — ${i18n.t('init:perf.title')}`))
+      console.log(ansis.cyan.bold(`  ⚡ Step 3/3 — ${i18n.t('init:perf.title')}`))
       console.log()
 
       const { perfMode } = await inquirer.prompt([{
@@ -661,15 +330,6 @@ export async function init(options: InitOptions = {}): Promise<void> {
         return 'cancel'
 
       liteMode = perfMode === 'lite'
-
-      const { includeImpeccable } = await inquirer.prompt([{
-        type: 'confirm',
-        name: 'includeImpeccable',
-        message: i18n.t('init:commands.includeImpeccable'),
-        default: !skipImpeccable,
-      }])
-      skipImpeccable = !includeImpeccable
-      console.log(ansis.gray(`  ${i18n.t('init:commands.impeccableSwitchHint')}`))
       return 'next'
     }
 
@@ -690,20 +350,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
       console.log(`  ${ansis.cyan(i18n.t('init:summary.reviewerModel'))}  ${ansis.green(reviewer.charAt(0).toUpperCase() + reviewer.slice(1))}`)
       console.log(`  ${ansis.cyan(i18n.t('init:summary.implementerModel'))}  ${ansis.green(implementer.charAt(0).toUpperCase() + implementer.slice(1))}`)
       console.log(`  ${ansis.cyan(i18n.t('init:summary.commandCount'))}  ${ansis.yellow(workflowsCount.toString())}`)
-      const mcpSummary = (() => {
-        if (mcpProvider === 'fast-context')
-          return ansis.green('fast-context')
-        if (mcpProvider === 'ace-tool' || mcpProvider === 'ace-tool-rs')
-          return aceToolToken ? ansis.green(mcpProvider) : ansis.yellow(`${mcpProvider} (${i18n.t('init:summary.pendingConfig')})`)
-        if (mcpProvider === 'contextweaver')
-          return contextWeaverApiKey ? ansis.green('contextweaver') : ansis.yellow(`contextweaver (${i18n.t('init:summary.pendingConfig')})`)
-        return ansis.gray(i18n.t('init:summary.skipped'))
-      })()
-      console.log(`  ${ansis.cyan(i18n.t('init:summary.mcpTool'))}      ${mcpSummary}`)
       console.log(`  ${ansis.cyan(i18n.t('init:summary.webUI'))}        ${liteMode ? ansis.gray(i18n.t('init:summary.disabled')) : ansis.green(i18n.t('init:summary.enabled'))}`)
-      if (wantGrokSearch) {
-        console.log(`  ${ansis.cyan('grok-search')}    ${tavilyKey ? ansis.green('✓') : ansis.yellow(`(${i18n.t('init:summary.pendingConfig')})`)}`)
-      }
       console.log(ansis.yellow('━'.repeat(50)))
       console.log()
 
@@ -716,7 +363,6 @@ export async function init(options: InitOptions = {}): Promise<void> {
           new inquirer.Separator(),
           { name: `${ansis.cyan('✎')} ${i18n.t('init:summaryMenu.editApi')}`, value: 'api' },
           { name: `${ansis.cyan('✎')} ${i18n.t('init:summaryMenu.editModel')}`, value: 'model' },
-          { name: `${ansis.cyan('✎')} ${i18n.t('init:summaryMenu.editMcp')}`, value: 'mcp' },
           { name: `${ansis.cyan('✎')} ${i18n.t('init:summaryMenu.editPerf')}`, value: 'perf' },
           new inquirer.Separator(),
           { name: `${ansis.red('×')} ${i18n.t('init:summaryMenu.cancel')}`, value: 'cancel' },
@@ -732,7 +378,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
     // driven by sentinels inside each step's first list prompt. The
     // summary page is a separate jump-back menu that can land on any
     // step; after completing that jumped-to step we return to summary.
-    const stepOrder: StepId[] = ['api', 'model', 'mcp', 'perf']
+    const stepOrder: StepId[] = ['api', 'model', 'perf']
     let stepIdx = 0
     let jumpingToSummary = false
 
@@ -748,9 +394,6 @@ export async function init(options: InitOptions = {}): Promise<void> {
             break
           case 'model':
             result = await runModelStep(canGoBack)
-            break
-          case 'mcp':
-            result = await runMcpStep(canGoBack)
             break
           case 'perf':
             result = await runPerfStep(canGoBack)
@@ -823,11 +466,6 @@ export async function init(options: InitOptions = {}): Promise<void> {
   const spinner = ora(i18n.t('init:installing')).start()
 
   try {
-    // v1.4.0 目录迁移已退役：v1.3.x → v1.4.0 是一次性升级动作，v1.4.1+
-    // 用户目录结构（~/.claude/.ly/）从未变化，不再需要。此前该块在
-    // config.toml 缺失 + ~/.ly 残留时反复触发，打印 Migration/Skipped
-    // 误导性输出，个别安装还会卡在该步骤。
-
     await ensureLyDir()
 
     // Create config
@@ -835,9 +473,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
       language,
       routing,
       installedWorkflows: selectedWorkflows,
-      mcpProvider,
       liteMode,
-      skipImpeccable,
     })
 
     // Save config FIRST - ensure it's created even if installation fails
@@ -848,56 +484,12 @@ export async function init(options: InitOptions = {}): Promise<void> {
     const result = await installWorkflows(selectedWorkflows, installDir, options.force, {
       routing,
       liteMode,
-      mcpProvider,
-      skipImpeccable,
     })
 
-    // Install selected MCP tools (multiple can be installed)
     spinner.succeed(ansis.green(i18n.t('init:installSuccess')))
 
-    // ace-tool
-    if (aceToolToken) {
-      spinner.text = i18n.t('init:aceTool.installing')
-      const aceResult = await installAceTool({ baseUrl: aceToolBaseUrl, token: aceToolToken })
-      if (aceResult.success) {
-        console.log(`    ${ansis.green('✓')} ace-tool MCP ${ansis.gray(`→ ${aceResult.configPath}`)}`)
-      }
-      else {
-        console.log(`    ${ansis.yellow('⚠')} ace-tool: ${ansis.gray(aceResult.message)}`)
-      }
-    }
-
-    // fast-context
-    if (wantFastContext) {
-      const fcResult = await installFastContext({
-        apiKey: fastContextApiKey || undefined,
-        includeSnippets: fastContextIncludeSnippets,
-      })
-      if (fcResult.success) {
-        console.log(`    ${ansis.green('✓')} fast-context MCP ${ansis.gray(`→ ${fcResult.configPath}`)}`)
-        // Write search guidance — auxiliary mode if ace-tool is primary
-        await writeFastContextPrompt(mcpProvider === 'ace-tool' || mcpProvider === 'ace-tool-rs')
-        console.log(`    ${ansis.green('✓')} ${i18n.t('init:mcp.fcPromptInjected')} ${ansis.gray('→ ~/.claude/rules/ + ~/.codex/ + ~/.gemini/')}`)
-      }
-      else {
-        console.log(`    ${ansis.yellow('⚠')} fast-context: ${ansis.gray(fcResult.message)}`)
-      }
-    }
-
-    // contextweaver
-    if (contextWeaverApiKey) {
-      spinner.text = i18n.t('init:mcp.cwConfiguring')
-      const cwResult = await installContextWeaver({ siliconflowApiKey: contextWeaverApiKey })
-      if (cwResult.success) {
-        console.log(`    ${ansis.green('✓')} ContextWeaver MCP ${ansis.gray(`→ ${cwResult.configPath}`)}`)
-      }
-      else {
-        console.log(`    ${ansis.yellow('⚠')} ContextWeaver: ${ansis.gray(cwResult.message)}`)
-      }
-    }
-
     // ═══════════════════════════════════════════════════════
-    // Save settings.json: API config + Hook auto-approve
+    // Save settings.json: API config + ly-wrapper auto-approve
     // ═══════════════════════════════════════════════════════
     const settingsPath = join(installDir, 'settings.json')
 
@@ -918,14 +510,14 @@ export async function init(options: InitOptions = {}): Promise<void> {
       settings.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1'
       settings.env.CLAUDE_CODE_ATTRIBUTION_HEADER = '0'
       settings.env.MCP_TIMEOUT = '60000'
-      // codeagent-wrapper permission allowlist
+      // ly-wrapper permission allowlist
       if (!settings.permissions)
         settings.permissions = {}
       if (!settings.permissions.allow)
         settings.permissions.allow = []
       const wrapperPerms = [
-        'Bash(~/.claude/bin/codeagent-wrapper --backend codex*)',
-        'Bash(~/.claude/bin/codeagent-wrapper --backend claude*)',
+        'Bash(~/.claude/bin/ly-wrapper --backend codex*)',
+        'Bash(~/.claude/bin/ly-wrapper --backend claude*)',
       ]
       for (const perm of wrapperPerms) {
         if (!settings.permissions.allow.includes(perm))
@@ -936,86 +528,10 @@ export async function init(options: InitOptions = {}): Promise<void> {
       console.log(`    ${ansis.green('✓')} API ${ansis.gray(`→ ${settingsPath}`)}`)
     }
 
-    // Always install codeagent-wrapper auto-approve via permissions.allow
+    // Always install ly-wrapper auto-approve via permissions.allow
     await installHook(settingsPath)
     console.log()
-    console.log(`    ${ansis.green('✓')} ${i18n.t('init:hooks.installed')} ${ansis.gray('(permissions.allow)')}`)
-
-    // Install grok-search MCP if requested
-    if (wantGrokSearch && (tavilyKey || firecrawlKey || grokApiUrl || grokApiKey)) {
-      spinner.text = i18n.t('init:grok.installing')
-      const grokResult = await installGrokSearchMcp({
-        tavilyKey,
-        firecrawlKey,
-        grokApiUrl: grokApiUrl || undefined,
-        grokApiKey: grokApiKey || undefined,
-      })
-
-      if (grokResult.success) {
-        // Write global prompt to ~/.claude/rules/ly-grok-search.md
-        await appendGrokSearchPrompt()
-        console.log()
-        console.log(`    ${ansis.green('✓')} grok-search MCP ${ansis.gray('→ ~/.claude.json')}`)
-        console.log(`    ${ansis.green('✓')} ${i18n.t('init:grok.promptAppended')} ${ansis.gray('→ ~/.claude/rules/ly-grok-search.md')}`)
-      }
-      else {
-        console.log()
-        console.log(`    ${ansis.yellow('⚠')} grok-search MCP ${i18n.t('init:grok.installFailed')}`)
-        console.log(ansis.gray(`      ${grokResult.message}`))
-      }
-    }
-
-    // Install CodeGraph MCP if requested (no API key needed — pure local)
-    if (wantCodeGraph) {
-      const cgResult = await installMcpServer(
-        'codegraph',
-        'npx',
-        ['-y', '@colbymchenry/codegraph@latest', 'serve', '--mcp'],
-      )
-      if (cgResult.success) {
-        console.log()
-        console.log(`    ${ansis.green('✓')} CodeGraph MCP ${ansis.gray('→ ~/.claude.json')}`)
-      }
-      else {
-        console.log()
-        console.log(`    ${ansis.yellow('⚠')} CodeGraph: ${ansis.gray(cgResult.message)}`)
-      }
-    }
-
-    // Install context7 MCP + Codex sync (skip when --skip-mcp is passed)
-    if (!options.skipMcp) {
-      const context7Result = await installMcpServer(
-        'context7',
-        'npx',
-        ['-y', '@upstash/context7-mcp@latest'],
-      )
-      if (context7Result.success) {
-        console.log()
-        console.log(`    ${ansis.green('✓')} context7 MCP ${ansis.gray('→ ~/.claude.json')}`)
-      }
-      else {
-        console.log()
-        console.log(`    ${ansis.yellow('⚠')} context7 MCP install failed`)
-        console.log(ansis.gray(`      ${context7Result.message}`))
-      }
-
-      // ═══════════════════════════════════════════════════════
-      // Sync MCP servers to Codex (~/.codex/config.toml)
-      // Enables Codex to use MCP tools (grok-search, context7, etc.)
-      // ═══════════════════════════════════════════════════════
-      const codexSyncResult = await syncMcpToCodex()
-      if (codexSyncResult.success && codexSyncResult.synced.length > 0) {
-        console.log()
-        console.log(`    ${ansis.green('✓')} Codex MCP sync: ${codexSyncResult.synced.join(', ')} ${ansis.gray('→ ~/.codex/config.toml')}`)
-      }
-      else if (!codexSyncResult.success) {
-        console.log()
-        console.log(`    ${ansis.yellow('⚠')} Codex MCP sync failed`)
-        console.log(ansis.gray(`      ${codexSyncResult.message}`))
-      }
-    }
-
-    // jq check removed — permissions.allow approach does not require jq
+    console.log(`    ${ansis.green('✓')} ly-wrapper auto-approve ${ansis.gray('(permissions.allow)')}`)
 
     // Show result summary
     console.log()
@@ -1041,35 +557,12 @@ export async function init(options: InitOptions = {}): Promise<void> {
       })
     }
 
-    // Show installed skills
-    if (result.installedSkills && result.installedSkills > 0) {
-      console.log()
-      console.log(ansis.cyan('  Skills:'))
-      console.log(`    ${ansis.green('✓')} ${result.installedSkills} skills installed (quality gates + multi-agent)`)
-      console.log(ansis.gray('       → ~/.claude/skills/'))
-    }
-
     // Show installed rules
     if (result.installedRules) {
       console.log()
       console.log(ansis.cyan('  Rules:'))
       console.log(`    ${ansis.green('✓')} quality gate auto-trigger rules`)
       console.log(ansis.gray('       → ~/.claude/rules/ly-skills.md'))
-    }
-
-    // Show skill-category cleanup outcome (跳过分类的历史产物清理)
-    if (result.removedSkillCommands.length > 0 || result.removedSkillDirectories.length > 0 || result.skippedCleanupFiles.length > 0) {
-      console.log()
-      console.log(ansis.cyan('  Cleanup:'))
-      result.removedSkillDirectories.forEach((dir) => {
-        console.log(`    ${ansis.green('✓')} removed skill directory: skills/ly/${dir}`)
-      })
-      result.removedSkillCommands.forEach((cmd) => {
-        console.log(`    ${ansis.green('✓')} removed command: commands/ly/${cmd}.md`)
-      })
-      result.skippedCleanupFiles.forEach((name) => {
-        console.log(`    ${ansis.yellow('○')} skipped commands/ly/${name}.md (指纹不匹配，疑似用户自定义文件，未删除)`)
-      })
     }
 
     // Show errors if any
@@ -1100,7 +593,7 @@ export async function init(options: InitOptions = {}): Promise<void> {
     if (result.binInstalled && result.binPath) {
       console.log()
       console.log(ansis.cyan(`  ${i18n.t('init:installedBinary')}`))
-      console.log(`    ${ansis.green('✓')} codeagent-wrapper ${ansis.gray(`→ ${result.binPath}`)}`)
+      console.log(`    ${ansis.green('✓')} ly-wrapper ${ansis.gray(`→ ${result.binPath}`)}`)
 
       const platform = process.platform
 
@@ -1163,30 +656,16 @@ export async function init(options: InitOptions = {}): Promise<void> {
       }
     }
     else {
-      // Binary download failed — show prominent warning with manual fix instructions
+      // ly-wrapper missing — show prominent warning with manual fix instructions
       showBinaryDownloadWarning(join(installDir, 'bin'))
     }
 
-    // Show MCP resources if user skipped installation
-    if (mcpProvider === 'skip' || ((mcpProvider === 'ace-tool' || mcpProvider === 'ace-tool-rs') && !aceToolToken) || (mcpProvider === 'contextweaver' && !contextWeaverApiKey)) {
-      console.log()
-      console.log(ansis.cyan.bold(`  📖 ${i18n.t('init:mcp.mcpOptions')}`))
-      console.log()
-      console.log(ansis.gray(`     ${i18n.t('init:mcp.mcpOptionsHint')}`))
-      console.log()
-      console.log(`     ${ansis.green('1.')} ${ansis.cyan('fast-context')} ${ansis.yellow('(推荐)')}: Windsurf Fast Context`)
-      console.log(`        ${ansis.gray('AI 驱动代码搜索，需 Windsurf 账号，免费/低成本')}`)
-      console.log()
-      console.log(`     ${ansis.green('2.')} ${ansis.cyan('ace-tool / ace-tool-rs')}: ${ansis.underline('https://augmentcode.com/')}`)
-      console.log(`        ${ansis.gray(i18n.t('init:mcp.promptEnhancement'))}`)
-      console.log()
-      console.log(`     ${ansis.green('3.')} ${ansis.cyan('ace-tool ' + i18n.t('init:mcp.proxyService'))} ${ansis.yellow(`(${i18n.t('init:mcp.noSignup')})`)}: ${ansis.underline('https://acemcp.heroman.wtf/')}`)
-      console.log(`        ${ansis.gray(i18n.t('init:mcp.communityProxy'))}`)
-      console.log()
-      console.log(`     ${ansis.green('4.')} ${ansis.cyan('ContextWeaver')} ${ansis.yellow(`(${i18n.t('init:mcp.freeQuota')})`)}: ${ansis.underline('https://siliconflow.cn/')}`)
-      console.log(`        ${ansis.gray(i18n.t('init:mcp.localEngine'))}`)
-      console.log()
+    // Legacy artifact cleanup (upstream assets from pre-v2.0 installs) — 非阻断
+    try {
+      const { cleanupLegacyArtifacts, reportCleanupResult } = await import('../utils/legacy-cleanup')
+      reportCleanupResult(await cleanupLegacyArtifacts())
     }
+    catch { /* non-blocking */ }
 
     console.log()
   }

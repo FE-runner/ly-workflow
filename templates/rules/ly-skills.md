@@ -56,10 +56,3 @@ When refactoring existing code:
 4. **Critical = must fix** — Only `Critical` / `High` severity findings require action before delivery
 5. **Idempotent** — Safe to re-run; same input produces same output
 
-## Multi-Agent Coordination
-
-When a task involves 3+ independent files/modules or 2+ parallel workflows, refer to the multi-agent orchestration skill at `~/.claude/skills/ly/orchestration/multi-agent/SKILL.md` for:
-
-- Agent role assignment (Lead / Scout / Worker / Soldier / Drone)
-- File ownership locking (one writer per file at any time)
-- Task decomposition strategy (by file, by module, or by pipeline)

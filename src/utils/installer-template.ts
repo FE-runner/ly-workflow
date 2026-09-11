@@ -43,23 +43,9 @@ function findPackageRoot(startDir: string): string {
 
 export const PACKAGE_ROOT = findPackageRoot(__dirname)
 
-// ═══════════════════════════════════════════════════════
-// MCP provider registry — adding a new provider = 1 line
-// ═══════════════════════════════════════════════════════
-
-const MCP_PROVIDERS: Record<string, { tool: string, param: string }> = {
-  'ace-tool': { tool: 'mcp__ace-tool__search_context', param: 'query' },
-  'ace-tool-rs': { tool: 'mcp__ace-tool__search_context', param: 'query' },
-  'contextweaver': { tool: 'mcp__contextweaver__codebase-retrieval', param: 'information_request' },
-  'fast-context': { tool: 'mcp__fast-context__fast_context_search', param: 'query' },
-}
-
 /**
  * Replace template variables in content based on user configuration.
- * Injects model routing configs and MCP provider tool names at install time.
- *
- * Supported MCP providers: 'ace-tool' (default), 'ace-tool-rs', 'contextweaver',
- * 'fast-context', 'skip' (fallback to Glob+Grep).
+ * Injects model routing configs at install time.
  */
 export function injectConfigVariables(content: string, config: {
   routing?: {
@@ -67,7 +53,6 @@ export function injectConfigVariables(content: string, config: {
     implementer?: string
   }
   liteMode?: boolean
-  mcpProvider?: string
 }): string {
   let processed = content
 
@@ -98,30 +83,10 @@ export function injectConfigVariables(content: string, config: {
     throw new Error(`[ly] unclosed/stray implementer conditional marker: ${stray.join(' ')}`)
   }
 
-  // Lite mode flag for codeagent-wrapper
+  // Lite mode flag for ly-wrapper
   // If liteMode is true, inject "--lite" flag
   const liteModeFlag = config.liteMode ? '--lite ' : ''
   processed = processed.replace(/\{\{LITE_MODE_FLAG\}\}/g, liteModeFlag)
-
-  // MCP tool injection based on provider (registry-driven)
-  const mcpProvider = config.mcpProvider || 'ace-tool'
-  if (mcpProvider === 'skip') {
-    // MCP skipped: multi-step fallback replacement (unique logic, not in registry)
-    processed = processed.replace(/,\s*\{\{MCP_SEARCH_TOOL\}\}/g, '')
-    processed = processed.replace(
-      /```\n\{\{MCP_SEARCH_TOOL\}\}[\s\S]*?\n```/g,
-      '> MCP 未配置。使用 `Glob` 定位文件 + `Grep` 搜索关键符号 + `Read` 读取文件内容。',
-    )
-    processed = processed.replace(/`\{\{MCP_SEARCH_TOOL\}\}`/g, '`Glob + Grep`（MCP 未配置）')
-    processed = processed.replace(/\{\{MCP_SEARCH_TOOL\}\}/g, 'Glob + Grep')
-    processed = processed.replace(/\{\{MCP_SEARCH_PARAM\}\}/g, '')
-  }
-  else {
-    // Registry lookup — adding a new MCP provider = 1 line
-    const provider = MCP_PROVIDERS[mcpProvider] ?? MCP_PROVIDERS['ace-tool']
-    processed = processed.replace(/\{\{MCP_SEARCH_TOOL\}\}/g, provider.tool)
-    processed = processed.replace(/\{\{MCP_SEARCH_PARAM\}\}/g, provider.param)
-  }
 
   return processed
 }
@@ -152,11 +117,10 @@ export function replaceHomePathsInTemplate(content: string, installDir: string):
   // 1. Replace ~/.claude/.ly with absolute path (longest match first)
   processed = processed.replace(/~\/\.claude\/\.ly/g, toForwardSlash(lyConfigDir))
 
-  // 2. Replace ~/.claude/bin/codeagent-wrapper with absolute path + .exe on Windows
-  //    CRITICAL: Windows Git Bash requires explicit .exe extension
-  const wrapperName = isWindows() ? 'codeagent-wrapper.exe' : 'codeagent-wrapper'
-  const wrapperPath = `${toForwardSlash(binDir)}/${wrapperName}`
-  processed = processed.replace(/~\/\.claude\/bin\/codeagent-wrapper/g, wrapperPath)
+  // 2. Replace ~/.claude/bin/ly-wrapper with absolute path
+  //    (ly-wrapper is a Node script shipped in the npm package — no .exe needed)
+  const wrapperPath = `${toForwardSlash(binDir)}/ly-wrapper`
+  processed = processed.replace(/~\/\.claude\/bin\/ly-wrapper/g, wrapperPath)
 
   // 3. Replace ~/.claude/bin with absolute path (for other binaries)
   processed = processed.replace(/~\/\.claude\/bin/g, toForwardSlash(binDir))

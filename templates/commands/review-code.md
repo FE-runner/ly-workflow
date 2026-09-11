@@ -36,7 +36,7 @@ git status --porcelain | grep '^??'
 ```
 WORKDIR=$(pwd)
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/{{REVIEWER_MODEL}}/reviewer.md\n<TASK>审查以下代码变更。审查范围：<基线引用说明，例如"运行 git diff HEAD 得到的完整 diff"，或零 commit 场景下的三条命令组合说明>。未跟踪文件路径：<路径清单，若有>。请自行在当前目录（WORKDIR）下执行对应命令/读取指定路径获取实际内容后再审查，不要假设范围。</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置（含可解析的文件相对路径）、问题、建议\nCODEAGENT_EOF",
+  command: "~/.claude/bin/ly-wrapper --progress {{LITE_MODE_FLAG}}--backend {{REVIEWER_MODEL}} - \"$WORKDIR\" <<'CODEAGENT_EOF'\nROLE_FILE: ~/.claude/.ly/prompts/{{REVIEWER_MODEL}}/reviewer.md\n<TASK>审查以下代码变更。审查范围：<基线引用说明，例如"运行 git diff HEAD 得到的完整 diff"，或零 commit 场景下的三条命令组合说明>。未跟踪文件路径：<路径清单，若有>。请自行在当前目录（WORKDIR）下执行对应命令/读取指定路径获取实际内容后再审查，不要假设范围。</TASK>\nOUTPUT: 审查发现，按严重度分级：Critical/Warning/Info，每条含：位置（含可解析的文件相对路径）、问题、建议\nCODEAGENT_EOF",
   run_in_background: true,
   timeout: 1800000,
   description: "审查代码变更"

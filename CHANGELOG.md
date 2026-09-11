@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ---
 
+## [2.0.0] - 2026-09-10
+
+### Added
+- restore-review-web-ui: ly-wrapper 审查进度 Web UI（HTTP+SSE、随机端口、自动开浏览器、--lite/-L/CODEAGENT_LITE_MODE 门控）；init 性能步骤与 ly menu 显示设置（D. 显示设置）接回 liteMode 配置
+- de-fork-slim-v2: legacy-cleanup——update/uninstall/init 回收 v2.0 前历史安装产物（domains/hooks/output-styles/MCP 注册/Codex Mode/旧 Go 二进制），settings.json hook 与 permissions 条目按来源识别不误删
+
+### Fixed
+- legacy-cleanup 删除 mcp_servers 表时连带删除子表，避免孤儿表头破坏 ~/.codex/config.toml（codex 启动报 invalid transport）
+- legacy-cleanup 核心 fs 方法改用 node:fs/promises，修复打包后 fs.readFile is not a function
+- ly-wrapper 显式 stdin 场景 hermes/openclaw 任务文本提升失效（apply 外部实施后端完全不可用）
+- ly-wrapper openBrowser spawn 异步 error 未监听导致 headless 环境进程崩溃
+- ly-wrapper 空 message 按成功返回的伪装报告问题；settings.json env 注入子进程（loadMinimalEnvSettings 移植）
+
+### Changed
+- **BREAKING** Go 版 codeagent-wrapper 重写为 TS（src/ly-wrapper.ts + src/wrapper/，安装为 ~/.claude/bin/ly-wrapper），随 npm 包分发，删除 GitHub Release 二进制下载/EXPECTED_BINARY_VERSION 门禁/build-binaries workflow
+- **BREAKING** 上游遗产移除：domains 域知识、output-styles、Codex Mode、hooks（.ly/tasks 死系统）、impeccable/scrapling/orchestration/tools 技能、MCP 配置功能、migration.ts、社区开源姿态文档（CONTRIBUTING/CODE_OF_CONDUCT/SECURITY/.github 模板）
+- 命令模板与 specs 中 codeagent-wrapper 全量更名 ly-wrapper；版本号 1.9.0 → 2.0.0
+
 ## [1.9.0] - 2026-09-10
 
 ### Added
