@@ -561,8 +561,8 @@ export async function init(options: InitOptions = {}): Promise<void> {
     if (result.installedRules) {
       console.log()
       console.log(ansis.cyan('  Rules:'))
-      console.log(`    ${ansis.green('✓')} quality gate auto-trigger rules`)
-      console.log(ansis.gray('       → ~/.claude/rules/ly-skills.md'))
+      console.log(`    ${ansis.green('✓')} codegraph code-search rules`)
+      console.log(ansis.gray('       → ~/.claude/rules/ly-codegraph.md'))
     }
 
     // Show errors if any
