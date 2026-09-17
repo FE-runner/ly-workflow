@@ -463,7 +463,7 @@ export async function uninstallWorkflows(
   // Remove ly-workflow rules files
   if (await fs.pathExists(rulesDir)) {
     try {
-      for (const ruleFile of ['ly-skills.md', 'ly-grok-search.md', 'ly-skill-routing.md', 'ly-codegraph.md']) {
+      for (const ruleFile of ['ly-codegraph.md']) {
         const rulePath = join(rulesDir, ruleFile)
         if (await fs.pathExists(rulePath)) {
           await fs.remove(rulePath)

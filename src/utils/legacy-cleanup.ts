@@ -7,7 +7,7 @@
  * - ~/.claude/hooks/ly/ 五个 hook 文件 + ~/.claude/settings.json 指向它们的注册项
  *   + permissions.allow 中包含 codeagent-wrapper 的条目
  * - ~/.claude/output-styles/ ly 安装的风格文件
- * - ~/.claude/rules/ly-skill-routing.md
+ * - ~/.claude/rules/ 历史失效规则文件（ly-skill-routing.md / ly-grok-search.md / ly-skills.md）
  * - MCP 注册项（旧版 LY_MCP_IDS 全集）：~/.claude.json mcpServers、~/.gemini/settings.json mcpServers、
  *   ~/.codex/config.toml 中 `<key> =` 单行条目、~/.contextweaver/
  * - ~/.codex/ Codex Mode 产物（AGENTS.md LY 区块、config.toml 头部 ly-workflow 注释 + features.multi_agent_v2 表、
@@ -56,6 +56,9 @@ const OUTPUT_STYLE_FILES = [
   'abyss-command.md', 'abyss-concise.md', 'abyss-cultivator.md', 'abyss-ritual.md',
   'engineer-professional.md', 'laowang-engineer.md', 'nekomata-engineer.md', 'ojousama-engineer.md',
 ]
+
+/** v2.0 瘦身前历史安装的失效 rule 文件（更新/卸载时回收） */
+const LEGACY_RULE_FILES = ['ly-skill-routing.md', 'ly-grok-search.md', 'ly-skills.md']
 
 /** 已退役的 hook 文件（~/.claude/hooks/ly/） */
 const HOOK_FILES = [
@@ -455,17 +458,19 @@ export async function cleanupLegacyArtifacts(options: CleanupOptions = {}): Prom
     }
   }
 
-  // 5. rules/ly-skill-routing.md
-  const routingRule = join(dirs.claudeDir, 'rules', 'ly-skill-routing.md')
-  if (await fs.pathExists(routingRule)) {
-    try {
-      await removePath(routingRule)
-      result.cleaned.push('rules/ly-skill-routing.md')
-    } catch (error) {
-      result.failed.push(`rules/ly-skill-routing.md: ${error instanceof Error ? error.message : String(error)}`)
+  // 5. rules/ 历史失效规则文件
+  for (const ruleFile of LEGACY_RULE_FILES) {
+    const rulePath = join(dirs.claudeDir, 'rules', ruleFile)
+    if (await fs.pathExists(rulePath)) {
+      try {
+        await removePath(rulePath)
+        result.cleaned.push(`rules/${ruleFile}`)
+      } catch (error) {
+        result.failed.push(`rules/${ruleFile}: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    } else {
+      result.skipped.push(`rules/${ruleFile} (not found)`)
     }
-  } else {
-    result.skipped.push('rules/ly-skill-routing.md (not found)')
   }
 
   // 6. MCP 注册项（~/.claude.json + ~/.gemini/settings.json + ~/.codex/config.toml + ~/.contextweaver）
