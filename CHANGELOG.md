@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ---
 
+## [2.0.1] - 2026-09-17
+
+### Changed
+- 清理 v2.0 瘦身遗留死代码：移除失效 quality-gate 规则文件 ly-skills.md（其引用的 /ly:gen-docs、/ly:verify-* 命令已在 v2.0.0 删除），init 安装提示改指实际规则 ly-codegraph.md
+- 清理 i18n 全量死键 83 个（旧 init 向导 / 多模型时代 / 旧 API 配置残留），zh/en 各删一份
+- 历史失效规则文件（ly-skills.md / ly-grok-search.md / ly-skill-routing.md）清理统一收编至 legacy-cleanup；installer 卸载清单精简为仅当前活规则 ly-codegraph.md
+
 ## [2.0.0] - 2026-09-10
 
 ### Added

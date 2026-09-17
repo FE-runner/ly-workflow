@@ -2,13 +2,17 @@
 
 > Claude Code 两角色精简工作流：Claude 自己完成聊天/分析/规划/实施，Codex 只在方案审查、代码审查两个节点做独立审查关卡。
 
-**Last Updated**: 2026-09-10 (v1.9.0)
+**Last Updated**: 2026-09-17 (v2.0.1)
 
 ---
 
 ## 变更记录 (Changelog)
 
 > 完整变更历史请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 2026-09-17 (v2.0.1) — 清理 v2.0 瘦身遗留死代码
+- 🗑️ **清理失效 quality-gate 规则**：删除 ly-skills.md（其引用的 /ly:verify-*、/ly:gen-docs 已在 v2.0.0 删除，成为悬空引用）；init 安装提示改指实际规则 ly-codegraph.md；历史失效规则清理统一收编 legacy-cleanup，installer 卸载清单精简为仅活规则
+- 🗑️ **清理 i18n 全量死键 83 个**：脚本差集扫出旧 init 向导 / 多模型时代 / 旧 API 配置残留（common 14 / init 60 / menu 7 / update 2），zh/en 各删一份
 
 ### 2026-09-10 (v1.9.0) — 隔离方式三选一 + release 模板同步 gitflow v2.1.0
 - ✨ **`/ly:propose` 隔离询问升级三选一**：隔离 worktree（行为不变）/ 本项目切新分支（`git checkout -b` 仅分支隔离，无 baseline/无 cd/无兜底；脏改动三选处置 WIP commit/Stash/原样保留）/ 留在当前分支（仅触发脏改动三选处置）；已在开发分支上照常询问不跳过；delta spec 落 `worktree-create-before-propose`（MODIFIED），基线已随归档同步
